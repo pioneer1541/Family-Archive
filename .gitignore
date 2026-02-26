@@ -1,0 +1,36 @@
+# Python
+backend/.venv/
+backend/secrets/
+
+# SQLite WAL files (safety net)
+*.db-shm
+*.db-wal
+backend/__pycache__/
+backend/.pytest_cache/
+backend/evaluation/__pycache__/
+backend/*.db
+backend/**/*.pyc
+family_vault.db
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/.next-runtime/
+frontend/.turbo/
+frontend/test-results/
+frontend/playwright-report/
+
+# Data
+data/
+test documents/
+backend/ingest_eval/
+backend/ingest_samples*/
+
+# Evaluation artifacts: default-deny generated outputs, keep only reviewed case definitions + docs/scripts
+backend/evaluation/*.json
+backend/evaluation/*.md
+!backend/evaluation/README.md
+!backend/evaluation/agent_eval_cases_v1.json
+!backend/evaluation/agent_eval_boundary_suite_v1.json
+!backend/evaluation/crosslang_cases.json
+!backend/evaluation/planner_fallback_cases.json

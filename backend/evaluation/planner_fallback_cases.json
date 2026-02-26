@@ -1,0 +1,14 @@
+{
+  "cases": [
+    {"query": "总结最近电费变化", "expected_intent": "summarize_docs", "expect_fallback": false},
+    {"query": "比较两份保险文档", "expected_intent": "compare_docs", "expect_fallback": false},
+    {"query": "提取账单金额字段", "expected_intent": "extract_fields", "expect_fallback": false},
+    {"query": "构建维修时间线", "expected_intent": "timeline_build", "expect_fallback": false},
+    {"query": "列出最近新增文件", "expected_intent": "list_recent", "expect_fallback": false},
+    {"query": "按分类查看手册", "expected_intent": "list_by_category", "expect_fallback": false},
+    {"query": "打开文档", "expected_intent": "open_document", "expect_fallback": false},
+    {"query": "查看队列状态", "expected_intent": "queue_view", "expect_fallback": false},
+    {"query": "重处理该文档", "expected_intent": "reprocess_doc", "expect_fallback": false},
+    {"query": "electricity", "expected_intent": "search_semantic", "expect_fallback": true}
+  ]
+}

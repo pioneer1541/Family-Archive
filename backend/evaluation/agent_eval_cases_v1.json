@@ -1,0 +1,411 @@
+{
+  "version": "agent-eval-v1",
+  "cases": [
+    {
+      "id": "B01",
+      "domain": "bills",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "上个月的电费是多少？",
+      "expected_behavior": "返回具体金额与账单日期",
+      "should_refuse": false,
+      "keywords_expected": ["电费", "金额", "日期"],
+      "keywords_forbidden": ["不确定", "猜测"]
+    },
+    {
+      "id": "B02",
+      "domain": "bills",
+      "type": "time_reasoning",
+      "difficulty": 2,
+      "question_zh": "今年水费最高的是哪个月？",
+      "expected_behavior": "对比多月数据后给出月份与金额",
+      "should_refuse": false,
+      "keywords_expected": ["水费", "最高", "月份", "金额"]
+    },
+    {
+      "id": "B03",
+      "domain": "bills",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "网络费每月固定是多少？合同到期日是什么时候？",
+      "expected_behavior": "返回月费金额与合同到期日期",
+      "should_refuse": false,
+      "keywords_expected": ["网络", "每月", "到期", "金额"]
+    },
+    {
+      "id": "B04",
+      "domain": "bills",
+      "type": "time_reasoning",
+      "difficulty": 2,
+      "question_zh": "过去六个月的电费平均是多少？",
+      "expected_behavior": "计算平均值，列出参考账单月份",
+      "should_refuse": false,
+      "keywords_expected": ["平均", "电费", "六个月"]
+    },
+    {
+      "id": "B05",
+      "domain": "bills",
+      "type": "cross_doc",
+      "difficulty": 2,
+      "question_zh": "煤气费和电费加在一起，上季度总共花了多少？",
+      "expected_behavior": "跨两类账单合并计算",
+      "should_refuse": false,
+      "keywords_expected": ["煤气", "电费", "总共", "上季度"]
+    },
+    {
+      "id": "B06",
+      "domain": "bills",
+      "type": "time_reasoning",
+      "difficulty": 3,
+      "question_zh": "有没有哪个月账单出现了异常偏高的情况？",
+      "expected_behavior": "识别异常值并说明原因（如有记录）",
+      "should_refuse": false,
+      "keywords_expected": ["异常", "偏高", "账单"]
+    },
+    {
+      "id": "B07",
+      "domain": "bills",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "我们家用的是哪家电力供应商？客服电话是多少？",
+      "expected_behavior": "返回供应商名称与联系方式",
+      "should_refuse": false,
+      "keywords_expected": ["供应商", "客服电话", "电力"]
+    },
+    {
+      "id": "B08",
+      "domain": "bills",
+      "type": "boundary",
+      "difficulty": 2,
+      "question_zh": "我们有没有申请过政府的电费补贴？",
+      "expected_behavior": "若无记录应拒答，不可猜测",
+      "should_refuse": true,
+      "keywords_expected": ["没有相关信息", "无法确认"],
+      "keywords_forbidden": ["已申请", "审批通过"]
+    },
+    {
+      "id": "I01",
+      "domain": "insurance",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "家庭财产险的保单号是多少？",
+      "expected_behavior": "返回保单号与保险公司名称",
+      "should_refuse": false,
+      "keywords_expected": ["保单号", "保险公司"]
+    },
+    {
+      "id": "I02",
+      "domain": "insurance",
+      "type": "fact",
+      "difficulty": 2,
+      "question_zh": "车险的保障范围包含哪些项目？",
+      "expected_behavior": "列出保障项目，来源于保单文件",
+      "should_refuse": false,
+      "keywords_expected": ["车险", "保障范围"]
+    },
+    {
+      "id": "I03",
+      "domain": "insurance",
+      "type": "time_reasoning",
+      "difficulty": 2,
+      "question_zh": "我们的医疗险下个月到期了吗？",
+      "expected_behavior": "对比到期日与当前日期后作答",
+      "should_refuse": false,
+      "keywords_expected": ["医疗险", "到期"]
+    },
+    {
+      "id": "I04",
+      "domain": "insurance",
+      "type": "cross_doc",
+      "difficulty": 2,
+      "question_zh": "财产险和车险的年保费加起来是多少？",
+      "expected_behavior": "跨两份保单合并计算",
+      "should_refuse": false,
+      "keywords_expected": ["财产险", "车险", "年保费", "合计"]
+    },
+    {
+      "id": "I05",
+      "domain": "insurance",
+      "type": "fact",
+      "difficulty": 3,
+      "question_zh": "如果家里发生水管爆裂，保险能赔吗？",
+      "expected_behavior": "基于保单条款作答，不可推断",
+      "should_refuse": false,
+      "keywords_expected": ["条款", "赔付", "水管"]
+    },
+    {
+      "id": "I06",
+      "domain": "insurance",
+      "type": "fact",
+      "difficulty": 2,
+      "question_zh": "上次提交保险理赔是什么时候，赔了多少？",
+      "expected_behavior": "返回理赔记录日期与金额",
+      "should_refuse": false,
+      "keywords_expected": ["理赔", "日期", "金额"]
+    },
+    {
+      "id": "I07",
+      "domain": "insurance",
+      "type": "boundary",
+      "difficulty": 1,
+      "question_zh": "我们有没有人寿保险？",
+      "expected_behavior": "若无相关文件应拒答",
+      "should_refuse": true,
+      "keywords_expected": ["没有相关信息", "未找到"],
+      "keywords_forbidden": ["有人寿保险", "保单号"]
+    },
+    {
+      "id": "I08",
+      "domain": "insurance",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "保险公司的紧急联络电话是多少？",
+      "expected_behavior": "返回联系方式并注明来源保单",
+      "should_refuse": false,
+      "keywords_expected": ["电话", "保险公司", "来源"]
+    },
+    {
+      "id": "H01",
+      "domain": "home",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "房屋贷款的月供是多少？",
+      "expected_behavior": "返回月供金额与贷款银行",
+      "should_refuse": false,
+      "keywords_expected": ["月供", "银行", "贷款"]
+    },
+    {
+      "id": "H02",
+      "domain": "home",
+      "type": "time_reasoning",
+      "difficulty": 2,
+      "question_zh": "贷款还有多少年还完？",
+      "expected_behavior": "基于贷款开始日期与年限推算",
+      "should_refuse": false,
+      "keywords_expected": ["还有", "年", "贷款"]
+    },
+    {
+      "id": "H03",
+      "domain": "home",
+      "type": "fact",
+      "difficulty": 2,
+      "question_zh": "上次房屋维修是什么时候，做了什么维修？",
+      "expected_behavior": "返回维修日期与项目内容",
+      "should_refuse": false,
+      "keywords_expected": ["维修", "日期", "项目"]
+    },
+    {
+      "id": "H04",
+      "domain": "home",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "房产证上登记的房屋面积是多少平方米？",
+      "expected_behavior": "返回登记面积并注明来源文件",
+      "should_refuse": false,
+      "keywords_expected": ["面积", "平方米", "房产证"]
+    },
+    {
+      "id": "H05",
+      "domain": "home",
+      "type": "cross_doc",
+      "difficulty": 3,
+      "question_zh": "今年在房屋维护上总共花了多少钱？",
+      "expected_behavior": "汇总所有维修与维护费用记录",
+      "should_refuse": false,
+      "keywords_expected": ["房屋维护", "总共", "费用"]
+    },
+    {
+      "id": "H06",
+      "domain": "home",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "物业管理费是每月还是每季度收取？",
+      "expected_behavior": "返回收取频率与金额",
+      "should_refuse": false,
+      "keywords_expected": ["物业", "每月", "每季度", "金额"]
+    },
+    {
+      "id": "H07",
+      "domain": "home",
+      "type": "boundary",
+      "difficulty": 2,
+      "question_zh": "我们家有没有做过隔热改造？",
+      "expected_behavior": "若无记录应拒答，不可猜测",
+      "should_refuse": true,
+      "keywords_expected": ["没有相关信息", "未找到"],
+      "keywords_forbidden": ["做过", "完成改造"]
+    },
+    {
+      "id": "H08",
+      "domain": "home",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "房屋的建造年份是哪年？",
+      "expected_behavior": "返回年份，若无记录需明确说明",
+      "should_refuse": false,
+      "keywords_expected": ["建造年份", "年份"]
+    },
+    {
+      "id": "A01",
+      "domain": "appliances",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "洗衣机是什么品牌型号，什么时候买的？",
+      "expected_behavior": "返回品牌、型号与购买日期",
+      "should_refuse": false,
+      "keywords_expected": ["品牌", "型号", "购买日期", "洗衣机"]
+    },
+    {
+      "id": "A02",
+      "domain": "appliances",
+      "type": "time_reasoning",
+      "difficulty": 2,
+      "question_zh": "冰箱的保修期还有多久？",
+      "expected_behavior": "基于购买日期与保修年限推算",
+      "should_refuse": false,
+      "keywords_expected": ["冰箱", "保修", "多久"]
+    },
+    {
+      "id": "A03",
+      "domain": "appliances",
+      "type": "cross_doc",
+      "difficulty": 3,
+      "question_zh": "哪些家电还在保修期内？",
+      "expected_behavior": "汇总所有家电保修状态并逐一列出",
+      "should_refuse": false,
+      "keywords_expected": ["家电", "保修期内", "汇总"]
+    },
+    {
+      "id": "A04",
+      "domain": "appliances",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "空调上次保养是什么时候？",
+      "expected_behavior": "返回保养日期，若无记录说明",
+      "should_refuse": false,
+      "keywords_expected": ["空调", "保养", "日期"]
+    },
+    {
+      "id": "A05",
+      "domain": "appliances",
+      "type": "fact",
+      "difficulty": 2,
+      "question_zh": "热水器的型号是什么？购买收据还在吗？",
+      "expected_behavior": "返回型号，并说明是否有收据记录",
+      "should_refuse": false,
+      "keywords_expected": ["热水器", "型号", "收据"]
+    },
+    {
+      "id": "A06",
+      "domain": "appliances",
+      "type": "cross_doc",
+      "difficulty": 2,
+      "question_zh": "今年购买家电总共花了多少钱？",
+      "expected_behavior": "汇总当年所有家电购买支出",
+      "should_refuse": false,
+      "keywords_expected": ["家电", "今年", "总共", "支出"]
+    },
+    {
+      "id": "A07",
+      "domain": "appliances",
+      "type": "fact",
+      "difficulty": 2,
+      "question_zh": "洗碗机的用户手册里说多久需要清洁过滤网？",
+      "expected_behavior": "从手册中检索具体建议间隔",
+      "should_refuse": false,
+      "keywords_expected": ["洗碗机", "清洁", "过滤网", "多久"]
+    },
+    {
+      "id": "A08",
+      "domain": "appliances",
+      "type": "boundary",
+      "difficulty": 1,
+      "question_zh": "我们有没有买过空气净化器？",
+      "expected_behavior": "若无记录应拒答",
+      "should_refuse": true,
+      "keywords_expected": ["没有相关信息", "未找到"],
+      "keywords_forbidden": ["买过", "型号"]
+    },
+    {
+      "id": "P01",
+      "domain": "pets",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "宠物上次打疫苗是什么时候？打的是什么疫苗？",
+      "expected_behavior": "返回疫苗日期与种类",
+      "should_refuse": false,
+      "keywords_expected": ["疫苗", "日期", "种类"]
+    },
+    {
+      "id": "P02",
+      "domain": "pets",
+      "type": "time_reasoning",
+      "difficulty": 2,
+      "question_zh": "宠物疫苗下次需要什么时候补打？",
+      "expected_behavior": "基于上次接种日期与有效期推算",
+      "should_refuse": false,
+      "keywords_expected": ["下次", "补打", "疫苗"]
+    },
+    {
+      "id": "P03",
+      "domain": "pets",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "宠物医院的名称和联系方式是什么？",
+      "expected_behavior": "返回医院名称与电话",
+      "should_refuse": false,
+      "keywords_expected": ["宠物医院", "名称", "联系方式"]
+    },
+    {
+      "id": "P04",
+      "domain": "pets",
+      "type": "cross_doc",
+      "difficulty": 3,
+      "question_zh": "宠物今年在医疗和食品上总共花了多少钱？",
+      "expected_behavior": "汇总医疗记录与购买记录",
+      "should_refuse": false,
+      "keywords_expected": ["宠物", "医疗", "食品", "总共"]
+    },
+    {
+      "id": "P05",
+      "domain": "pets",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "宠物有没有做过绝育手术？",
+      "expected_behavior": "返回是否有相关记录并注明来源",
+      "should_refuse": false,
+      "keywords_expected": ["绝育", "记录"]
+    },
+    {
+      "id": "P06",
+      "domain": "pets",
+      "type": "fact",
+      "difficulty": 1,
+      "question_zh": "宠物登记证号是多少？",
+      "expected_behavior": "返回登记号码",
+      "should_refuse": false,
+      "keywords_expected": ["登记证号", "号码"]
+    },
+    {
+      "id": "P07",
+      "domain": "pets",
+      "type": "fact",
+      "difficulty": 2,
+      "question_zh": "宠物上次体检结果有什么异常吗？",
+      "expected_behavior": "从体检报告中检索并总结异常项",
+      "should_refuse": false,
+      "keywords_expected": ["体检", "异常"]
+    },
+    {
+      "id": "P08",
+      "domain": "pets",
+      "type": "cross_doc",
+      "difficulty": 2,
+      "question_zh": "我们的宠物有没有买宠物保险？保障范围是什么？",
+      "expected_behavior": "若有保单列出保障范围，若无则拒答",
+      "should_refuse": false,
+      "keywords_expected": ["宠物保险", "保障范围"]
+    }
+  ]
+}
+

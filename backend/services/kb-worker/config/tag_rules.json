@@ -1,0 +1,65 @@
+{
+  "allowed_families": [
+    "vendor",
+    "account",
+    "person",
+    "pet",
+    "location",
+    "device",
+    "topic",
+    "project",
+    "status"
+  ],
+  "synonyms_map": {
+    "vendor:agl": ["vendor:agl-energy"],
+    "vendor:telstra": ["vendor:telstra-corp"],
+    "vendor:yarra-valley-water": ["vendor:yvwater"],
+    "device:synology-ds423-plus": ["device:ds423-plus"]
+  },
+  "topic_whitelist": [
+    "zigbee",
+    "power-bi",
+    "home-assistant",
+    "docker",
+    "network",
+    "devops",
+    "tax",
+    "insurance",
+    "invoice",
+    "warranty"
+  ],
+  "max_tags_per_doc": 12,
+  "max_topic_tags_per_doc": 3,
+  "status_whitelist": [
+    "important",
+    "review",
+    "todo",
+    "archived"
+  ],
+  "label_map": {
+    "vendor:agl": {
+      "en": "AGL",
+      "zh": "AGL（电力公司）"
+    },
+    "vendor:telstra": {
+      "en": "Telstra",
+      "zh": "Telstra（电信）"
+    },
+    "status:important": {
+      "en": "Important",
+      "zh": "重要"
+    },
+    "status:review": {
+      "en": "Review",
+      "zh": "待复核"
+    },
+    "status:todo": {
+      "en": "Todo",
+      "zh": "待办"
+    },
+    "status:archived": {
+      "en": "Archived",
+      "zh": "已归档"
+    }
+  }
+}

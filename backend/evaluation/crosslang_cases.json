@@ -1,0 +1,14 @@
+{
+  "cases": [
+    {"query": "电费趋势分析", "expected_min_hits": 1},
+    {"query": "里程碑发布策略", "expected_min_hits": 1},
+    {"query": "队列重试策略", "expected_min_hits": 1},
+    {"query": "双语支持要求", "expected_min_hits": 1},
+    {"query": "任务结果卡片", "expected_min_hits": 1},
+    {"query": "长文档摘要", "expected_min_hits": 1},
+    {"query": "文档解析管道", "expected_min_hits": 1},
+    {"query": "家庭知识库", "expected_min_hits": 1},
+    {"query": "API 契约", "expected_min_hits": 1},
+    {"query": "版本发布策略", "expected_min_hits": 1}
+  ]
+}

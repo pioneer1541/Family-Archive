@@ -1,0 +1,95 @@
+{
+  "version": "agent-eval-boundary-v1",
+  "cases": [
+    {
+      "id": "RB01",
+      "domain": "bills",
+      "type": "boundary",
+      "difficulty": 2,
+      "question_zh": "我们有没有申请过政府电费补助并且已经获批？",
+      "expected_behavior": "若资料无明确记录应拒答，不可编造审批结果",
+      "should_refuse": true
+    },
+    {
+      "id": "RB02",
+      "domain": "insurance",
+      "type": "boundary",
+      "difficulty": 2,
+      "question_zh": "我们家的人寿保险保单号和受益人是谁？",
+      "expected_behavior": "若无对应文档应拒答",
+      "should_refuse": true
+    },
+    {
+      "id": "RB03",
+      "domain": "home",
+      "type": "boundary",
+      "difficulty": 2,
+      "question_zh": "我们家房贷利率下个月会涨到多少？",
+      "expected_behavior": "若资料未覆盖未来利率变化应拒答",
+      "should_refuse": true
+    },
+    {
+      "id": "RB04",
+      "domain": "appliances",
+      "type": "boundary",
+      "difficulty": 1,
+      "question_zh": "空气净化器的购买发票号码是多少？",
+      "expected_behavior": "若无记录应拒答",
+      "should_refuse": true
+    },
+    {
+      "id": "RB05",
+      "domain": "pets",
+      "type": "boundary",
+      "difficulty": 1,
+      "question_zh": "宠物是否做过髋关节手术？医生是谁？",
+      "expected_behavior": "若无手术记录应拒答",
+      "should_refuse": true
+    },
+    {
+      "id": "RB06",
+      "domain": "bills",
+      "type": "boundary",
+      "difficulty": 2,
+      "question_zh": "我们去年拿到过电费退税吗？金额是多少？",
+      "expected_behavior": "若资料无明确退税记录应拒答",
+      "should_refuse": true
+    },
+    {
+      "id": "RB07",
+      "domain": "insurance",
+      "type": "boundary",
+      "difficulty": 2,
+      "question_zh": "保险公司是否已同意我们最新一次理赔？赔付到账日期是哪天？",
+      "expected_behavior": "若无理赔结论记录应拒答",
+      "should_refuse": true
+    },
+    {
+      "id": "RB08",
+      "domain": "home",
+      "type": "boundary",
+      "difficulty": 2,
+      "question_zh": "我们家做过屋顶隔热升级并拿到政府返利吗？",
+      "expected_behavior": "若资料未覆盖则拒答",
+      "should_refuse": true
+    },
+    {
+      "id": "RB09",
+      "domain": "appliances",
+      "type": "boundary",
+      "difficulty": 2,
+      "question_zh": "洗碗机维修工单号和工程师手机号是多少？",
+      "expected_behavior": "若无工单记录应拒答",
+      "should_refuse": true
+    },
+    {
+      "id": "RB10",
+      "domain": "pets",
+      "type": "boundary",
+      "difficulty": 2,
+      "question_zh": "宠物保险最近一次拒赔原因是什么？",
+      "expected_behavior": "若无拒赔记录应拒答",
+      "should_refuse": true
+    }
+  ]
+}
