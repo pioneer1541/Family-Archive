@@ -94,7 +94,7 @@ _DETAIL_TOPIC_MAP: dict[str, tuple[str, ...]] = {
     "insurance": ("保险", "保单", "policy", "insurance", "insurer", "premium"),
     "bill": ("账单", "bill", "invoice", "due", "缴费", "电费", "水费", "燃气"),
     "home": ("房屋", "房产", "物业", "贷款", "mortgage", "维修", "maintenance", "maintain", "water tank", "rainwater tank", "产权"),
-    "appliances": ("家电", "洗衣机", "冰箱", "洗碗机", "空调", "热水器", "appliance", "dishwasher", "air purifier"),
+    "appliances": ("家电", "洗衣机", "冰箱", "洗碗机", "空调", "热水器", "水箱", "appliance", "dishwasher", "air purifier", "water heater", "hot water"),
     "pets": ("宠物", "疫苗", "兽医", "体检", "绝育", "pet", "vaccine", "vet", "birthday", "birth date", "dob", "生日", "猫", "狗", "lucky", "米饭"),
     "warranty": ("保修", "warranty", "serial", "claim"),
     "contract": ("合同", "contract", "agreement", "条款", "obligation"),
@@ -591,6 +591,15 @@ def _extract_month_scope(query: str) -> tuple[int | None, int | None]:
             year = int(en.group(3))
         return (year, month)
 
+    # Relative month references — resolve against today
+    _today = dt.date.today()
+    if any(t in text for t in ("上个月", "上月", "last month", "previous month")):
+        if _today.month == 1:
+            return (_today.year - 1, 12)
+        return (_today.year, _today.month - 1)
+    if any(t in text for t in ("这个月", "本月", "当月", "this month", "current month")):
+        return (_today.year, _today.month)
+
     return (None, None)
 
 
@@ -949,22 +958,45 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
     if not raw.strip():
         return ""
     if field in {"due_date", "effective", "expiry", "start", "end", "date", "birth_date"}:
+        _BIRTH_KWS  = ("born", "birth", "dob", "生日", "出生", "birthday")
+        _BIRTH_ANTI = ("vaccin", "inject", "接种", "疫苗", "immunis")
+        _EXPIRY_KWS = ("expir", "renew", "until", "到期", "有效至", "截止", "due")
+        _EFFECT_KWS = ("effective", "from", "start", "commence", "生效", "起始", "begin")
+
+        def _ctx_ok(m, field_name):
+            if field_name not in {"birth_date", "effective", "expiry"}:
+                return True
+            ctx_s = max(0, m.start() - 150)
+            ctx_e = min(len(raw), m.end() + 150)
+            ctx   = raw[ctx_s:ctx_e].lower()
+            if field_name == "birth_date":
+                if not any(kw in ctx for kw in _BIRTH_KWS):
+                    return False
+                if any(kw in ctx for kw in _BIRTH_ANTI):
+                    return False
+                return True
+            if field_name == "expiry":
+                return any(kw in ctx for kw in _EXPIRY_KWS)
+            if field_name == "effective":
+                return any(kw in ctx for kw in _EFFECT_KWS)
+            return True
+
         m = re.search(r"(20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?)", raw)
-        if m:
+        if m and _ctx_ok(m, field):
             return m.group(1)
         _mo = r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
         m = re.search(r"\b(\d{1,2})\s+" + _mo + r"\s+(20\d{2})\b", raw, re.I)
-        if m:
+        if m and _ctx_ok(m, field):
             return m.group(0).strip()
         m = re.search(_mo + r"\s+(\d{1,2}),?\s+(20\d{2})\b", raw, re.I)
-        if m:
+        if m and _ctx_ok(m, field):
             return m.group(0).strip()
         m = re.search(r"\b(\d{1,2})/(\d{1,2})/(20\d{2})\b", raw)
-        if m:
+        if m and _ctx_ok(m, field):
             return m.group(0)
         # Pattern 4b: DD-MM-YYYY with dashes (Australian format: "04-11-2024")
         m = re.search(r"\b(\d{1,2})-(\d{1,2})-(20\d{2})\b", raw)
-        if m:
+        if m and _ctx_ok(m, field):
             return m.group(0)
     if field in {"purchase_date", "warranty_end", "service_date", "maintenance_date", "vaccine_date", "next_due"}:
         m = re.search(r"(20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?)", raw)
@@ -1073,11 +1105,22 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
             "[page ", "we have made the change", "if you have already paid",
             "please find enclosed", "here is your updated", "motorcycle insurance",
         )
+        _sentence_starts = (
+            "safe ", "good ", "by ", "with ", "if ", "for ", "you ", "as ",
+            "our ", "we ", "your ", "this ", "the ", "a ", "an ", "to ",
+            "please ", "note ", "dear ", "thank ", "in ", "on ", "at ", "from ",
+            "whilst ", "while ", "when ", "since ", "because ", "however ",
+        )
         for ln in raw.splitlines():
             ln = ln.strip()
             if not ln:
                 continue
-            if any(ln.lower().startswith(s) for s in _skip_prefixes):
+            if len(ln) > 80:
+                continue
+            ln_lower = ln.lower()
+            if any(ln_lower.startswith(s) for s in _skip_prefixes):
+                continue
+            if any(ln_lower.startswith(s) for s in _sentence_starts):
                 continue
             return ln[:120]
         return ""
@@ -2048,7 +2091,7 @@ def _build_detail_extract_bundle(
         _active_prefixes = pet_prefixes
         scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(pet_prefixes)]
     elif topic == "warranty":
-        _active_prefixes = ("home/manuals", "home/appliances", "tech/hardware")
+        _active_prefixes = ("home/manuals", "home/appliances", "tech/hardware", "home/maintenance")
         scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(_active_prefixes)]
     elif topic == "contract":
         _active_prefixes = ("legal/contracts", "legal/property")
@@ -3247,6 +3290,27 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
                        "appliances": "Appliance Details", "warranty": "Warranty Details", "bill": "Bill Evidence",
                        "contract": "Contract Details", "generic": "Document Evidence"}
             _fb_title = (_EFL_ZH if _zh_mode else _EFL_EN).get(_topic, "Knowledge Search Result")
+            # Rebuild points from ALL rows (not capped at first 3) so every filled field is reachable
+            _efl_filled_zh: list[str] = []
+            _efl_filled_en: list[str] = []
+            for _sec in detail_sections_any[:3]:
+                _sec_rows = list(getattr(_sec, "rows", None) or (_sec.get("rows") if isinstance(_sec, dict) else None) or [])
+                for _row in _sec_rows:  # all rows, no cap
+                    _vz = str(getattr(_row, "value_zh", None) or (_row.get("value_zh") if isinstance(_row, dict) else None) or getattr(_row, "value_en", None) or (_row.get("value_en") if isinstance(_row, dict) else None) or "")
+                    _ve = str(getattr(_row, "value_en", None) or (_row.get("value_en") if isinstance(_row, dict) else None) or _vz)
+                    _lz = str(getattr(_row, "label_zh", None) or (_row.get("label_zh") if isinstance(_row, dict) else None) or "字段")
+                    _le = str(getattr(_row, "label_en", None) or (_row.get("label_en") if isinstance(_row, dict) else None) or _lz)
+                    if _vz.strip():
+                        _efl_filled_zh.append(f"{_lz}：{_vz}")
+                        _efl_filled_en.append(f"{_le}: {_ve}")
+            if _efl_filled_zh:
+                short_zh = "；".join(_efl_filled_zh[:4]) + "。"
+                short_en = "; ".join(_efl_filled_en[:4]) + "."
+                points = [BilingualText(zh=z, en=e) for z, e in zip(_efl_filled_zh, _efl_filled_en)]
+            else:
+                short_zh = "提供的资料中未包含相关信息。"
+                short_en = "The requested information was not found in available documents."
+                points = []
         elif route == "period_aggregate":
             _pa = bundle.get("period_aggregate") or {}
             _months = int(_pa.get("months") or 3)
@@ -3466,9 +3530,9 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
     executor_started = time.perf_counter()
     bundle = _execute_plan(db, retrieval_req, planner)
     executor_latency_ms = int((time.perf_counter() - executor_started) * 1000)
-    # Structured-only routes (bill_monthly_total, queue, tag, reprocess) never reach
+    # Structured-only routes (bill_monthly_total, queue, tag, reprocess, entity_fact_lookup) never reach
     # synthesis, so the full coverage-analysis pass is unnecessary.
-    _STRUCTURED_ONLY_ROUTES = {"bill_monthly_total", "queue_view", "tag_update_exec", "reprocess_exec"}
+    _STRUCTURED_ONLY_ROUTES = {"bill_monthly_total", "queue_view", "tag_update_exec", "reprocess_exec", "entity_fact_lookup"}
     _early_route = str(bundle.get("route") or "")
     _is_structured_route = _early_route in _STRUCTURED_ONLY_ROUTES
     if _is_structured_route:
@@ -3558,7 +3622,7 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
         ),
     )
     route_name = str(bundle.get("route") or "")
-    force_structured = route_name in {"bill_monthly_total"}
+    force_structured = route_name in {"bill_monthly_total", "entity_fact_lookup"}
     detail_zero_hit = route_name == "detail_extract" and int(bundle.get("hit_count") or 0) <= 0
     qualifier_gated = bool(query_required_terms) and answerability != "sufficient"
     subject_gated = (not subject_coverage_ok) and bool(subject_anchor_terms)
@@ -3841,7 +3905,7 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
         ),
     )
     route_name = str(bundle.get("route") or "")
-    force_structured = route_name in {"bill_monthly_total"}
+    force_structured = route_name in {"bill_monthly_total", "entity_fact_lookup"}
     detail_zero_hit = route_name == "detail_extract" and int(bundle.get("hit_count") or 0) <= 0
     qualifier_gated = bool(query_required_terms) and answerability != "sufficient"
     subject_gated = (not subject_coverage_ok) and bool(subject_anchor_terms)

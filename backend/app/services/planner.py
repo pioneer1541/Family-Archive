@@ -440,7 +440,9 @@ _ROUTER_SYSTEM_PROMPT = (
     "- maintenance / how-to / steps → lookup / search_semantic (NOT detail_extract)\n"
     "- contact / phone / email for ONE entity → lookup / entity_fact_lookup (NOT detail_extract)\n"
     "- greetings, small talk, math, off-topic → chitchat\n"
-    "- pet names (e.g. 米饭, Lucky) + 生日/birthday/疫苗/health term → lookup / entity_fact_lookup (NOT chitchat)\n\n"
+    "- pet names (e.g. 米饭, Lucky) + 生日/birthday/疫苗/health term → lookup / entity_fact_lookup (NOT chitchat)\n"
+    "- 保修期/warranty period/质保/保固 for ANY specific object (appliance, water tank, hot water system, product) → lookup / detail_extract, domain=warranty; rewritten_query must include English object name\n"
+    "- 上个月/last month/上月/previous month + specific utility/bill keyword (电费/water/gas/internet/bill) → calculate / bill_monthly_total (NOT period_aggregate); target_month = last calendar month\n\n"
     "Domains: insurance | bills | home | appliances | pets | warranty | legal | generic\n\n"
     "For rewritten_query (lookup ONLY — empty string for all other routes):\n"
     "- Preserve original language (zh/en/mixed)\n"
@@ -453,7 +455,9 @@ _ROUTER_SYSTEM_PROMPT = (
     'Q: "水箱怎么维护" → {"route":"lookup","rewritten_query":"水箱 维护保养步骤 water tank maintenance steps care","domain":"home","sub_intent":"search_semantic","time_window_months":0,"target_month":""}\n'
     'Q: "家庭医保的联系电话" → {"route":"lookup","rewritten_query":"家庭医疗保险 联系电话 contact phone number","domain":"insurance","sub_intent":"entity_fact_lookup","time_window_months":0,"target_month":""}\n'
     'Q: "保险保障哪些项目" → {"route":"lookup","rewritten_query":"保险保障范围 coverage items what is covered","domain":"insurance","sub_intent":"detail_extract","time_window_months":0,"target_month":""}\n'
-    'Q: "米饭的生日是什么时候" → {"route":"lookup","rewritten_query":"米饭 宠物生日 pet birthday date of birth","domain":"pets","sub_intent":"entity_fact_lookup","time_window_months":0,"target_month":""}\n\n'
+    'Q: "米饭的生日是什么时候" → {"route":"lookup","rewritten_query":"米饭 宠物生日 pet birthday date of birth","domain":"pets","sub_intent":"entity_fact_lookup","time_window_months":0,"target_month":""}\n'
+    'Q: "水箱的保修期是多少年" → {"route":"lookup","rewritten_query":"water tank hot water system warranty period years 保修期","domain":"warranty","sub_intent":"detail_extract","time_window_months":0,"target_month":""}\n'
+    'Q: "上个月的电费是多少" → {"route":"calculate","rewritten_query":"","domain":"bills","sub_intent":"bill_monthly_total","time_window_months":0,"target_month":""}\n\n'
     "Return strictly valid JSON (no markdown, no extra keys):\n"
     '{"route":"lookup","rewritten_query":"","domain":"generic","sub_intent":"search_semantic",'
     '"time_window_months":0,"target_month":""}'
@@ -489,6 +493,12 @@ def _router_heuristic(req: PlannerRequest) -> RouterDecision:
         window = int(m.group(1)) if m else 3
         return RouterDecision(route="calculate", rewritten_query="", domain="bills",
                               sub_intent="period_aggregate", time_window_months=window, **base)
+    _RELATIVE_MONTH_TOKENS = ("上个月", "上月", "last month", "previous month", "这个月", "本月", "当月", "this month", "current month")
+    _MONTHLY_BILL_HINTS = ("账单", "bill", "缴费", "电费", "水费", "燃气", "网络", "费用",
+                           "electricity", "gas", "water", "internet", "utilities")
+    if any(p in q for p in _RELATIVE_MONTH_TOKENS) and any(p in q for p in _MONTHLY_BILL_HINTS):
+        return RouterDecision(route="calculate", rewritten_query="", domain="bills",
+                              sub_intent="bill_monthly_total", **base)
     if re.search(r"\d{4}年?\d{1,2}月|\d{1,2}月份?", q) and any(p in q for p in ("账单", "bill", "缴费")):
         return RouterDecision(route="calculate", rewritten_query="", domain="bills",
                               sub_intent="bill_monthly_total", **base)

@@ -25,21 +25,24 @@ DOCUMENT_SUMMARY_PROMPT = (
     "Summarize the document as decisions and facts: purpose, key dates, key amounts, obligations/risks, and next actions. "
     "Never output ingestion/process terminology (ingestion, chunk, pipeline, map-reduce, page-section, source_type, status). "
     "Do not output boilerplate like 'document imported' or 'X chunks indexed'. "
-    "Currency rule: only when '$' appears, treat it as AUD and label as AUD/澳币; if no '$' appears, do not invent currency."
+    "Currency rule: only when '$' appears, treat it as AUD and label as AUD/澳币; if no '$' appears, do not invent currency. "
+    "Proper-noun rule: preserve all proper nouns (company names, brand names, product names, addresses, personal names, place names) verbatim in their original language — do not translate them into Chinese."
 )
 
 PAGE_SUMMARY_PROMPT = (
     "You are a long-document page summarizer. Return JSON only with keys: summary_en, summary_zh. "
     "Summarize one page into 2-4 factual bullets worth of content in prose. Keep dates, amounts, obligations, and actions. "
     "Do not output process words (ingestion/chunk/pipeline/map-reduce/page-section). "
-    "Currency rule: only when '$' appears, treat it as AUD and label as AUD/澳币; if no '$' appears, do not invent currency."
+    "Currency rule: only when '$' appears, treat it as AUD and label as AUD/澳币; if no '$' appears, do not invent currency. "
+    "Proper-noun rule: preserve all proper nouns (company names, brand names, product names, addresses, personal names, place names) verbatim in their original language — do not translate them into Chinese."
 )
 
 SECTION_SUMMARY_PROMPT = (
     "You are a section-level summarizer. Return JSON only with keys: summary_en, summary_zh. "
     "Merge 5-10 page summaries into a coherent section summary focused on conclusions, obligations, and next actions. "
     "Do not output process words (ingestion/chunk/pipeline/map-reduce/page-section). "
-    "Currency rule: only when '$' appears, treat it as AUD and label as AUD/澳币; if no '$' appears, do not invent currency."
+    "Currency rule: only when '$' appears, treat it as AUD and label as AUD/澳币; if no '$' appears, do not invent currency. "
+    "Proper-noun rule: preserve all proper nouns (company names, brand names, product names, addresses, personal names, place names) verbatim in their original language — do not translate them into Chinese."
 )
 
 FINAL_SUMMARY_PROMPT = (
@@ -47,7 +50,8 @@ FINAL_SUMMARY_PROMPT = (
     "Produce final actionable summary using section summaries and semantic chunks. "
     "summary_zh must be Chinese-first, conclusion-oriented, and include: key facts, risks/obligations, and recommended actions. "
     "Never output process words (ingestion/chunk/pipeline/map-reduce/page-section/semantic_chunks). "
-    "Currency rule: only when '$' appears, treat it as AUD and label as AUD/澳币; if no '$' appears, do not invent currency."
+    "Currency rule: only when '$' appears, treat it as AUD and label as AUD/澳币; if no '$' appears, do not invent currency. "
+    "Proper-noun rule: preserve all proper nouns (company names, brand names, product names, addresses, personal names, place names) verbatim in their original language — do not translate them into Chinese."
 )
 
 FRIENDLY_NAME_PROMPT = (
@@ -56,7 +60,8 @@ FRIENDLY_NAME_PROMPT = (
     "Use date prefix only when date is the primary identifier (e.g., bills/statements/dated notices). "
     "For manuals/specifications/warranties/general references, avoid date prefix unless strictly necessary. "
     "Prefer concise format like 'Electricity Bill' or when date-needed '2026-02 Electricity Bill'. "
-    "Do not include hash, source path, technical ids, process words, or generic placeholders."
+    "Do not include hash, source path, technical ids, process words, or generic placeholders. "
+    "Proper-noun rule: keep company names, brand names, product names, and proper nouns in English in both outputs (e.g. 'AGL 电费账单' not '澳大利亚天然气公司电费账单'; 'AAMI 车险保单' not '澳大利亚汽车摩托车保险保单')."
 )
 
 CATEGORY_PROMPT = (
