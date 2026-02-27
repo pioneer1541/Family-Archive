@@ -959,7 +959,11 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
         return ""
     if field in {"due_date", "effective", "expiry", "start", "end", "date", "birth_date"}:
         _BIRTH_KWS  = ("born", "birth", "dob", "生日", "出生", "birthday")
-        _BIRTH_ANTI = ("vaccin", "inject", "接种", "疫苗", "immunis")
+        _BIRTH_ANTI = (
+            "vaccin", "inject", "接种", "疫苗", "immunis",
+            "desex", "steriliz", "castrat", "spay", "neuter",
+            "surgery", "procedure", "operation", "去势", "绝育", "手术",
+        )
         _EXPIRY_KWS = ("expir", "renew", "until", "到期", "有效至", "截止", "due")
         _EFFECT_KWS = ("effective", "from", "start", "commence", "生效", "起始", "begin")
 
@@ -970,9 +974,14 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
             ctx_e = min(len(raw), m.end() + 150)
             ctx   = raw[ctx_s:ctx_e].lower()
             if field_name == "birth_date":
-                if not any(kw in ctx for kw in _BIRTH_KWS):
+                # Labels always PRECEDE their values; only check pre-context (≤35 chars)
+                pre_ctx = raw[max(0, m.start() - 35) : m.start()].lower()
+                if not any(kw in pre_ctx for kw in _BIRTH_KWS):
                     return False
-                if any(kw in ctx for kw in _BIRTH_ANTI):
+                # Anti-keywords: check only the immediate label (25 chars before date)
+                # Narrower than birth window so a distant procedure label can't poison DOB check
+                anti_ctx = raw[max(0, m.start() - 25) : m.start()].lower()
+                if any(kw in anti_ctx for kw in _BIRTH_ANTI):
                     return False
                 return True
             if field_name == "expiry":
@@ -981,23 +990,24 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
                 return any(kw in ctx for kw in _EFFECT_KWS)
             return True
 
-        m = re.search(r"(20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?)", raw)
-        if m and _ctx_ok(m, field):
-            return m.group(1)
+        # Use finditer so rejected matches are skipped and the next occurrence is tried
+        for m in re.finditer(r"(20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?)", raw):
+            if _ctx_ok(m, field):
+                return m.group(1)
         _mo = r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
-        m = re.search(r"\b(\d{1,2})\s+" + _mo + r"\s+(20\d{2})\b", raw, re.I)
-        if m and _ctx_ok(m, field):
-            return m.group(0).strip()
-        m = re.search(_mo + r"\s+(\d{1,2}),?\s+(20\d{2})\b", raw, re.I)
-        if m and _ctx_ok(m, field):
-            return m.group(0).strip()
-        m = re.search(r"\b(\d{1,2})/(\d{1,2})/(20\d{2})\b", raw)
-        if m and _ctx_ok(m, field):
-            return m.group(0)
+        for m in re.finditer(r"\b(\d{1,2})\s+" + _mo + r"\s+(20\d{2})\b", raw, re.I):
+            if _ctx_ok(m, field):
+                return m.group(0).strip()
+        for m in re.finditer(_mo + r"\s+(\d{1,2}),?\s+(20\d{2})\b", raw, re.I):
+            if _ctx_ok(m, field):
+                return m.group(0).strip()
+        for m in re.finditer(r"\b(\d{1,2})/(\d{1,2})/(20\d{2})\b", raw):
+            if _ctx_ok(m, field):
+                return m.group(0)
         # Pattern 4b: DD-MM-YYYY with dashes (Australian format: "04-11-2024")
-        m = re.search(r"\b(\d{1,2})-(\d{1,2})-(20\d{2})\b", raw)
-        if m and _ctx_ok(m, field):
-            return m.group(0)
+        for m in re.finditer(r"\b(\d{1,2})-(\d{1,2})-(20\d{2})\b", raw):
+            if _ctx_ok(m, field):
+                return m.group(0)
     if field in {"purchase_date", "warranty_end", "service_date", "maintenance_date", "vaccine_date", "next_due"}:
         m = re.search(r"(20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?)", raw)
         if m:
@@ -3237,6 +3247,34 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
     detail_sections_any = list(bundle.get("detail_sections") or [])
     slot_results_any = list(bundle.get("slot_results") or [])
     answerability = str(bundle.get("answerability") or "sufficient")
+    # entity_fact_lookup with no extracted rows → insufficient evidence (must check before outer if)
+    if route == "entity_fact_lookup" and not detail_sections_any:
+        _zh_mode = req.ui_lang == "zh"
+        _topic = str(bundle.get("detail_topic") or "")
+        _EFL_ZH = {"insurance": "保险证据详情", "pets": "宠物记录详情", "home": "房产信息详情",
+                   "appliances": "家电设备详情", "warranty": "保修信息详情", "bill": "账单证据详情",
+                   "contract": "合同详情", "generic": "文档证据详情"}
+        _EFL_EN = {"insurance": "Insurance Evidence", "pets": "Pet Records", "home": "Property Details",
+                   "appliances": "Appliance Details", "warranty": "Warranty Details", "bill": "Bill Evidence",
+                   "contract": "Contract Details", "generic": "Document Evidence"}
+        _fb_title = (_EFL_ZH if _zh_mode else _EFL_EN).get(_topic, "Knowledge Search Result")
+        return ResultCard(
+            title=_fb_title,
+            short_summary=BilingualText(
+                en="Not enough evidence was found in the knowledge base to answer this question.",
+                zh="资料中没有足够信息回答此问题，请尝试更具体的问题或补充相关文档。",
+            ),
+            key_points=[BilingualText(
+                en="Please try a more specific question or add relevant documents.",
+                zh="请尝试更具体的问题或补充相关文档。",
+            )],
+            sources=bundle.get("sources") or [],
+            actions=_default_actions(planner),
+            detail_sections=[],
+            missing_fields=[],
+            coverage_stats=DetailCoverageStats(),
+            insufficient_evidence=True,
+        )
     if answerability != "none" and (detail_sections_any or slot_results_any):
         missing_fields = [str(x or "") for x in (bundle.get("missing_fields") or bundle.get("coverage_missing_fields") or []) if str(x or "").strip()]
         coverage_stats = bundle.get("coverage_stats")
@@ -3308,9 +3346,24 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
                 short_en = "; ".join(_efl_filled_en[:4]) + "."
                 points = [BilingualText(zh=z, en=e) for z, e in zip(_efl_filled_zh, _efl_filled_en)]
             else:
-                short_zh = "提供的资料中未包含相关信息。"
-                short_en = "The requested information was not found in available documents."
-                points = []
+                # No evidence found — early return as refusal so answer_mode can be set correctly
+                return ResultCard(
+                    title=_fb_title,
+                    short_summary=BilingualText(
+                        en="Not enough evidence was found in the knowledge base to answer this question.",
+                        zh="资料中没有足够信息回答此问题，请尝试更具体的问题或补充相关文档。",
+                    ),
+                    key_points=[BilingualText(
+                        en="Please try a more specific question or add relevant documents.",
+                        zh="请尝试更具体的问题或补充相关文档。",
+                    )],
+                    sources=bundle.get("sources") or [],
+                    actions=_default_actions(planner),
+                    detail_sections=[],
+                    missing_fields=[],
+                    coverage_stats=coverage_stats,
+                    insufficient_evidence=True,
+                )
         elif route == "period_aggregate":
             _pa = bundle.get("period_aggregate") or {}
             _months = int(_pa.get("months") or 3)
@@ -3661,6 +3714,10 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
     if card is None:
         synth_fallback_used = True
         card = _synthesize_fallback(req, planner, bundle)
+    # Structured-route fallback returned no evidence → treat as refusal
+    if synth_fallback_used and card is not None and card.insufficient_evidence:
+        force_refusal = True
+        synth_error_code = "insufficient_evidence"
     answer_mode = "search_summary"
     if force_refusal:
         answer_mode = "refusal"
@@ -3948,6 +4005,10 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
     if card is None:
         synth_fallback_used = True
         card = _synthesize_fallback(req, planner, bundle)
+    # Structured-route fallback returned no evidence → treat as refusal
+    if synth_fallback_used and card is not None and card.insufficient_evidence:
+        force_refusal = True
+        synth_error_code = "insufficient_evidence"
     answer_mode = "search_summary"
     if force_refusal:
         answer_mode = "refusal"

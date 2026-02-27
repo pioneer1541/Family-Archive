@@ -1104,7 +1104,7 @@ def test_agent_english_birthday_query_refuses_without_birthdate_evidence(client,
     out = r.json()
     stats = out.get("executor_stats") or {}
     assert stats.get("route") == "entity_fact_lookup"
-    assert stats.get("target_field_coverage_ok") is False
+    assert stats.get("synth_error_code") == "insufficient_evidence"
     assert stats.get("answer_mode") == "refusal"
     summary_en = str((out.get("card") or {}).get("short_summary", {}).get("en") or "")
     assert "Not enough evidence" in summary_en
