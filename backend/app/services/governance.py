@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from app.models import Document, DocumentStatus
 from app.services.source_tags import DEFAULT_CATEGORY_PATH, category_labels_for_path
 
-
 LEGACY_CATEGORY_PATHS: tuple[str, ...] = (
     "general",
     "finance/utilities",

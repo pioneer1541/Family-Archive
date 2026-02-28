@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from app.models import BillFact, Document
 
-
 _AMOUNT_PATTERNS: list[tuple[int, re.Pattern[str], int]] = [
     (
         110,

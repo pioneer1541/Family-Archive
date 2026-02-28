@@ -4,7 +4,6 @@ from typing import Any, Dict
 
 from app.config import get_settings
 
-
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 _ACCOUNT_RE = re.compile(r"\b\d{8,20}\b")
 

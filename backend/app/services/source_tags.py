@@ -2,7 +2,6 @@ import os
 
 from app.config import get_settings
 
-
 settings = get_settings()
 
 DEFAULT_CATEGORY_PATH = "archive/misc"

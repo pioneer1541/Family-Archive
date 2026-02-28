@@ -13,7 +13,6 @@ from app.schemas import SearchHit, SearchRequest, SearchResponse
 from app.services.qdrant import search_records
 from app.services.source_tags import infer_source_type
 
-
 settings = get_settings()
 
 

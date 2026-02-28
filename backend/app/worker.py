@@ -3,9 +3,13 @@ from app.config import get_settings
 from app.db import SessionLocal
 from app.logging_utils import get_logger, sanitize_log_context
 from app.models import SyncRun
-from app.services.ingestion import compact_error_code, mark_job_retrying, mark_job_terminal_failure, process_ingestion_job
+from app.services.ingestion import (
+    compact_error_code,
+    mark_job_retrying,
+    mark_job_terminal_failure,
+    process_ingestion_job,
+)
 from app.services.sync_run import execute_sync_run
-
 
 settings = get_settings()
 logger = get_logger(__name__)

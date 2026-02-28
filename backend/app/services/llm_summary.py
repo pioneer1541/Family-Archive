@@ -12,7 +12,6 @@ from app.config import get_settings
 from app.logging_utils import get_logger, sanitize_log_context
 from app.services.source_tags import category_labels_for_path, leaf_category_paths, normalize_category_path
 
-
 settings = get_settings()
 logger = get_logger(__name__)
 _JSON_BLOCK = re.compile(r"\{.*\}", flags=re.S)

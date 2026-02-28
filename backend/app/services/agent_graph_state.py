@@ -1,6 +1,5 @@
 from typing import Any, Literal, TypedDict
 
-
 Answerability = Literal["sufficient", "partial", "insufficient", "none"]
 
 

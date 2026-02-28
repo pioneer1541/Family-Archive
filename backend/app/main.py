@@ -7,16 +7,15 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from app import models  # noqa: F401
 from app.api.routes import router
 from app.auth import COOKIE_NAME, decode_access_token, is_setup_complete
 from app.config import get_settings
-from app.db import Base, SessionLocal, ensure_sqlite_runtime_schema, engine
-from app import models  # noqa: F401
+from app.db import Base, SessionLocal, engine, ensure_sqlite_runtime_schema
 from app.logging_utils import get_logger, sanitize_log_context
 from app.services.mail_ingest import poll_mailbox_and_enqueue
 from app.services.nas import run_nas_scan
 from app.services.qdrant import ensure_collection_exists
-
 
 settings = get_settings()
 logger = get_logger(__name__)

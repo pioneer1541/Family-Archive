@@ -3,7 +3,6 @@ from collections import Counter
 
 from app.services.llm_summary import summarize_document_with_model
 
-
 _SENTENCE_SPLIT = re.compile(r"(?:\r?\n)+|(?<=[\.\!\?。！？；;])\s+")
 _DATE_PATTERNS = [
     re.compile(r"\b20\d{2}[/-](?:0?[1-9]|1[0-2])(?:[/-](?:0?[1-9]|[12]\d|3[01]))?\b"),

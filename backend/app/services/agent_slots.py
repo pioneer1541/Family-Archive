@@ -5,7 +5,6 @@ from typing import Any
 from app.services import evidence_patterns as ep
 from app.services.agent_queryspec import slot_query_terms
 
-
 _SLOT_LABELS: dict[str, tuple[str, str]] = {
     "policy_no": ("Policy Number", "保单编号"),
     "beneficiary": ("Beneficiary", "受益人"),

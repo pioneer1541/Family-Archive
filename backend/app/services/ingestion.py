@@ -12,9 +12,11 @@ from app.config import get_settings
 from app.db import SessionLocal
 from app.logging_utils import get_logger, sanitize_log_context
 from app.models import Chunk, Document, DocumentStatus, IngestionJob, IngestionJobStatus, MailIngestionEvent
+from app.services.bill_facts import upsert_bill_fact_for_document
 from app.services.document_summary import build_document_summaries
 from app.services.friendly_name import generate_friendly_names
 from app.services.governance import apply_legacy_category_guard
+from app.services.image_hash import compute_image_phash, hamming_distance, is_image_path
 from app.services.llm_summary import (
     classify_category_from_summary,
     detect_summary_quality_flags,
@@ -22,15 +24,19 @@ from app.services.llm_summary import (
     normalize_vehicle_insurance_summary,
     regenerate_friendly_name_from_summary,
 )
-from app.services.bill_facts import upsert_bill_fact_for_document
-from app.services.image_hash import compute_image_phash, hamming_distance, is_image_path
-from app.services.path_scan import discover_files
 from app.services.ocr_fallback import get_pdf_page_count
-from app.services.parsing import build_bilingual_title, chunk_text, compute_sha256, detect_lang_simple, extract_text_from_path, file_meta
+from app.services.parsing import (
+    build_bilingual_title,
+    chunk_text,
+    compute_sha256,
+    detect_lang_simple,
+    extract_text_from_path,
+    file_meta,
+)
+from app.services.path_scan import discover_files
 from app.services.qdrant import delete_records_by_point_ids, qdrant_payload, stable_point_id, upsert_records
 from app.services.source_tags import DEFAULT_CATEGORY_PATH, category_labels_for_path, infer_source_type
 from app.services.tag_rules import infer_auto_tags
-
 
 settings = get_settings()
 logger = get_logger(__name__)

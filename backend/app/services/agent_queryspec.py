@@ -1,7 +1,6 @@
 import re
 from typing import Any
 
-
 _TASK_KIND_BY_INTENT = {
     "entity_fact_lookup": "fact_lookup",
     "detail_extract": "detail_extract",

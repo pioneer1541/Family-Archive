@@ -38,9 +38,13 @@ from app.services.agent_queryspec import (
     required_slots_from_query_spec,
     slot_query_terms,
 )
-from app.services.agent_slots import derive_facts, extract_slots_from_chunks, judge_sufficiency, slot_results_to_detail_sections
+from app.services.agent_slots import (
+    derive_facts,
+    extract_slots_from_chunks,
+    judge_sufficiency,
+    slot_results_to_detail_sections,
+)
 from app.services.search import search_documents
-
 
 PROPOSAL_HINTS = ("proposal", "quote", "offer", "方案", "报价", "提案")
 _JSON_BLOCK = re.compile(r"\{.*\}", flags=re.S)

@@ -19,13 +19,12 @@ from app.services.agent_graph_nodes import (
     recovery_plan_node,
     rerank_candidates_node,
     response_finalize_node,
+    retrieve_candidates_node,
     route_decision,
     route_node,
-    retrieve_candidates_node,
     structured_fastpath_node,
     sufficiency_judge_node,
 )
-
 
 logger = get_logger(__name__)
 settings = get_settings()

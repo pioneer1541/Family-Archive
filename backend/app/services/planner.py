@@ -9,7 +9,6 @@ from app.config import get_settings
 from app.schemas import PlannerDecision, PlannerRequest
 from app.services.agent_queryspec import apply_query_spec_to_planner_fields, build_query_spec_from_query
 
-
 settings = get_settings()
 
 _INTENT_RULES = [

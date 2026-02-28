@@ -8,7 +8,6 @@ from typing import Iterable
 
 from app.config import get_settings
 
-
 settings = get_settings()
 
 _TAG_PATTERN = re.compile(r"^[a-z0-9._-]+:[a-z0-9._-]+$")

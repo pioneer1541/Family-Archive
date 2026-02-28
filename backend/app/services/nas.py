@@ -8,7 +8,6 @@ from app.logging_utils import get_logger, sanitize_log_context
 from app.services.ingestion import enqueue_ingestion_job
 from app.services.path_scan import collect_incremental_changes, discover_files, purge_source_states_outside_root
 
-
 settings = get_settings()
 logger = get_logger(__name__)
 

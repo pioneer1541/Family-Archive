@@ -3,14 +3,13 @@ import os
 import re
 from pathlib import Path
 
+from docx import Document as DocxDocument
 from openpyxl import load_workbook
 from pypdf import PdfReader
-from docx import Document as DocxDocument
 
 from app.config import get_settings
 from app.services.ocr_fallback import IMAGE_EXTS, extract_ocr_text, extract_pdf_page_ocr_text
 from app.services.vl_fallback import extract_image_text_with_vl, extract_pdf_page_text_with_vl, extract_pdf_text_with_vl
-
 
 settings = get_settings()
 

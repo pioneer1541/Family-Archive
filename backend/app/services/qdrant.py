@@ -8,7 +8,6 @@ import requests
 from app.config import get_settings
 from app.logging_utils import get_logger, sanitize_log_context
 
-
 logger = get_logger(__name__)
 settings = get_settings()
 _collection_ready = False

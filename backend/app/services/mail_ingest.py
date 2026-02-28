@@ -11,8 +11,8 @@ from app.logging_utils import get_logger, sanitize_log_context
 from app.services.ingestion import enqueue_ingestion_job
 
 try:
-    from google.oauth2.credentials import Credentials as GoogleCredentials
     from google.auth.transport.requests import Request as GoogleRequest
+    from google.oauth2.credentials import Credentials as GoogleCredentials
     from googleapiclient.discovery import build as google_build
 except Exception:  # pragma: no cover - optional runtime dependency
     GoogleCredentials = None
