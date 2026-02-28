@@ -31,9 +31,9 @@ Family Vault indexes your documents (PDFs, scans, bills, insurance policies, con
 
 ```bash
 ollama pull qwen3:1.7b              # Planner / lightweight Q&A
-ollama pull qwen3:4b-instruct       # Summarisation / synthesis
+ollama pull qwen3:4b-instruct       # synthesis / Q&A
 ollama pull qwen3-embedding:0.6b    # Vector embeddings
-ollama pull lfm2:latest             # Friendly document titles
+ollama pull lfm2             # Friendly document titles / Summarisation
 ```
 
 Minimum viable (low-RAM) option:
@@ -69,12 +69,12 @@ On first visit you'll be prompted to set a password and (optionally) configure t
 | Role | Recommended | Minimum |
 |------|-------------|---------|
 | Planner / routing | `qwen3:1.7b` | same |
-| Summarisation | `qwen3:4b-instruct` | `qwen3:1.7b` |
-| Synthesiser (Q&A) | `qwen3:4b-instruct` | `qwen3:1.7b` |
+| Summarisation | `lfm2 or GLM4.7-Flash` | `qwen3:4b-instruct` |
+| Synthesiser (Q&A) | `qwen3:4b-instruct` | same |
 | Embeddings | `qwen3-embedding:0.6b` | same |
-| Category model | `qwen3:4b-instruct` | `qwen3:1.7b` |
-| Friendly titles | `lfm2:latest` | `qwen3:1.7b` |
-| Vision (images) | `qwen3-vl:2b` | same |
+| Category model | `qwen3:4b-instruct` | same |
+| Friendly titles | `lfm2 or GLM4.7-Flash` | `qwen3:4b-instruct` |
+| Vision (images) | `any ORC Model` | same |
 
 All models are selectable in **Settings → LLM Models** after startup.
 

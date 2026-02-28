@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     planner_model: str = "qwen3:1.7b"
     synthesizer_model: str = "qwen3:4b-instruct"
     embed_model: str = "qwen3-embedding:0.6b"
-    summary_model: str = "qwen3:4b-instruct"
+    summary_model: str = "lfm2:latest"
     category_model: str = "qwen3:4b-instruct"
     friendly_name_model: str = "lfm2:latest"
     vl_extract_model: str = "qwen3-vl:2b"
