@@ -3,8 +3,8 @@ import json
 import mimetypes
 import os
 from pathlib import Path
-import requests
 
+import requests
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
@@ -13,9 +13,6 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app.api.deps import get_db
-from app.config import get_settings
-from app.celery_app import celery_app
-from app.logging_utils import get_logger, sanitize_log_context
 from app.auth import (
     COOKIE_NAME,
     create_access_token,
@@ -23,25 +20,40 @@ from app.auth import (
     set_admin_password,
     verify_admin_password,
 )
-from app.models import AppSetting, Chunk, Document, DocumentStatus, IngestionJob, IngestionJobStatus, MailIngestionEvent, SyncRun, SyncRunItem, Task
+from app.celery_app import celery_app
+from app.config import get_settings
+from app.logging_utils import get_logger, sanitize_log_context
+from app.models import (
+    AppSetting,
+    Chunk,
+    Document,
+    DocumentStatus,
+    IngestionJob,
+    IngestionJobStatus,
+    MailIngestionEvent,
+    SyncRun,
+    SyncRunItem,
+    Task,
+)
 from app.schemas import (
     AgentExecuteRequest,
     AgentExecuteResponse,
+    BilingualText,
     CategoriesResponse,
     CategoryItem,
     DocumentChunk,
-    FriendlyNameUpdateRequest,
-    FriendlyNameResponse,
-    GovernanceCategoryDebtResponse,
-    GovernanceCategoryDebtTrendPoint,
-    GovernanceCategoryDebtTrendResponse,
+    DocumentContentAvailabilityResponse,
     DocumentListItem,
     DocumentListResponse,
-    DocumentContentAvailabilityResponse,
     DocumentResponse,
     DocumentTagItem,
     DocumentTagsPatchRequest,
     DocumentTagsResponse,
+    FriendlyNameResponse,
+    FriendlyNameUpdateRequest,
+    GovernanceCategoryDebtResponse,
+    GovernanceCategoryDebtTrendPoint,
+    GovernanceCategoryDebtTrendResponse,
     HealthResponse,
     IngestionJobCreateRequest,
     IngestionJobDeleteResponse,
@@ -51,17 +63,18 @@ from app.schemas import (
     MailHealthResponse,
     MailPollRequest,
     MailPollResponse,
+    MapReduceSummaryRequest,
+    MapReduceSummaryResponse,
     NasScanRequest,
     NasScanResponse,
     PlannerDecision,
     PlannerRequest,
-    MapReduceSummaryRequest,
-    MapReduceSummaryResponse,
-    SystemPromptsResponse,
     QueueDocumentItem,
     QueueJobItem,
     QueueResponse,
     ReprocessResponse,
+    SearchRequest,
+    SearchResponse,
     SyncLastResponse,
     SyncRunDetailResponse,
     SyncRunItemResponse,
@@ -69,27 +82,22 @@ from app.schemas import (
     SyncRunStartResponse,
     SyncRunSummary,
     SyncSourceSummary,
-    SearchRequest,
-    SearchResponse,
+    SystemPromptsResponse,
     TagCatalogItem,
     TagCatalogResponse,
     TaskCreateRequest,
     TaskListItem,
     TaskListResponse,
     TaskResponse,
-    BilingualText,
 )
 from app.services.agent import execute_agent
 from app.services.agent_graph import stream_agent_graph
-from app.services.governance import apply_legacy_category_guard, build_category_debt_snapshot, compute_debt_trend, load_snapshots_from_dir
-from app.services.sync_run import (
-    create_sync_run,
-    execute_sync_run,
-    get_sync_last,
-    get_sync_source_summary,
-    get_sync_summary,
-    refresh_sync_run_status,
-    start_sync_run,
+from app.services.bill_facts import upsert_bill_fact_for_document
+from app.services.governance import (
+    apply_legacy_category_guard,
+    build_category_debt_snapshot,
+    compute_debt_trend,
+    load_snapshots_from_dir,
 )
 from app.services.ingestion import enqueue_ingestion_job, parse_retry_meta
 from app.services.llm_summary import (
@@ -103,11 +111,18 @@ from app.services.map_reduce import build_map_reduce_summary
 from app.services.nas import run_nas_scan
 from app.services.planner import plan_from_request
 from app.services.qdrant import qdrant_payload, upsert_records
-from app.services.bill_facts import upsert_bill_fact_for_document
 from app.services.search import search_documents
 from app.services.source_tags import category_labels_for_path, infer_source_type
+from app.services.sync_run import (
+    create_sync_run,
+    execute_sync_run,
+    get_sync_last,
+    get_sync_source_summary,
+    get_sync_summary,
+    refresh_sync_run_status,
+    start_sync_run,
+)
 from app.services.tag_rules import infer_auto_tags
-
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -1345,14 +1360,15 @@ def auth_change_password(
 # Settings endpoints
 # ---------------------------------------------------------------------------
 
-from app.runtime_config import (
-    SETTING_META,
+import os as _os  # noqa: E402
+
+from app.runtime_config import (  # noqa: E402
     _RUNTIME_CONFIGURABLE,
-    get_runtime_setting,
+    SETTING_META,
     get_runtime_json,
+    get_runtime_setting,
     invalidate_runtime_cache,
 )
-import os as _os
 
 
 def _setting_source(key: str, db: Session) -> str:

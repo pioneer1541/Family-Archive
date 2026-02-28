@@ -36,7 +36,6 @@ from app.services.ingestion import enqueue_ingestion_job
 from app.services.planner import RouterDecision, plan_from_request, route_and_rewrite
 from app.services.search import search_documents
 
-
 settings = get_settings()
 logger = get_logger(__name__)
 _JSON_BLOCK = re.compile(r"\{.*\}", flags=re.S)
@@ -752,7 +751,7 @@ def _target_field_coverage_ok(target_fields: list[str], chunks: list[dict[str, A
     blob = "\n".join(texts)
     if not blob.strip():
         return False
-    for field in target_fields:
+    for field in target_fields:  # noqa: F402
         if field == "birth_date":
             if any(tok in blob for tok in ("birthday", "birth date", "dob", "生日", "出生")):
                 return True
@@ -848,7 +847,7 @@ def _evidence_match(field: str, text: str) -> bool:
 
 def _build_evidence_map(fields: list[str], chunks: list[dict[str, Any]]) -> dict[str, list[dict[str, str]]]:
     out: dict[str, list[dict[str, str]]] = {}
-    for field in fields:
+    for field in fields:  # noqa: F402
         refs: list[dict[str, str]] = []
         for chunk in chunks[:12]:
             text = str(chunk.get("text") or "")
@@ -872,7 +871,7 @@ def _coverage_from_map(fields: list[str], evidence_map: dict[str, list[dict[str,
         return (1.0, [])
     hit = 0
     missing: list[str] = []
-    for field in fields:
+    for field in fields:  # noqa: F402
         rows = evidence_map.get(field) or []
         if rows:
             hit += 1
@@ -1176,7 +1175,7 @@ def _detail_rows_from_chunks(*, topic: str, chunks: list[dict[str, Any]], ui_lan
     schema = _DETAIL_SCHEMA.get(topic, _DETAIL_SCHEMA["generic"])
     rows: list[DetailRow] = []
     missing: list[str] = []
-    for field, label_en, label_zh in schema:
+    for field, label_en, label_zh in schema:  # noqa: F402
         value = ""
         evidence: list[DetailEvidenceRef] = []
         for chunk in chunks[:10]:

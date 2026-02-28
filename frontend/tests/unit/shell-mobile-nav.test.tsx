@@ -37,7 +37,9 @@ vi.mock('@/i18n/navigation', () => ({
 }));
 
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams()
+  useSearchParams: () => new URLSearchParams(),
+  useRouter:       () => ({ replace: vi.fn(), push: vi.fn(), back: vi.fn() }),
+  usePathname:     () => mockPathname,
 }));
 
 vi.mock('@src/lib/api/kb-client', () => ({
