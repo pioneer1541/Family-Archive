@@ -4,7 +4,7 @@ services:
     container_name: fkv-api
     restart: unless-stopped
     env_file:
-      - .env.example
+      - .env
     environment:
       - FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER=0
       - FAMILY_VAULT_INGESTION_RETRY_MAX_RETRIES=2
@@ -50,7 +50,7 @@ services:
     container_name: fkv-worker
     restart: unless-stopped
     env_file:
-      - .env.example
+      - .env
     environment:
       - FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER=0
       - FAMILY_VAULT_INGESTION_RETRY_MAX_RETRIES=2

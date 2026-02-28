@@ -1311,6 +1311,7 @@ def auth_login(body: _LoginRequest, response: Response, db: Session = Depends(ge
         httponly=True,
         samesite="lax",
         max_age=86400,
+        secure=settings.cookie_secure,
     )
     return {"ok": True}
 
@@ -1318,7 +1319,7 @@ def auth_login(body: _LoginRequest, response: Response, db: Session = Depends(ge
 @router.post("/auth/logout")
 def auth_logout(response: Response):
     """Clear the JWT cookie."""
-    response.delete_cookie(key=COOKIE_NAME, samesite="lax")
+    response.delete_cookie(key=COOKIE_NAME, httponly=True, samesite="lax", secure=settings.cookie_secure)
     return {"ok": True}
 
 

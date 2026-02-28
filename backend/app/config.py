@@ -96,6 +96,8 @@ class Settings(BaseSettings):
     longdoc_final_section_max: int = 18
     longdoc_final_semantic_max: int = 6
 
+    cookie_secure: bool = False  # Set to True when serving over HTTPS
+
     allowed_origins: List[str] = ["http://localhost:18181"]
     log_level: str = "INFO"
     lexical_candidate_limit: int = 1500

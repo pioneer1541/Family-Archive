@@ -28,12 +28,12 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md). We are committ
 1. **Fork** the repository on GitHub
 2. **Clone** your fork locally:
    ```bash
-   git clone https://github.com/<your-username>/family-vault.git
-   cd family-vault
+   git clone https://github.com/<your-username>/Family-Archive.git
+   cd Family-Archive
    ```
 3. **Add the upstream remote**:
    ```bash
-   git remote add upstream https://github.com/pioneer1541/family-vault.git
+   git remote add upstream https://github.com/pioneer1541/Family-Archive.git
    ```
 4. **Create a branch** for your change:
    ```bash
@@ -197,4 +197,4 @@ See [SECURITY.md](SECURITY.md) for our responsible disclosure process.
 
 ## Questions?
 
-Open a [GitHub Discussion](https://github.com/pioneer1541/family-vault/discussions) for questions, ideas, or general feedback.
+Open a [GitHub Discussion](https://github.com/pioneer1541/Family-Archive/discussions) for questions, ideas, or general feedback.

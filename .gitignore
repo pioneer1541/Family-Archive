@@ -38,3 +38,6 @@ backend/evaluation/*.md
 !backend/evaluation/agent_eval_boundary_suite_v1.json
 !backend/evaluation/crosslang_cases.json
 !backend/evaluation/planner_fallback_cases.json
+
+# Local env file with secrets — never commit
+.env

@@ -43,11 +43,16 @@ ollama pull qwen3:1.7b
 ollama pull qwen3-embedding:0.6b
 ```
 
-### 2 — Clone and start
+### 2 — Clone, configure and start
 
 ```bash
 git clone https://github.com/pioneer1541/Family-Archive.git
-cd family-vault
+cd Family-Archive
+
+# Create your local env file and generate a secure JWT secret
+cp .env.example .env
+sed -i "s|<replace-with-your-secret>|$(openssl rand -hex 32)|" .env
+
 docker compose up -d
 ```
 

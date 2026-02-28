@@ -1,0 +1,20 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+exclude = [
+    ".venv",
+    "backend/.venv",
+    "frontend/node_modules",
+    "__pycache__",
+    "*.pyc",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",   # line too long — enforced by line-length above
+    "F401",   # unused imports — too noisy during active development
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
