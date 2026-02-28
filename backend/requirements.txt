@@ -21,3 +21,5 @@ pytest==8.3.4
 httpx==0.28.1
 langchain-core==0.3.34
 langgraph==0.2.61
+bcrypt==4.2.1
+python-jose[cryptography]==3.3.0

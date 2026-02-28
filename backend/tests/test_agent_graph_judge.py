@@ -68,10 +68,10 @@ def test_judge_sufficiency_returns_none_on_zero_hit_with_requirements():
 
 def test_judge_sufficiency_returns_sufficient_when_derivation_succeeds():
     judged = judge_sufficiency(
-        query_spec={"target_slots": ["vaccine_next_due"], "subject_aliases": ["Lucky"]},
+        query_spec={"target_slots": ["vaccine_next_due"], "subject_aliases": ["Fluffy"]},
         slot_results=[{"slot": "vaccine_next_due", "value": "", "status": "missing", "confidence": 0.0}],
         derivations=[{"name": "estimate_next_vaccine_due", "status": "derived", "value": "2026-05-01"}],
-        context_chunks=[{"title_zh": "宠物疫苗记录", "title_en": "Pet Vaccine Record", "category_path": "pets/health", "text": "Lucky vaccine"}],
+        context_chunks=[{"title_zh": "宠物疫苗记录", "title_en": "Pet Vaccine Record", "category_path": "pets/health", "text": "Fluffy vaccine"}],
         required_slots=["vaccine_next_due"],
         critical_slots=["vaccine_next_due"],
     )

@@ -404,16 +404,23 @@ def _call_json_result(
     for idx in range(attempts):
         t0 = time.time()
         try:
+            _sys_content = str(system_prompt or "").strip()
+            # Thinking models (GLM): disable think mode to avoid excessive latency
+            _think_disable = "glm" in model.lower()
+            if _think_disable and not _sys_content.startswith("/no_think"):
+                _sys_content = "/no_think\n" + _sys_content
             payload = {
                 "model": model,
                 "stream": False,
                 "format": "json",
                 "messages": [
-                    {"role": "system", "content": str(system_prompt or "").strip()},
+                    {"role": "system", "content": _sys_content},
                     {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
                 ],
                 "options": {"temperature": 0.05},
             }
+            if _think_disable:
+                payload["think"] = False
             r = requests.post(url, json=payload, timeout=max(4, timeout))
             r.raise_for_status()
             body = r.json() if hasattr(r, "json") else {}

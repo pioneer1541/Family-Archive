@@ -15,26 +15,30 @@ services:
       - FAMILY_VAULT_QDRANT_COLLECTION=fkv_docs_v1
       - FAMILY_VAULT_QDRANT_ENABLE=1
       - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - FAMILY_VAULT_SUMMARY_MODEL=qwen3:4b-instruct
+      - FAMILY_VAULT_SUMMARY_MODEL=lfm2:latest
       - FAMILY_VAULT_CATEGORY_MODEL=qwen3:4b-instruct
-      - FAMILY_VAULT_FRIENDLY_NAME_MODEL=qwen3:4b-instruct
+      - FAMILY_VAULT_FRIENDLY_NAME_MODEL=lfm2:latest
+      - FAMILY_VAULT_SUMMARY_TIMEOUT_PAGE_SEC=90
+      - FAMILY_VAULT_SUMMARY_TIMEOUT_SECTION_SEC=120
+      - FAMILY_VAULT_SUMMARY_TIMEOUT_FINAL_SEC=120
+      - FAMILY_VAULT_SUMMARY_TIMEOUT_NAME_SEC=60
+      - FAMILY_VAULT_SUMMARY_TIMEOUT_CATEGORY_SEC=60
+      - FAMILY_VAULT_SQLITE_BUSY_TIMEOUT_MS=30000
       - FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR=/volume1/Family_Archives
-      - FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED=1
       - FAMILY_VAULT_NAS_SCAN_INTERVAL_SEC=1800
-      - FAMILY_VAULT_MAIL_POLL_ENABLED=1
-      - FAMILY_VAULT_MAIL_POLL_INTERVAL_SEC=300
       - FAMILY_VAULT_MAIL_CREDENTIALS_PATH=/app/secrets/gmail/credentials.json
       - FAMILY_VAULT_MAIL_TOKEN_PATH=/app/secrets/gmail/token.json
-      - FAMILY_VAULT_MAIL_ATTACHMENT_ROOT=/volume1/Family_Archives/mail_attachments
+      - FAMILY_VAULT_MAIL_ATTACHMENT_ROOT=/app/data/mail_attachments
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "18080"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./backend:/app
       - ./data:/app/data
-      - ../mcp-tools/secrets/gmail:/app/secrets/gmail:ro
-      - /mnt/nas:/mnt/nas:ro
-      - /mnt/nas:/volume1/Family_Archives
+      - ./secrets/gmail:/app/secrets/gmail:ro
+      # Uncomment and adjust the lines below to mount a local NAS/directory:
+      # - /mnt/nas:/mnt/nas:ro
+      # - /mnt/nas:/volume1/Family_Archives
     ports:
       - "18180:18080"
     depends_on:
@@ -57,13 +61,19 @@ services:
       - FAMILY_VAULT_QDRANT_COLLECTION=fkv_docs_v1
       - FAMILY_VAULT_QDRANT_ENABLE=1
       - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - FAMILY_VAULT_SUMMARY_MODEL=qwen3:4b-instruct
+      - FAMILY_VAULT_SUMMARY_MODEL=lfm2:latest
       - FAMILY_VAULT_CATEGORY_MODEL=qwen3:4b-instruct
-      - FAMILY_VAULT_FRIENDLY_NAME_MODEL=qwen3:4b-instruct
+      - FAMILY_VAULT_FRIENDLY_NAME_MODEL=lfm2:latest
+      - FAMILY_VAULT_SUMMARY_TIMEOUT_PAGE_SEC=90
+      - FAMILY_VAULT_SUMMARY_TIMEOUT_SECTION_SEC=120
+      - FAMILY_VAULT_SUMMARY_TIMEOUT_FINAL_SEC=120
+      - FAMILY_VAULT_SUMMARY_TIMEOUT_NAME_SEC=60
+      - FAMILY_VAULT_SUMMARY_TIMEOUT_CATEGORY_SEC=60
+      - FAMILY_VAULT_SQLITE_BUSY_TIMEOUT_MS=30000
       - FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR=/volume1/Family_Archives
       - FAMILY_VAULT_MAIL_CREDENTIALS_PATH=/app/secrets/gmail/credentials.json
       - FAMILY_VAULT_MAIL_TOKEN_PATH=/app/secrets/gmail/token.json
-      - FAMILY_VAULT_MAIL_ATTACHMENT_ROOT=/volume1/Family_Archives/mail_attachments
+      - FAMILY_VAULT_MAIL_ATTACHMENT_ROOT=/app/data/mail_attachments
       - FAMILY_VAULT_CELERY_WORKER_CONCURRENCY=2
     command:
       [
@@ -76,9 +86,10 @@ services:
     volumes:
       - ./backend:/app
       - ./data:/app/data
-      - ../mcp-tools/secrets/gmail:/app/secrets/gmail:ro
-      - /mnt/nas:/mnt/nas:ro
-      - /mnt/nas:/volume1/Family_Archives:ro
+      - ./secrets/gmail:/app/secrets/gmail:ro
+      # Uncomment and adjust the lines below to mount a local NAS/directory:
+      # - /mnt/nas:/mnt/nas:ro
+      # - /mnt/nas:/volume1/Family_Archives:ro
     depends_on:
       - redis
       - qdrant

@@ -2,6 +2,10 @@
 backend/.venv/
 backend/secrets/
 
+# Gmail OAuth credentials — never commit
+secrets/
+!secrets/gmail/.gitkeep
+
 # SQLite WAL files (safety net)
 *.db-shm
 *.db-wal

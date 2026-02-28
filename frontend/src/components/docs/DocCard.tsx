@@ -33,7 +33,7 @@ export function DocCard({doc, locale, categoryLabel, badgeClassName, onOpen}: Do
             {title.fallbackLabel ? <span className="lang-fallback">{title.fallbackLabel}</span> : null}
           </div>
           <div className="doc-filename">
-            {doc.fileName}
+            <span className="doc-filename-text">{doc.fileName}</span>
             {!doc.sourceAvailable ? (
               <span className="source-missing-pill">{locale === 'zh-CN' ? '源文件缺失' : 'Source Missing'}</span>
             ) : null}

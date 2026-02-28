@@ -128,6 +128,8 @@ export function DetailOverlay() {
   const handleRegen = async () => {
     if (!doc || regening) return;
     setRegening(true);
+    const prevZh = doc.summary?.zh || '';
+    const prevEn = doc.summary?.en || '';
     try {
       const result = await client.regenSummary(doc.id, locale);
       if (result.doc) {
@@ -143,6 +145,24 @@ export function DetailOverlay() {
         const reasonText = regenFailReasonText(t, result);
         showToast(`${t('overlay.toastSummaryRegenFailedKeep')}: ${reasonText}`);
       }
+    } catch {
+      // The proxy may have dropped the connection while the backend is still processing.
+      // Poll until the summary changes, then surface success; give up after 5 min.
+      showToast(t('overlay.toastSummaryProcessing'));
+      let found = false;
+      for (let i = 0; i < 30 && !found; i++) {
+        await new Promise((r) => setTimeout(r, 10_000));
+        try {
+          const latest = await client.getDoc(doc.id);
+          if (latest && (latest.summary?.zh !== prevZh || latest.summary?.en !== prevEn)) {
+            setDoc(latest);
+            emitDocUpdated(latest);
+            showToast(t('overlay.toastSummaryCascadeSuccess'));
+            found = true;
+          }
+        } catch { /* ignore */ }
+      }
+      if (!found) showToast(t('overlay.toastSummaryRegenFailedKeep'));
     } finally {
       setRegening(false);
     }
@@ -159,6 +179,7 @@ export function DetailOverlay() {
     >
       <div className="detail-panel" onClick={(event) => event.stopPropagation()}>
         <div className="detail-header">
+          <div className="drag-handle" aria-hidden="true" />
           <button className="detail-close" type="button" onClick={closeOverlay}>
             ✕
           </button>

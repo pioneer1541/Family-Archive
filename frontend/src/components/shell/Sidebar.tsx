@@ -58,6 +58,16 @@ export function Sidebar({open = false, onNavigate}: SidebarProps) {
           </Link>
         ))}
       </div>
+      <div className="sidebar-bottom">
+        <Link
+          href="/settings"
+          className={`nav-item nav-item-settings${isActive(pathname, '/settings') ? ' active' : ''}`}
+          onClick={onNavigate}
+        >
+          <span className="icon">⚙</span>
+          {t('nav.settings')}
+        </Link>
+      </div>
     </nav>
   );
 }

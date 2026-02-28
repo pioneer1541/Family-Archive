@@ -70,20 +70,15 @@ _PROJECT_KEYWORDS: dict[str, str] = {
 }
 
 _PERSON_KEYWORDS: dict[str, str] = {
-    "vincent": "vincent",
-    "sophie": "sophie",
-    "sam": "sam",
+    # Populated via Settings → Keywords (person names)
 }
 
 _PET_KEYWORDS: dict[str, str] = {
-    "lucky": "lucky",
-    "rice": "rice",
+    # Populated via Settings → Keywords (pet names)
 }
 
 _LOCATION_KEYWORDS: dict[str, str] = {
-    "melbourne": "melbourne",
-    "bulleen": "bulleen",
-    "doncaster": "doncaster",
+    # Populated via Settings → Keywords (location names)
 }
 
 

@@ -6,6 +6,9 @@ import type {
   AgentRunPayload,
   AgentRunResult,
   AgentStreamEvent,
+  AppSettingItem,
+  AuthStatus,
+  ConnectivityStatus,
   DocumentContentAvailability,
   DocumentContentAvailabilityDetail,
   GetDocParams,
@@ -13,7 +16,9 @@ import type {
   KbApiClient,
   KbCategory,
   KbDoc,
+  KeywordLists,
   MailHealthResponse,
+  OllamaModel,
   PatchDocPayload,
   RegenSummaryResult,
   SyncLastResult,
@@ -1082,6 +1087,108 @@ async function getSyncRun(runId: string): Promise<SyncRunDetail | null> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+async function getAuthStatus(): Promise<AuthStatus> {
+  const r = await fetch(`${API_BASE}/v1/auth/status`);
+  const data = await r.json();
+  return {setup_complete: Boolean(data?.setup_complete)};
+}
+
+async function authSetup(password: string): Promise<void> {
+  const r = await fetch(`${API_BASE}/v1/auth/setup`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({password}),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err?.detail || 'Setup failed');
+  }
+}
+
+async function authLogin(password: string): Promise<void> {
+  const r = await fetch(`${API_BASE}/v1/auth/login`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({password}),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err?.detail || 'Login failed');
+  }
+}
+
+async function authLogout(): Promise<void> {
+  await fetch(`${API_BASE}/v1/auth/logout`, {method: 'POST'});
+}
+
+async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
+  const r = await fetch(`${API_BASE}/v1/auth/password`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({old_password: oldPassword, new_password: newPassword}),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err?.detail || 'Password change failed');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+async function getSettings(): Promise<AppSettingItem[]> {
+  const r = await fetch(`${API_BASE}/v1/settings`);
+  if (!r.ok) return [];
+  const data = await r.json();
+  return Array.isArray(data?.items) ? data.items : [];
+}
+
+async function updateSettings(patch: Record<string, string>): Promise<void> {
+  const r = await fetch(`${API_BASE}/v1/settings`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(patch),
+  });
+  if (!r.ok) throw new Error('Settings update failed');
+}
+
+async function getOllamaModels(): Promise<OllamaModel[]> {
+  try {
+    const r = await fetch(`${API_BASE}/v1/ollama/models`);
+    if (!r.ok) return [];
+    const data = await r.json();
+    return Array.isArray(data?.models) ? data.models : [];
+  } catch {
+    return [];
+  }
+}
+
+async function getConnectivity(): Promise<ConnectivityStatus> {
+  const r = await fetch(`${API_BASE}/v1/health/connectivity`);
+  if (!r.ok) throw new Error('Connectivity check failed');
+  return r.json();
+}
+
+async function getKeywords(): Promise<KeywordLists> {
+  const r = await fetch(`${API_BASE}/v1/settings/keywords`);
+  if (!r.ok) return {person_keywords: {}, pet_keywords: {}, location_keywords: {}};
+  return r.json();
+}
+
+async function updateKeywords(patch: Partial<KeywordLists>): Promise<void> {
+  const r = await fetch(`${API_BASE}/v1/settings/keywords`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(patch),
+  });
+  if (!r.ok) throw new Error('Keywords update failed');
+}
+
 export function createRealAdapter(): KbApiClient {
   return {
     getDocs,
@@ -1096,6 +1203,17 @@ export function createRealAdapter(): KbApiClient {
     getLastSync,
     startSync,
     getSyncRun,
-    getMailHealth
+    getMailHealth,
+    getAuthStatus,
+    authSetup,
+    authLogin,
+    authLogout,
+    changePassword,
+    getSettings,
+    updateSettings,
+    getOllamaModels,
+    getConnectivity,
+    getKeywords,
+    updateKeywords,
   };
 }

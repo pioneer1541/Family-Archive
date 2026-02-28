@@ -2,12 +2,16 @@ import {catIdFromPath, colorIndexForCategory, iconForCategory} from '@src/lib/ca
 import type {
   AgentRunPayload,
   AgentRunResult,
+  AuthStatus,
+  ConnectivityStatus,
   DocumentContentAvailability,
   GetDocParams,
   GetDocsParams,
   KbApiClient,
   KbCategory,
   KbDoc,
+  KeywordLists,
+  OllamaModel,
   PatchDocPayload,
   RegenSummaryResult,
   SyncLastResult,
@@ -60,13 +64,13 @@ const seedDocs: SeedDoc[] = [
   },
   {
     id: 'd-3',
-    fileName: 'checkup_zhangwei_2024.pdf',
+    fileName: 'checkup_annual_2024.pdf',
     categoryPath: 'health/reports',
-    titleZh: '体检报告 - 张伟',
-    titleEn: 'Health Check Report - Zhang Wei',
+    titleZh: '年度体检报告 2024',
+    titleEn: 'Annual Health Check Report 2024',
     summaryZh: '2024年度健康体检，血糖偏高建议复查。',
     summaryEn: 'Annual health check, elevated glucose requires follow-up.',
-    tags: ['体检', '张伟', '2024']
+    tags: ['体检', '年度', '2024']
   },
   {
     id: 'd-4',
@@ -533,6 +537,32 @@ export function createMockAdapter(): KbApiClient {
           }
         ]
       });
-    }
+    },
+    // Auth stubs (no-op in mock — no auth required)
+    async getAuthStatus(): Promise<AuthStatus> {
+      return {setup_complete: true};
+    },
+    async authSetup(_password: string): Promise<void> {},
+    async authLogin(_password: string): Promise<void> {},
+    async authLogout(): Promise<void> {},
+    async changePassword(_oldPw: string, _newPw: string): Promise<void> {},
+    // Settings stubs
+    async getSettings() { return []; },
+    async updateSettings(_patch: Record<string, string>): Promise<void> {},
+    async getOllamaModels(): Promise<OllamaModel[]> {
+      return [{name: 'qwen3:1.7b', size: 0}, {name: 'qwen3:4b-instruct', size: 0}, {name: 'lfm2:latest', size: 0}];
+    },
+    async getConnectivity(): Promise<ConnectivityStatus> {
+      return {
+        ollama: {ok: false, model_count: 0, error: 'mock'},
+        qdrant: {ok: false, collection: 'fkv_docs_v1'},
+        nas: {ok: false, path: '/volume1', error: 'mock'},
+        gmail: {ok: false, credentials_present: false, token_present: false},
+      };
+    },
+    async getKeywords(): Promise<KeywordLists> {
+      return {person_keywords: {}, pet_keywords: {}, location_keywords: {}};
+    },
+    async updateKeywords(_patch: Partial<KeywordLists>): Promise<void> {},
   };
 }

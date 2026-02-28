@@ -252,3 +252,17 @@ class IgnoredIngestionPath(Base):
     path: Mapped[str] = mapped_column(String(1024), primary_key=True)
     reason: Mapped[str] = mapped_column(String(120), nullable=False, default="queue_deleted")
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: dt.datetime.now(dt.UTC))
+
+
+class AppSetting(Base):
+    """Runtime-configurable key/value store (JSON-encoded values)."""
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)  # JSON-encoded
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: dt.datetime.now(dt.UTC),
+        onupdate=lambda: dt.datetime.now(dt.UTC),
+    )

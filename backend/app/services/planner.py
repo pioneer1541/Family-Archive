@@ -440,7 +440,7 @@ _ROUTER_SYSTEM_PROMPT = (
     "- maintenance / how-to / steps → lookup / search_semantic (NOT detail_extract)\n"
     "- contact / phone / email for ONE entity → lookup / entity_fact_lookup (NOT detail_extract)\n"
     "- greetings, small talk, math, off-topic → chitchat\n"
-    "- pet names (e.g. 米饭, Lucky) + 生日/birthday/疫苗/health term → lookup / entity_fact_lookup (NOT chitchat)\n"
+    "- pet names (e.g. Fluffy, Buddy) + 生日/birthday/疫苗/health term → lookup / entity_fact_lookup (NOT chitchat)\n"
     "- 保修期/warranty period/质保/保固 for ANY specific object (appliance, water tank, hot water system, product) → lookup / detail_extract, domain=warranty; rewritten_query must include English object name\n"
     "- 上个月/last month/上月/previous month + specific utility/bill keyword (电费/water/gas/internet/bill) → calculate / bill_monthly_total (NOT period_aggregate); target_month = last calendar month\n\n"
     "Domains: insurance | bills | home | appliances | pets | warranty | legal | generic\n\n"
@@ -455,7 +455,7 @@ _ROUTER_SYSTEM_PROMPT = (
     'Q: "水箱怎么维护" → {"route":"lookup","rewritten_query":"水箱 维护保养步骤 water tank maintenance steps care","domain":"home","sub_intent":"search_semantic","time_window_months":0,"target_month":""}\n'
     'Q: "家庭医保的联系电话" → {"route":"lookup","rewritten_query":"家庭医疗保险 联系电话 contact phone number","domain":"insurance","sub_intent":"entity_fact_lookup","time_window_months":0,"target_month":""}\n'
     'Q: "保险保障哪些项目" → {"route":"lookup","rewritten_query":"保险保障范围 coverage items what is covered","domain":"insurance","sub_intent":"detail_extract","time_window_months":0,"target_month":""}\n'
-    'Q: "米饭的生日是什么时候" → {"route":"lookup","rewritten_query":"米饭 宠物生日 pet birthday date of birth","domain":"pets","sub_intent":"entity_fact_lookup","time_window_months":0,"target_month":""}\n'
+    'Q: "Fluffy的生日是什么时候" → {"route":"lookup","rewritten_query":"Fluffy 宠物生日 pet birthday date of birth","domain":"pets","sub_intent":"entity_fact_lookup","time_window_months":0,"target_month":""}\n'
     'Q: "水箱的保修期是多少年" → {"route":"lookup","rewritten_query":"water tank hot water system warranty period years 保修期","domain":"warranty","sub_intent":"detail_extract","time_window_months":0,"target_month":""}\n'
     'Q: "上个月的电费是多少" → {"route":"calculate","rewritten_query":"","domain":"bills","sub_intent":"bill_monthly_total","time_window_months":0,"target_month":""}\n\n'
     "Return strictly valid JSON (no markdown, no extra keys):\n"
@@ -514,7 +514,7 @@ def _router_heuristic(req: PlannerRequest) -> RouterDecision:
         domain, sub = "warranty", "detail_extract"
     elif any(p in q for p in ("家电", "appliance", "空调", "冰箱", "洗碗机", "品牌", "型号")):
         domain, sub = "appliances", "detail_extract"
-    elif any(p in q for p in ("宠物", "pet", "疫苗", "vaccine", "兽医", "vet", "猫", "狗", "lucky", "米饭")):
+    elif any(p in q for p in ("宠物", "pet", "疫苗", "vaccine", "兽医", "vet", "猫", "狗")):
         domain, sub = "pets", "detail_extract"
     elif any(p in q for p in ("水箱", "hvac", "电气", "hydraulic", "维护", "维修", "maintenance")):
         domain, sub = "home", "search_semantic"

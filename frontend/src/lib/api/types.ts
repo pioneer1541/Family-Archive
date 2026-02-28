@@ -268,6 +268,42 @@ export interface MailHealthResponse {
   detail: string;
 }
 
+// ---------------------------------------------------------------------------
+// Settings & Auth
+// ---------------------------------------------------------------------------
+
+export interface AppSettingItem {
+  key: string;
+  value: string;
+  source: 'env' | 'db' | 'default';
+  type: 'model' | 'int' | 'bool' | 'string' | 'path' | 'json';
+  category: 'llm' | 'nas' | 'mail' | 'ingestion' | 'timeout' | 'advanced' | 'keywords';
+  label_zh: string;
+  label_en: string;
+}
+
+export interface OllamaModel {
+  name: string;
+  size: number;
+}
+
+export interface ConnectivityStatus {
+  ollama: {ok: boolean; model_count: number; latency_ms?: number; error?: string};
+  qdrant: {ok: boolean; collection: string; error?: string};
+  nas: {ok: boolean; path: string; error?: string};
+  gmail: {ok: boolean; credentials_present: boolean; token_present: boolean};
+}
+
+export interface AuthStatus {
+  setup_complete: boolean;
+}
+
+export interface KeywordLists {
+  person_keywords: Record<string, string>;
+  pet_keywords: Record<string, string>;
+  location_keywords: Record<string, string>;
+}
+
 export interface KbApiClient {
   getDocs(params?: GetDocsParams): Promise<KbDoc[]>;
   getDocsPage?(params?: GetDocsParams): Promise<{items: KbDoc[]; total: number; limit: number; offset: number}>;
@@ -282,4 +318,18 @@ export interface KbApiClient {
   startSync(): Promise<SyncRunStartResult>;
   getSyncRun(runId: string): Promise<SyncRunDetail | null>;
   getMailHealth?(): Promise<MailHealthResponse>;
+  // Auth
+  getAuthStatus?(): Promise<AuthStatus>;
+  authSetup?(password: string): Promise<void>;
+  authLogin?(password: string): Promise<void>;
+  authLogout?(): Promise<void>;
+  changePassword?(oldPassword: string, newPassword: string): Promise<void>;
+  // Settings
+  getSettings?(): Promise<AppSettingItem[]>;
+  updateSettings?(patch: Record<string, string>): Promise<void>;
+  getOllamaModels?(): Promise<OllamaModel[]>;
+  getConnectivity?(): Promise<ConnectivityStatus>;
+  // Keywords
+  getKeywords?(): Promise<KeywordLists>;
+  updateKeywords?(patch: Partial<KeywordLists>): Promise<void>;
 }

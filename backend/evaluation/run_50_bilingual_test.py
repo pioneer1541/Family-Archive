@@ -106,7 +106,7 @@ CASES: list[dict[str, Any]] = [
     },
     {
         "id": "I04", "domain": "insurance", "lang": "zh", "ui_lang": "zh",
-        "query": "Lucky的宠物保险每年的保费是多少？",
+        "query": "Fluffy的宠物保险每年的保费是多少？",
         "expected_route": "lookup", "expected_sub": "detail_extract",
         "note": "pet-premium",
     },
@@ -230,19 +230,19 @@ CASES: list[dict[str, Any]] = [
     # ── Pets (6) ───────────────────────────────────────────────────────────
     {
         "id": "P01", "domain": "pets", "lang": "zh", "ui_lang": "zh",
-        "query": "Lucky的出生日期是什么时候？",
+        "query": "Fluffy的出生日期是什么时候？",
         "expected_route": "lookup", "expected_sub": "entity_fact_lookup",
         "note": "lucky-birthday",
     },
     {
         "id": "P02", "domain": "pets", "lang": "zh", "ui_lang": "zh",
-        "query": "米饭下次需要打什么疫苗？什么时候打？",
+        "query": "Biscuit下次需要打什么疫苗？什么时候打？",
         "expected_route": "lookup", "expected_sub": "detail_extract",
         "note": "mifan-next-vaccine",
     },
     {
         "id": "P03", "domain": "pets", "lang": "en", "ui_lang": "en",
-        "query": "What vaccines has Lucky received so far?",
+        "query": "What vaccines has Fluffy received so far?",
         "expected_route": "lookup", "expected_sub": "detail_extract",
         "note": "lucky-vaccine-history",
     },
@@ -254,13 +254,13 @@ CASES: list[dict[str, Any]] = [
     },
     {
         "id": "P05", "domain": "pets", "lang": "zh", "ui_lang": "zh",
-        "query": "Lucky的宠物登记证号是多少？",
+        "query": "Fluffy的宠物登记证号是多少？",
         "expected_route": "lookup", "expected_sub": "entity_fact_lookup",
         "note": "lucky-registration",
     },
     {
         "id": "P06", "domain": "pets", "lang": "mixed", "ui_lang": "zh",
-        "query": "When was 米饭's last vet checkup?",
+        "query": "When was Biscuit's last vet checkup?",
         "expected_route": "lookup", "expected_sub": "entity_fact_lookup",
         "note": "mifan-last-vet",
     },

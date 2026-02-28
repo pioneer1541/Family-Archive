@@ -3,8 +3,12 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from app.api.routes import router
+from app.auth import COOKIE_NAME, decode_access_token, is_setup_complete
 from app.config import get_settings
 from app.db import Base, SessionLocal, ensure_sqlite_runtime_schema, engine
 from app import models  # noqa: F401
@@ -96,6 +100,40 @@ async def lifespan(_app: FastAPI):
             await task
 
 
+_AUTH_EXEMPT_PREFIXES = (
+    "/v1/auth/",
+    "/health",
+    "/",
+)
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Require a valid JWT cookie for all non-exempt routes."""
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        # Allow CORS preflight and exempt paths
+        if request.method == "OPTIONS":
+            return await call_next(request)
+        if any(path == p or path.startswith(p) for p in _AUTH_EXEMPT_PREFIXES):
+            return await call_next(request)
+
+        token = request.cookies.get(COOKIE_NAME)
+        if not token or not decode_access_token(token):
+            # If setup is not complete yet, let the request through so the
+            # frontend can redirect to /setup.
+            db = SessionLocal()
+            try:
+                setup_done = is_setup_complete(db)
+            finally:
+                db.close()
+            if not setup_done:
+                return await call_next(request)
+            return JSONResponse(status_code=401, content={"detail": "Not authenticated."})
+
+        return await call_next(request)
+
+
 app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifespan)
 
 allow_all_origins = len(settings.allowed_origins) == 1 and settings.allowed_origins[0] == "*"
@@ -106,6 +144,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(AuthMiddleware)
 
 @app.get("/")
 def root() -> dict[str, str]:

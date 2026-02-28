@@ -95,7 +95,7 @@ _DETAIL_TOPIC_MAP: dict[str, tuple[str, ...]] = {
     "bill": ("账单", "bill", "invoice", "due", "缴费", "电费", "水费", "燃气"),
     "home": ("房屋", "房产", "物业", "贷款", "mortgage", "维修", "maintenance", "maintain", "water tank", "rainwater tank", "产权"),
     "appliances": ("家电", "洗衣机", "冰箱", "洗碗机", "空调", "热水器", "水箱", "appliance", "dishwasher", "air purifier", "water heater", "hot water"),
-    "pets": ("宠物", "疫苗", "兽医", "体检", "绝育", "pet", "vaccine", "vet", "birthday", "birth date", "dob", "生日", "猫", "狗", "lucky", "米饭"),
+    "pets": ("宠物", "疫苗", "兽医", "体检", "绝育", "pet", "vaccine", "vet", "birthday", "birth date", "dob", "生日", "猫", "狗"),
     "warranty": ("保修", "warranty", "serial", "claim"),
     "contract": ("合同", "contract", "agreement", "条款", "obligation"),
 }

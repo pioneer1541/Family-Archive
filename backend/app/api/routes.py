@@ -5,8 +5,9 @@ import os
 from pathlib import Path
 import requests
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response
 from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,7 +16,14 @@ from app.api.deps import get_db
 from app.config import get_settings
 from app.celery_app import celery_app
 from app.logging_utils import get_logger, sanitize_log_context
-from app.models import Chunk, Document, DocumentStatus, IngestionJob, IngestionJobStatus, MailIngestionEvent, SyncRun, SyncRunItem, Task
+from app.auth import (
+    COOKIE_NAME,
+    create_access_token,
+    is_setup_complete,
+    set_admin_password,
+    verify_admin_password,
+)
+from app.models import AppSetting, Chunk, Document, DocumentStatus, IngestionJob, IngestionJobStatus, MailIngestionEvent, SyncRun, SyncRunItem, Task
 from app.schemas import (
     AgentExecuteRequest,
     AgentExecuteResponse,
@@ -1089,7 +1097,14 @@ def map_reduce_summary(payload: MapReduceSummaryRequest, db: Session = Depends(g
             doc.title_en = str(title_en or doc.title_en)[:512]
             doc.title_zh = str(title_zh or doc.title_zh)[:512]
             doc.name_version = "name-v2"
-        upsert_bill_fact_for_document(db, doc, content_excerpt=excerpt)
+        try:
+            with db.begin_nested():
+                upsert_bill_fact_for_document(db, doc, content_excerpt=excerpt)
+        except Exception as exc:
+            logger.warning(
+                "bill_fact_upsert_error",
+                extra=sanitize_log_context({"doc_id": doc.id, "error_code": "bill_fact_upsert_error", "detail": str(exc)}),
+            )
 
     if out.quality_state == "ok":
         mail_subject = ""
@@ -1119,11 +1134,25 @@ def map_reduce_summary(payload: MapReduceSummaryRequest, db: Session = Depends(g
             mail_from=mail_from,
             mail_subject=mail_subject,
         )
-        crud.sync_auto_tags_for_document(db, document_id=doc.id, auto_tag_keys=auto_tags)
-        tags_recomputed = True
-        doc_tags = crud.get_document_tag_keys(db, doc.id)
+        try:
+            with db.begin_nested():
+                crud.sync_auto_tags_for_document(db, document_id=doc.id, auto_tag_keys=auto_tags)
+            tags_recomputed = True
+            doc_tags = crud.get_document_tag_keys(db, doc.id)
+        except Exception as exc:
+            logger.warning(
+                "tags_sync_error",
+                extra=sanitize_log_context({"doc_id": doc.id, "error_code": "tags_sync_error", "detail": str(exc)}),
+            )
+            doc_tags = []
         doc.updated_at = dt.datetime.now(dt.UTC)
 
+    # Commit all DB changes before Qdrant upsert: Qdrant calls Ollama for embeddings
+    # (external network, up to 20s) and must not hold the SQLite write lock.
+    db.commit()
+    db.refresh(doc)
+
+    if out.quality_state == "ok":
         chunks_for_vector = db.execute(select(Chunk).where(Chunk.document_id == doc.id).order_by(Chunk.chunk_index.asc())).scalars().all()
         payload_records = [
             qdrant_payload(
@@ -1152,9 +1181,6 @@ def map_reduce_summary(payload: MapReduceSummaryRequest, db: Session = Depends(g
                 )
         else:
             qdrant_synced = True
-
-    db.commit()
-    db.refresh(doc)
     if out.quality_state == "ok":
         if not applied:
             cascade_reason = str(apply_reason or "quality_not_ok")
@@ -1235,3 +1261,257 @@ def list_mail_events(
             for item in rows
         ],
     )
+
+
+# ---------------------------------------------------------------------------
+# Auth endpoints
+# ---------------------------------------------------------------------------
+
+class _SetupRequest(BaseModel):
+    password: str
+
+
+class _LoginRequest(BaseModel):
+    password: str
+
+
+class _ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@router.get("/auth/status")
+def auth_status(db: Session = Depends(get_db)):
+    """Returns whether initial setup is complete. No auth required."""
+    return {"setup_complete": is_setup_complete(db)}
+
+
+@router.post("/auth/setup")
+def auth_setup(body: _SetupRequest, db: Session = Depends(get_db)):
+    """Set the initial admin password. Only callable when setup is not yet complete."""
+    if is_setup_complete(db):
+        raise HTTPException(status_code=400, detail="Setup already complete.")
+    if len(body.password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
+    set_admin_password(body.password, db)
+    return {"ok": True}
+
+
+@router.post("/auth/login")
+def auth_login(body: _LoginRequest, response: Response, db: Session = Depends(get_db)):
+    """Verify password and set JWT cookie."""
+    if not is_setup_complete(db):
+        raise HTTPException(status_code=400, detail="Setup not complete.")
+    if not verify_admin_password(body.password, db):
+        raise HTTPException(status_code=401, detail="Invalid password.")
+    token = create_access_token()
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=86400,
+    )
+    return {"ok": True}
+
+
+@router.post("/auth/logout")
+def auth_logout(response: Response):
+    """Clear the JWT cookie."""
+    response.delete_cookie(key=COOKIE_NAME, samesite="lax")
+    return {"ok": True}
+
+
+@router.patch("/auth/password")
+def auth_change_password(
+    body: _ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    fkv_token: str | None = Cookie(default=None),
+):
+    """Change the admin password (requires current session)."""
+    from app.auth import decode_access_token
+    if not fkv_token or not decode_access_token(fkv_token):
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    if not verify_admin_password(body.old_password, db):
+        raise HTTPException(status_code=401, detail="Old password incorrect.")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=422, detail="New password must be at least 8 characters.")
+    set_admin_password(body.new_password, db)
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Settings endpoints
+# ---------------------------------------------------------------------------
+
+from app.runtime_config import (
+    SETTING_META,
+    _RUNTIME_CONFIGURABLE,
+    get_runtime_setting,
+    get_runtime_json,
+    invalidate_runtime_cache,
+)
+import os as _os
+
+
+def _setting_source(key: str, db: Session) -> str:
+    env_var, _ = _RUNTIME_CONFIGURABLE[key]
+    if env_var and _os.environ.get(env_var) is not None:
+        return "env"
+    row = db.get(AppSetting, key)
+    if row is not None:
+        return "db"
+    return "default"
+
+
+@router.get("/settings")
+def get_settings_endpoint(db: Session = Depends(get_db)):
+    """Return all runtime-configurable settings with their current values."""
+    items = []
+    for key in _RUNTIME_CONFIGURABLE:
+        if key in ("person_keywords", "pet_keywords", "location_keywords"):
+            continue  # returned via /settings/keywords
+        meta = SETTING_META.get(key, {})
+        items.append({
+            "key": key,
+            "value": get_runtime_setting(key, db),
+            "source": _setting_source(key, db),
+            "type": meta.get("type", "string"),
+            "category": meta.get("category", "advanced"),
+            "label_zh": meta.get("label_zh", key),
+            "label_en": meta.get("label_en", key),
+        })
+    return {"items": items}
+
+
+@router.patch("/settings")
+def patch_settings(body: dict, db: Session = Depends(get_db)):
+    """Update one or more settings in the DB (env vars always take precedence at read time)."""
+    import json as _json
+    for key, value in body.items():
+        if key not in _RUNTIME_CONFIGURABLE:
+            raise HTTPException(status_code=400, detail=f"Unknown setting: {key!r}")
+        str_value = str(value) if not isinstance(value, str) else value
+        row = db.get(AppSetting, key)
+        if row is None:
+            from datetime import UTC
+            row = AppSetting(key=key, value=str_value, updated_at=dt.datetime.now(dt.UTC))
+            db.add(row)
+        else:
+            row.value = str_value
+            row.updated_at = dt.datetime.now(dt.UTC)
+    db.commit()
+    invalidate_runtime_cache(*list(body.keys()))
+    return {"ok": True}
+
+
+@router.get("/settings/keywords")
+def get_keywords(db: Session = Depends(get_db)):
+    """Return user-defined tagging keyword lists."""
+    return {
+        "person_keywords": get_runtime_json("person_keywords", db).get("terms", {}),
+        "pet_keywords": get_runtime_json("pet_keywords", db).get("terms", {}),
+        "location_keywords": get_runtime_json("location_keywords", db).get("terms", {}),
+    }
+
+
+@router.patch("/settings/keywords")
+def patch_keywords(body: dict, db: Session = Depends(get_db)):
+    """
+    Update keyword lists. body keys: person_keywords | pet_keywords | location_keywords.
+    Each value is a list of strings (or dict {term: canonical}).
+    """
+    import json as _json
+    valid_keys = {"person_keywords", "pet_keywords", "location_keywords"}
+    for key, terms in body.items():
+        if key not in valid_keys:
+            raise HTTPException(status_code=400, detail=f"Unknown keyword list: {key!r}")
+        if isinstance(terms, list):
+            terms_dict = {t.lower(): t.lower() for t in terms}
+        elif isinstance(terms, dict):
+            terms_dict = {k.lower(): v.lower() for k, v in terms.items()}
+        else:
+            raise HTTPException(status_code=422, detail=f"{key} must be a list or dict")
+        str_value = _json.dumps({"terms": terms_dict})
+        row = db.get(AppSetting, key)
+        if row is None:
+            row = AppSetting(key=key, value=str_value, updated_at=dt.datetime.now(dt.UTC))
+            db.add(row)
+        else:
+            row.value = str_value
+            row.updated_at = dt.datetime.now(dt.UTC)
+    db.commit()
+    invalidate_runtime_cache(*list(body.keys()))
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Ollama model list proxy
+# ---------------------------------------------------------------------------
+
+@router.get("/ollama/models")
+def get_ollama_models(db: Session = Depends(get_db)):
+    """Proxy Ollama /api/tags to return available models."""
+    ollama_url = get_runtime_setting("ollama_base_url", db)
+    try:
+        resp = requests.get(f"{ollama_url}/api/tags", timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        models_list = [
+            {"name": m.get("name", ""), "size": m.get("size", 0)}
+            for m in data.get("models", [])
+        ]
+        return {"models": models_list, "ok": True}
+    except Exception as exc:
+        return {"models": [], "ok": False, "error": str(exc)}
+
+
+# ---------------------------------------------------------------------------
+# Connectivity health check
+# ---------------------------------------------------------------------------
+
+@router.get("/health/connectivity")
+def connectivity_health(db: Session = Depends(get_db)):
+    """Check connectivity to Ollama, Qdrant, NAS, and Gmail."""
+    import time
+
+    # Ollama
+    ollama_url = get_runtime_setting("ollama_base_url", db)
+    try:
+        t0 = time.monotonic()
+        resp = requests.get(f"{ollama_url}/api/tags", timeout=5)
+        resp.raise_for_status()
+        model_count = len(resp.json().get("models", []))
+        ollama_result = {"ok": True, "model_count": model_count, "latency_ms": int((time.monotonic() - t0) * 1000)}
+    except Exception as exc:
+        ollama_result = {"ok": False, "error": str(exc), "model_count": 0}
+
+    # Qdrant
+    try:
+        qdrant_resp = requests.get(f"{settings.qdrant_url}/collections/{settings.qdrant_collection}", timeout=5)
+        qdrant_result = {"ok": qdrant_resp.status_code == 200, "collection": settings.qdrant_collection}
+    except Exception as exc:
+        qdrant_result = {"ok": False, "error": str(exc)}
+
+    # NAS directory
+    nas_dir = get_runtime_setting("nas_default_source_dir", db)
+    nas_ok = os.path.isdir(nas_dir)
+    nas_result = {"ok": nas_ok, "path": nas_dir}
+    if not nas_ok:
+        nas_result["error"] = "directory not found"
+
+    # Gmail credentials
+    creds_path = settings.mail_credentials_path
+    token_path = settings.mail_token_path
+    gmail_result = {
+        "ok": os.path.isfile(creds_path) and os.path.isfile(token_path),
+        "credentials_present": os.path.isfile(creds_path),
+        "token_present": os.path.isfile(token_path),
+    }
+
+    return {
+        "ollama": ollama_result,
+        "qdrant": qdrant_result,
+        "nas": nas_result,
+        "gmail": gmail_result,
+    }

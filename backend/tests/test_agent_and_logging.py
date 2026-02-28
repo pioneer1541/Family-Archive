@@ -82,7 +82,7 @@ def test_planner_fallback_routes_for_english_queries(monkeypatch):
 
     monkeypatch.setattr(planner_service.requests, "post", _raise)
     birthday = planner_service.plan_from_request(
-        PlannerRequest(query="Lucky's birthday", ui_lang="en", query_lang="auto", doc_scope={})
+        PlannerRequest(query="Fluffy's birthday", ui_lang="en", query_lang="auto", doc_scope={})
     )
     current_bills = planner_service.plan_from_request(
         PlannerRequest(query="current bills", ui_lang="en", query_lang="auto", doc_scope={})
@@ -1045,14 +1045,14 @@ def test_agent_english_birthday_query_refuses_without_birthdate_evidence(client,
                 {
                     "doc_id": "doc-pet-1",
                     "chunk_id": "c-1",
-                    "title_en": "Sterilisation Certificate for Lucky",
-                    "title_zh": "Lucky绝育证书",
+                    "title_en": "Sterilisation Certificate for Fluffy",
+                    "title_zh": "Fluffy绝育证书",
                     "category_path": "health/medical_records",
                     "score": 0.92,
-                    "text": "Lucky sterilisation certificate dated 2025-10-31 at Doncaster Veterinary Hospital.",
+                    "text": "Fluffy sterilisation certificate dated 2025-10-31 at City Vet Hospital.",
                 }
             ],
-            "sources": [{"doc_id": "doc-pet-1", "chunk_id": "c-1", "label": "Sterilisation Certificate for Lucky"}],
+            "sources": [{"doc_id": "doc-pet-1", "chunk_id": "c-1", "label": "Sterilisation Certificate for Fluffy"}],
             "related_docs": [],
             "hit_count": 1,
             "doc_count": 1,
@@ -1083,7 +1083,7 @@ def test_agent_english_birthday_query_refuses_without_birthdate_evidence(client,
     r = client.post(
         "/v1/agent/execute",
         json={
-            "query": "Lucky's birthday",
+            "query": "Fluffy's birthday",
             "ui_lang": "en",
             "query_lang": "en",
             "planner": {

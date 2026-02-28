@@ -15,6 +15,7 @@ import {SyncViewerProvider} from '@src/lib/ui-state/sync-viewer';
 import {TopbarProvider} from '@src/lib/ui-state/topbar';
 import {OverlayProvider} from '@src/lib/ui-state/overlay';
 import {ToastProvider} from '@src/lib/ui-state/toast';
+import {AuthGuard} from '@src/components/auth/AuthGuard';
 
 interface MobileNavItem {
   href: '/dashboard' | '/docs' | '/cats' | '/agent';
@@ -85,6 +86,7 @@ function AppShell({children}: {children: ReactNode}) {
   const isAgentRoute = normalizedPath.startsWith('/agent');
 
   return (
+    <AuthGuard>
     <ToastProvider>
       <OverlayProvider>
         <ContentViewerProvider>
@@ -122,6 +124,7 @@ function AppShell({children}: {children: ReactNode}) {
         </ContentViewerProvider>
       </OverlayProvider>
     </ToastProvider>
+    </AuthGuard>
   );
 }
 

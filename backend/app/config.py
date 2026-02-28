@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     embed_model: str = "qwen3-embedding:0.6b"
     summary_model: str = "qwen3:4b-instruct"
     category_model: str = "qwen3:4b-instruct"
-    friendly_name_model: str = "qwen3:4b-instruct"
+    friendly_name_model: str = "lfm2:latest"
     vl_extract_model: str = "qwen3-vl:2b"
     summary_timeout_sec: int = 12
     agent_synth_timeout_sec: int = 25
@@ -96,7 +96,7 @@ class Settings(BaseSettings):
     longdoc_final_section_max: int = 18
     longdoc_final_semantic_max: int = 6
 
-    allowed_origins: List[str] = ["*"]
+    allowed_origins: List[str] = ["http://localhost:18181"]
     log_level: str = "INFO"
     lexical_candidate_limit: int = 1500
     celery_worker_concurrency: int = 2

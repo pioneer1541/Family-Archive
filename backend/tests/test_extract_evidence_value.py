@@ -1,7 +1,7 @@
 """
 Unit tests for _extract_evidence_value() — specifically birth_date context validation.
 
-Regression coverage for the Lucky vet-certificate bug:
+Regression coverage for the Fluffy vet-certificate bug:
   Vet cert chunk contains both DOB (04 November 2024) and procedure date (31 October 2025).
   The wrong date was being returned because:
     - re.search() matched the procedure date first (it appeared earlier in text)
@@ -23,7 +23,7 @@ class TestBirthDateExtraction:
 
     def test_dob_label_extracts_correctly(self):
         """Standard DOB label immediately before date."""
-        text = "Animal: Lucky\nDOB: 04 November 2024\nBreed: Cavoodle"
+        text = "Animal: Fluffy\nDOB: 04 November 2024\nBreed: Cavoodle"
         assert _extract_evidence_value(text, "pets", "birth_date") == "04 November 2024"
 
     def test_date_of_birth_label_extracts_correctly(self):
@@ -70,7 +70,7 @@ class TestBirthDateExtraction:
         """Realistic vet cert: procedure date appears before DOB in extracted text."""
         text = (
             "Certificate of Desexing\n"
-            "Animal Name: Lucky\n"
+            "Animal Name: Fluffy\n"
             "Date of Procedure: 31 October 2025\n"
             "DOB: 04 November 2024\n"
             "Breed: Cavoodle\n"
@@ -92,5 +92,5 @@ class TestBirthDateExtraction:
 
     def test_born_keyword_accepted(self):
         """'born' is a valid birth label."""
-        text = "Lucky was born: 04 November 2024"
+        text = "Fluffy was born: 04 November 2024"
         assert _extract_evidence_value(text, "pets", "birth_date") == "04 November 2024"

@@ -8,6 +8,9 @@ const distDir = process.env.NEXT_DIST_DIR || '.next-runtime';
 const nextConfig = {
   reactStrictMode: true,
   distDir,
+  httpAgentOptions: {
+    timeout: 600_000,
+  },
   async rewrites() {
     return [
       {

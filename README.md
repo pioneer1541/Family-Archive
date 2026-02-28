@@ -1,215 +1,275 @@
-# Family Knowledge Vault (Independent Implementation)
+# Family Vault
 
-This project implements the revised Family Knowledge Vault plan with:
-- Backend: FastAPI + SQLAlchemy + Alembic + Celery + Redis
-- Metadata DB: SQLite
-- Vector target: Qdrant (payload keys aligned; enabled by default)
-- Frontend: Next.js + next-intl (`zh-CN` / `en-AU`)
+> A private, self-hosted AI assistant for your family's documents — your data never leaves your home.
 
-## Layout
-- `backend/`: API, services, database models, migrations, tests
-- `frontend/`: Next.js App Router UI (`/dashboard`, `/docs`, `/cats`, `/cats/[catId]`, `/agent`)
-- `docker-compose.yml`: local single-host stack for API/Worker/Redis/Qdrant/Frontend
+Family Vault indexes your documents (PDFs, scans, bills, insurance policies, contracts, photos) and lets you ask questions in natural language. All AI inference runs locally via [Ollama](https://ollama.com).
+
+---
+
+## Features
+
+- **Bilingual UI** — Simplified Chinese + Australian English (switchable at runtime)
+- **Document ingestion** — PDF, DOCX, XLSX, TXT, images; OCR fallback for scanned docs
+- **Local AI** — Summarisation, categorisation, and Q&A powered by Ollama (no cloud API calls)
+- **Smart search** — Hybrid vector + lexical retrieval via Qdrant + SQLite
+- **AI Agent** — Ask natural-language questions and get structured answers with source references
+- **NAS sync** — Auto-scan a local directory (e.g. Synology `/volume1/Family_Archives`)
+- **Gmail integration** — Auto-ingest email attachments (PDF statements, invoices)
+- **Settings UI** — Configure models, timeouts, keywords, and connectivity without editing env vars
+- **Password protection** — First-visit setup wizard; bcrypt-hashed password stored locally
+
+---
 
 ## Quick Start
-1. Backend
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + Compose v2)
+- [Ollama](https://ollama.com) running on your host machine
+
+### 1 — Pull recommended models
+
 ```bash
-cd family-vault/backend
+ollama pull qwen3:1.7b              # Planner / lightweight Q&A
+ollama pull qwen3:4b-instruct       # Summarisation / synthesis
+ollama pull qwen3-embedding:0.6b    # Vector embeddings
+ollama pull lfm2:latest             # Friendly document titles
+```
+
+Minimum viable (low-RAM) option:
+
+```bash
+ollama pull qwen3:1.7b
+ollama pull qwen3-embedding:0.6b
+```
+
+### 2 — Clone and start
+
+```bash
+git clone https://github.com/your-org/family-vault.git
+cd family-vault
+docker compose up -d
+```
+
+### 3 — Open the app
+
+Visit **http://localhost:18181**
+
+On first visit you'll be prompted to set a password and (optionally) configure the Ollama URL.
+
+### 4 — Add your documents
+
+- **Drag & drop** files directly from the Documents page
+- Or point the NAS scanner at a local folder via **Settings → Storage & Scan**
+
+---
+
+## Recommended Model Configuration
+
+| Role | Recommended | Minimum |
+|------|-------------|---------|
+| Planner / routing | `qwen3:1.7b` | same |
+| Summarisation | `qwen3:4b-instruct` | `qwen3:1.7b` |
+| Synthesiser (Q&A) | `qwen3:4b-instruct` | `qwen3:1.7b` |
+| Embeddings | `qwen3-embedding:0.6b` | same |
+| Category model | `qwen3:4b-instruct` | `qwen3:1.7b` |
+| Friendly titles | `lfm2:latest` | `qwen3:1.7b` |
+| Vision (images) | `qwen3-vl:2b` | same |
+
+All models are selectable in **Settings → LLM Models** after startup.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Browser                                            │
+│  Next.js frontend  (port 18181)                     │
+│  zh-CN / en-AU · dashboard / docs / cats / agent    │
+└────────────────────┬────────────────────────────────┘
+                     │ /api/* proxy
+┌────────────────────▼────────────────────────────────┐
+│  fkv-api  FastAPI + Uvicorn  (port 18080)           │
+│  ┌──────────────┐  ┌────────────────────────────┐  │
+│  │ REST API     │  │ AI Agent (planner + synth) │  │
+│  │ Ingestion    │  │ map-reduce summarisation   │  │
+│  └──────┬───────┘  └───────────────┬────────────┘  │
+│         │                          │                │
+│  ┌──────▼───────┐       ┌──────────▼────────────┐  │
+│  │ SQLite DB    │       │ Ollama  (host:11434)  │  │
+│  │ (metadata)   │       └───────────────────────┘  │
+│  └──────┬───────┘                                  │
+│         │  Celery tasks                            │
+└─────────┼────────────────────────────────────────-─┘
+          │
+┌─────────▼────────────┐   ┌────────────────────────┐
+│  fkv-worker  Celery  │   │  Qdrant (vector store) │
+│  (document pipeline) │   │  port 6333             │
+└──────────────────────┘   └────────────────────────┘
+          │
+      ┌───▼───┐
+      │ Redis │  (task queue)
+      └───────┘
+```
+
+---
+
+## Configuration
+
+Most settings are available in the **Settings UI** (no env vars needed after initial deploy).
+
+The following env vars in `docker-compose.yml` control deployment-time behaviour:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FAMILY_VAULT_OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Ollama endpoint |
+| `FAMILY_VAULT_DATABASE_URL` | `sqlite:////app/data/family_vault.db` | SQLite path |
+| `FAMILY_VAULT_QDRANT_URL` | `http://qdrant:6333` | Qdrant endpoint |
+| `FAMILY_VAULT_QDRANT_ENABLE` | `1` | Enable vector search |
+| `FAMILY_VAULT_ALLOWED_ORIGINS` | `http://localhost:18181` | CORS allowed origins |
+| `FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED` | `1` | Enable background NAS scan |
+| `FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR` | `/volume1/Family_Archives` | Directory to scan |
+| `FAMILY_VAULT_MAIL_POLL_ENABLED` | `0` | Enable Gmail polling |
+| `FAMILY_VAULT_JWT_SECRET` | *(auto-generated)* | JWT signing secret (set manually for persistence) |
+
+Runtime-configurable settings (model names, timeouts, keywords, etc.) are stored in the database and editable through the Settings UI.
+
+---
+
+## Custom Keywords
+
+Go to **Settings → Keywords** to add names that the system should recognise for auto-tagging and AI routing:
+
+- **Family member names** — used to route queries like "Alice's health check"
+- **Pet names** — routes pet birthday / vaccine queries
+- **Location keywords** — used for address-aware document tagging
+
+---
+
+## Gmail Integration
+
+1. Create a Google Cloud project and enable the Gmail API
+2. Create an **OAuth 2.0 Desktop app** credential and download `credentials.json`
+3. Place it at `secrets/gmail/credentials.json` (relative to the repo root)
+4. Authorise once — run the following command while the containers are up:
+
+```bash
+docker compose exec fkv-api python -c "
+from google_auth_oauthlib.flow import InstalledAppFlow
+import pathlib
+flow = InstalledAppFlow.from_client_secrets_file(
+    '/app/secrets/gmail/credentials.json',
+    ['https://www.googleapis.com/auth/gmail.readonly'])
+creds = flow.run_local_server(port=0)
+pathlib.Path('/app/secrets/gmail/token.json').write_text(creds.to_json())
+print('token.json written — Gmail authorisation complete')
+"
+```
+
+5. Enable polling in **Settings → Mail Pull**
+
+> `token.json` contains a long-lived refresh token and is automatically renewed. You only need to repeat step 4 if you revoke access in your Google account.
+>
+> `secrets/` is in `.gitignore` — your credentials will never be committed.
+
+---
+
+## Data Location
+
+All data is stored locally inside Docker volumes:
+
+| Data | Volume |
+|------|--------|
+| SQLite database | `fkv-data` → `/app/data/` |
+| Qdrant index | `qdrant-data` |
+| Redis state | `redis-data` |
+
+To back up: stop containers, copy the volume directories.
+
+---
+
+## FAQ
+
+**Ollama won't connect**
+- Ensure Ollama is running: `ollama serve`
+- On macOS/Windows Docker Desktop, use `http://host.docker.internal:11434`
+- On Linux, use your host's LAN IP or bridge IP (e.g. `http://172.17.0.1:11434`)
+- Check in **Settings → Advanced → Test Connection**
+
+**Documents uploaded but no summary appears**
+- Summary generation is asynchronous (Celery worker). Check `docker compose logs fkv-worker`
+- Ensure the required Ollama models are pulled
+- Default summary timeout is 90s/page — large PDFs may take several minutes
+
+**Forgot the access password**
+```bash
+docker compose exec fkv-api python -c "
+from app.db import SessionLocal
+from app.auth import set_admin_password
+db = SessionLocal()
+set_admin_password('your-new-password', db)
+db.close()
+print('Password reset.')
+"
+```
+
+**Mail attachments not being ingested**
+- Verify `credentials.json` and `token.json` are in place
+- Check **Settings → Mail Pull → Test Connection**
+- Review logs: `docker compose logs fkv-api | grep mail`
+
+---
+
+## Development
+
+```bash
+# Backend
+cd backend
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 18180
-```
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 18080 --reload
 
-2. Worker
-```bash
-cd family-vault/backend
+# Worker
 .venv/bin/celery -A app.worker worker --loglevel=info
-```
 
-3. Frontend
-```bash
-cd family-vault/frontend
+# Frontend
+cd frontend
 npm install
-npm run dev
-```
-Default URLs:
-- API: `http://127.0.0.1:18180`
-- Frontend: `http://127.0.0.1:18081`
+npm run dev   # port 18081
 
-4. Tests
-```bash
-cd family-vault/backend
+# Tests
+cd backend
 .venv/bin/pytest -q
 ```
 
-## API Endpoints
-- `POST /v1/ingestion/jobs`
-- `GET /v1/ingestion/jobs/{job_id}`
-- `DELETE /v1/ingestion/jobs/{job_id}`
-- `POST /v1/ingestion/jobs/{job_id}/retry`
-- `POST /v1/ingestion/nas/scan`
-- `POST /v1/search`
-- `GET /v1/documents`
-- `GET /v1/documents/{doc_id}`
-- `GET /v1/documents/{doc_id}/content/availability`
-- `GET /v1/documents/{doc_id}/content`
-- `PATCH /v1/documents/{doc_id}/friendly-name`
-- `GET /v1/documents/{doc_id}/tags`
-- `PATCH /v1/documents/{doc_id}/tags`
-- `GET /v1/tags`
-- `GET /v1/categories`
-- `GET /v1/queue`
-- `POST /v1/documents/{doc_id}/reprocess`
-- `POST /v1/tasks`
-- `GET /v1/tasks`
-- `GET /v1/tasks/{task_id}`
-- `POST /v1/agent/plan`
-- `POST /v1/agent/execute`
-- `POST /v1/summaries/map-reduce`
-- `GET /v1/system/prompts`
-- `GET /v1/governance/category-debt`
-- `GET /v1/governance/category-debt/trend`
-- `POST /v1/mail/poll`
-- `GET /v1/mail/events`
-- `POST /v1/sync/runs`
-- `GET /v1/sync/runs/{run_id}`
-- `GET /v1/sync/last`
+---
 
-## One-Command Workflow
-```bash
-cd family-vault
-make up
-make test-backend
-make eval-all
-make e2e-ui
+## Project Layout
+
+```
+family-vault/
+├── backend/
+│   ├── app/
+│   │   ├── api/          # FastAPI routes + deps
+│   │   ├── services/     # agent, planner, ingestion, summarisation, …
+│   │   ├── models.py     # SQLAlchemy ORM models
+│   │   ├── auth.py       # bcrypt + JWT auth
+│   │   └── runtime_config.py  # DB-backed runtime settings
+│   ├── alembic/          # DB migrations
+│   ├── evaluation/       # Evaluation scripts and test cases
+│   └── tests/            # pytest test suite
+├── frontend/
+│   ├── app/[locale]/     # Next.js pages (dashboard/docs/cats/agent/settings/setup/login)
+│   ├── src/components/   # React components
+│   ├── src/lib/api/      # API client (real + mock adapters)
+│   └── messages/         # i18n strings (zh-CN / en-AU)
+├── docker-compose.yml
+└── docker-compose.prod.yml
 ```
 
-Full gate in one shot:
-```bash
-cd family-vault
-make check-all
-```
+---
 
-Contract freeze check only:
-```bash
-cd family-vault
-make openapi-check
-```
+## License
 
-## CI Gate
-- Workflow: `.github/workflows/family-vault-gate.yml`
-- Trigger: `push` to `main`, plus `pull_request` (`opened` / `reopened` / `synchronize` / `ready_for_review`)
-- Action (v1): layered base gate running backend `pytest -q` and frontend `check:manifest` + `test` + `build` (no Docker Compose full-stack gate)
-- Roadmap: add separate Docker Compose integration and Playwright E2E workflows after the base gate is stable
-
-## Notes
-- M1 baseline was text-first ingestion (`PDF/DOCX/TXT/XLSX`).
-- OCR fallback is now available for scanned PDFs and image files when text extraction is empty.
-- If OCR still returns empty content, ingestion can index a metadata-only fallback chunk (`FAMILY_VAULT_INGESTION_METADATA_FALLBACK_ENABLED=1`) so files remain visible/reprocessable.
-- Directory scanning still follows `FAMILY_VAULT_INGESTION_ALLOWED_EXTENSIONS`; add image extensions there if you want bulk image OCR ingestion.
-- NAS auto-scan is now strictly constrained to `FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR` (default `/volume1/Family_Archives`); paths outside this root are ignored.
-- NAS scan extension filter is separated via `FAMILY_VAULT_NAS_ALLOWED_EXTENSIONS`.
-- Mail polling now filters attachments to document/photo types (`pdf/doc/docx/xls/xlsx/jpg/jpeg/png/webp/tif/tiff/heic`).
-- Mail polling now enforces real-attachment disposition (`Content-Disposition=attachment`) and skips inline/CID signature assets (`detail=inline_asset`).
-- Image-format files (`jpg/jpeg/png/webp/tif/tiff/heic`) are additionally gated by size (`FAMILY_VAULT_PHOTO_MAX_SIZE_MB`, default 20MB) for NAS scan, mail attachments, and direct ingestion.
-- Image near-duplicate detection is enabled via pHash (configurable Hamming threshold).
-- Ingestion now accepts both file paths and directory paths (recursive scan with extension filtering).
-- Friendly titles are auto-generated from parsed content (Chinese-first naming) and can be edited via `PATCH /v1/documents/{doc_id}/friendly-name` without changing original file names.
-- Summary output is Chinese-first by default in map-reduce and document detail displays.
-- Existing records can be backfilled once via `docker exec -i fkv-api python /app/scripts/backfill_friendly_names.py`.
-- Qdrant indexing is enabled by default (`FAMILY_VAULT_QDRANT_ENABLE=1`) and collection bootstrap is automatic.
-- `/v1/search` now uses hybrid retrieval: Qdrant vector search first, then lexical fallback/fill.
-- `/v1/search` supports tag filters: `tags_all` (AND) and `tags_any` (OR).
-- Tag rules are config-driven via `backend/services/kb-worker/config/tag_rules.json` (families, synonyms, topic whitelist, limits).
-- Documents now support structured tags (`family:value`) with normalization, synonym mapping, manual edit API, and auto-tag refresh after summary regeneration.
-- `/v1/summaries/map-reduce` now uses hierarchical semantic windows (200-500 token windows -> section reduce) for long-document stability.
-- `/v1/summaries/map-reduce` now includes long-doc budget metadata (`longdoc_mode/pages_total/pages_used`) and sampled-page execution when oversized.
-- `/v1/summaries/map-reduce` now returns `quality_state/fallback_used/quality_flags`; only `quality_state=ok` can overwrite stored summaries.
-- `GET /v1/system/prompts` exposes active summary/category/name prompt text and hash for prompt audit.
-- Document detail now exposes quality metadata fields: `summary_quality_state`, `summary_last_error`, `summary_model`, `summary_version`, `category_version`, `name_version`.
-- `GET /v1/documents` now hides source-missing files by default; set `include_missing=true` to inspect missing-source records.
-- `GET /v1/categories` and `POST /v1/search` follow the same default source-available filtering (`include_missing=false`).
-- `GET /v1/documents/{doc_id}` now returns `source_available` and `source_missing_reason`.
-- `GET /v1/documents/{doc_id}/content/availability` provides previewability probe (`ok/source_file_missing/document_not_ready/unsupported_media_type`) for UI preflight.
-- `/v1/summaries/map-reduce` now returns `applied` and `apply_reason`; when quality is not `ok`, old summary/title/category remain unchanged.
-- `/v1/agent/execute` now runs planner -> executor -> synthesizer: planner emits structured decision JSON, executor retrieves/deduplicates with context budget, synthesizer emits structured Result Card (model failure falls back to deterministic template).
-- `/v1/agent/execute` response now includes `related_docs`, `trace_id`, and `executor_stats` for UI-side traceability and direct related-doc rendering.
-- Agent request now accepts `conversation` and `client_context` to support short-window multi-turn context and selected-doc scoping.
-- Agent context defaults to smart-followup: fresh turn for new questions, short history only for followup-style prompts.
-- Agent bill-attention flow now uses structured `bill_facts` data (`amount_due/currency/due_date/payment_status`) for stable "recent bills to watch" answers.
-- Month-total bill queries (e.g. `2月账单一共多少钱`) now route to structured aggregation (`bill_monthly_total`) and return month-scoped bill docs only.
-- Agent executor now enforces structured-first routing: `queue_view/reprocess_doc/tag_update/bill_attention` do not call vector retrieval; semantic/open Q&A routes use hybrid retrieval.
-- `/v1/agent/execute` `executor_stats` now includes `qdrant_used`, `retrieval_mode`, `vector_hit_count`, `lexical_hit_count`, and `fallback_reason` for auditability.
-- Agent request supports `doc_scope`; frontend Agent page now auto-binds selected docs from Context Panel so user-selected docs constrain executor context.
-- Agent UI shows low-confidence (`confidence < 0.55`) fallback semantic-search action.
-- Ingestion queue uses retry semantics with capped retries and exponential backoff (`retrying -> failed` on retry exhaustion).
-- `make eval-all` now includes cross-language retrieval validation (`crosslang_eval_report.json`).
-- Agent eval suite now includes mixed scoring (rule + LLM judge) with 40-case bank (`backend/evaluation/agent_eval_cases_v1.json`) and random 20-case runs (`make eval-agent`), plus trend aggregation (`make eval-agent-trend`).
-- Frontend IA is now fixed to 4 entries only: Dashboard / Docs / Categories / Agent.
-- Agent is a standalone page view; document detail is an overlay panel opened from document cards.
-- Document detail now includes "View Document Content": opens a full-screen content overlay, uses `/v1/documents/{doc_id}/content` for inline preview (PDF/images), and falls back to extracted text + download for non-previewable formats.
-- NAS source scan supports incremental detection via file-state table (`source_file_states`) to avoid full re-ingest on unchanged files.
-- Gmail polling (`/v1/mail/poll`) downloads new mail attachments to local storage and enqueues ingestion; event notifications are queryable from `/v1/mail/events`.
-- Mail attachments are auto-tagged as `source_type=mail` and rule-classified into categories (e.g. `finance/bills`, `finance/utilities`, `property/*`) during ingestion.
-- Queue page supports deleting ingestion jobs; deleted job input paths are persisted in `ignored_ingestion_paths` and will not be enqueued again automatically.
-- Task IDs are now human-readable and anchored to friendly-name/file-name/title context (instead of random UUID-only IDs).
-- Compose mounts follow the same integration paths as `mcp-tools`: `/mnt/nas` and `../mcp-tools/secrets/gmail`, and also expose NAS at `/volume1/Family_Archives` for scanner default path compatibility.
-- Compose defaults enable background NAS auto-scan and mail polling in API container (`FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED=1`, `FAMILY_VAULT_MAIL_POLL_ENABLED=1`).
-- Frontend now defaults to same-origin `/api` proxy, so remote-browser access no longer depends on client-side `127.0.0.1` API reachability.
-- Browser tab title is synchronized as `{current page} | Family Knowledge Vault` to avoid URL/IP-only tabs.
-- Dashboard topbar now shows locale switch (`中文 | EN`) instead of doc-count meta on dashboard page.
-- Dashboard recent card now includes `立即同步/Sync Now` + last-sync timestamp; syncing state opens a run-detail overlay with file/size/stage updates.
-- Sync API aggregates NAS scan + mail poll in one run (`/v1/sync/runs`), with pollable run details (`/v1/sync/runs/{run_id}`).
-- When backend API code changes (non-reload mode), restart `fkv-api` and verify `GET /v1/documents/{doc_id}/content/availability` before UI preview checks.
-- Reprocess flow now cleans stale Qdrant point IDs for old chunks; failures are marked with document error code `qdrant_cleanup_pending` for later reconciliation.
-- Governance layer now blocks legacy category paths (`general`, `finance/utilities`, `finance/telecom`, `property/strata`, `property`) at write-time by rewriting to `archive/misc`.
-- Governance snapshot/trend reports are available via `/v1/governance/category-debt` and `/v1/governance/category-debt/trend`.
-- CI gate now includes production-scope category debt check (`completed` must contain zero legacy paths) via `scripts/check_category_debt_gate.py`.
-
-## Quality Rebuild
-Run full historical cleanup with map-reduce summary + category + friendly-name regeneration:
-```bash
-cd family-vault/backend
-.venv/bin/python scripts/full_quality_rebuild.py --workers 2 --output ../data/before_after_quality_report.json
-```
-
-Backfill only problematic completed docs (`unknown/llm_failed/needs_regen`) and emit a report:
-```bash
-cd family-vault/backend
-PYTHONPATH=$(pwd) .venv/bin/python scripts/backfill_quality_unknown.py --include-missing --output ../data/quality_backfill_report.json
-```
-
-Backfill structured `bill_facts` for completed `finance/bills/*` docs (dry-run then apply):
-```bash
-cd family-vault/backend
-PYTHONPATH=$(pwd) .venv/bin/python scripts/backfill_bill_facts.py --dry-run --output ../data/bill_facts_backfill_report.json
-PYTHONPATH=$(pwd) .venv/bin/python scripts/backfill_bill_facts.py --apply --output ../data/bill_facts_backfill_report.json
-```
-
-Reconcile Qdrant points with SQLite chunks (dry-run then apply):
-```bash
-cd family-vault/backend
-PYTHONPATH=$(pwd) .venv/bin/python scripts/reconcile_qdrant_points.py --output ../data/qdrant_reconcile_report.json
-PYTHONPATH=$(pwd) .venv/bin/python scripts/reconcile_qdrant_points.py --apply --output ../data/qdrant_reconcile_report.json
-```
-
-Cleanup inline mail image artifacts (dry-run then apply):
-```bash
-cd family-vault/backend
-PYTHONPATH=$(pwd) .venv/bin/python scripts/cleanup_inline_mail_images.py --dry-run --output ../data/inline_mail_cleanup_report.json
-PYTHONPATH=$(pwd) .venv/bin/python scripts/cleanup_inline_mail_images.py --apply --output ../data/inline_mail_cleanup_report.json
-```
-
-Generate category debt governance reports:
-```bash
-cd family-vault/backend
-PYTHONPATH=$(pwd) .venv/bin/python scripts/category_debt_snapshot.py --output-dir ../data
-PYTHONPATH=$(pwd) .venv/bin/python scripts/category_debt_trend.py --data-dir ../data --output ../data/category_debt_trend_latest.json
-```
-
-Cleanup legacy debt records in non-production statuses (`failed/duplicate`) with dry-run first:
-```bash
-cd family-vault/backend
-PYTHONPATH=$(pwd) .venv/bin/python scripts/cleanup_legacy_nonprod_docs.py --dry-run --days 30 --output ../data/legacy_nonprod_cleanup_report.json
-PYTHONPATH=$(pwd) .venv/bin/python scripts/cleanup_legacy_nonprod_docs.py --apply --days 30 --output ../data/legacy_nonprod_cleanup_report.json
-```
+MIT
