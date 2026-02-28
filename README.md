@@ -46,7 +46,7 @@ ollama pull qwen3-embedding:0.6b
 ### 2 — Clone and start
 
 ```bash
-git clone https://github.com/your-org/family-vault.git
+git clone https://github.com/pioneer1541/Family-Archive.git
 cd family-vault
 docker compose up -d
 ```
