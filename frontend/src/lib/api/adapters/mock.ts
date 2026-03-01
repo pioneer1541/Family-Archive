@@ -556,7 +556,7 @@ export function createMockAdapter(): KbApiClient {
       return {
         ollama: {ok: false, model_count: 0, error: 'mock'},
         qdrant: {ok: false, collection: 'fkv_docs_v1'},
-        nas: {ok: false, path: '/volume1', error: 'mock'},
+        nas: {ok: false, path: '/volume1', readable: false, writable: false, error: 'mock'},
         gmail: {ok: false, credentials_present: false, token_present: false},
       };
     },
