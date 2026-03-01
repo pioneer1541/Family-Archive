@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app import crud, models
 from app.config import get_settings
 from app.logging_utils import get_logger, sanitize_log_context
+from app.runtime_config import get_runtime_setting
 from app.services.ingestion import enqueue_ingestion_job
 
 try:
@@ -224,6 +225,17 @@ def _event(
     )
 
 
+def _mail_attachment_base_dir(db: Session | None = None) -> str:
+    # 优先将附件写入 NAS 挂载目录下的子目录，便于统一管理与扫描。
+    nas_dir = str(get_runtime_setting("nas_default_source_dir", db) if db is not None else settings.nas_default_source_dir).strip()
+    subdir = str(get_runtime_setting("mail_attachment_subdir", db) if db is not None else settings.mail_attachment_subdir).strip()
+    safe_subdir = subdir or "email_attachments"
+    if nas_dir:
+        return os.path.join(nas_dir, safe_subdir)
+    # NAS 未配置时回退到历史目录，避免邮件下载直接失败。
+    return os.path.join(settings.mail_attachment_root, safe_subdir)
+
+
 def poll_mailbox_and_enqueue(db: Session, *, max_results: int | None = None, sync_run_id: str | None = None) -> dict:
     service, err = _gmail_service()
     if service is None:
@@ -344,7 +356,8 @@ def poll_mailbox_and_enqueue(db: Session, *, max_results: int | None = None, syn
 
                 try:
                     now = dt.datetime.now(dt.UTC)
-                    save_dir = os.path.join(settings.mail_attachment_root, now.strftime("%Y"), now.strftime("%m"))
+                    base_dir = _mail_attachment_base_dir(db)
+                    save_dir = os.path.join(base_dir, now.strftime("%Y"), now.strftime("%m"))
                     os.makedirs(save_dir, exist_ok=True)
                     safe_name = _safe_filename(fn)
                     local_path = os.path.realpath(os.path.join(save_dir, f"{message_id}_{safe_name}"))

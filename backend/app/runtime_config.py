@@ -2,9 +2,9 @@
 Runtime-configurable settings: DB > env var > config.py default.
 
 Priority:
-  1. env var (highest — set at deploy time, never overridden by UI)
-  2. app_settings DB row
-  3. config.py default (lowest)
+  1. app_settings DB row
+  2. env var
+  3. config.py default
 
 An in-memory cache with a 60-second TTL avoids per-request DB reads.
 Call invalidate_runtime_cache() after writing to app_settings.
@@ -38,11 +38,12 @@ _RUNTIME_CONFIGURABLE: dict[str, tuple[str, str]] = {
     # NAS
     "nas_auto_scan_enabled":       ("FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED",       "0"),
     "nas_scan_interval_sec":       ("FAMILY_VAULT_NAS_SCAN_INTERVAL_SEC",       "900"),
-    "nas_default_source_dir":      ("FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR",      "/volume1/Family_Archives"),
+    "nas_default_source_dir":      ("FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR",      ""),
     # Mail
     "mail_poll_enabled":           ("FAMILY_VAULT_MAIL_POLL_ENABLED",           "0"),
     "mail_poll_interval_sec":      ("FAMILY_VAULT_MAIL_POLL_INTERVAL_SEC",      "300"),
     "mail_query":                  ("FAMILY_VAULT_MAIL_QUERY",                  "has:attachment newer_than:30d"),
+    "mail_attachment_subdir":      ("FAMILY_VAULT_MAIL_ATTACHMENT_SUBDIR",      "email_attachments"),
     # Ollama URL (deployment-time; env var only — DB can override for convenience)
     "ollama_base_url":             ("FAMILY_VAULT_OLLAMA_BASE_URL",             "http://host.docker.internal:11434"),
     # User-defined tagging keywords (stored as JSON objects {"terms": {...}})
@@ -72,6 +73,7 @@ SETTING_META: dict[str, dict[str, Any]] = {
     "mail_poll_enabled":           {"type": "bool",   "category": "mail",      "label_zh": "启用邮件轮询", "label_en": "Mail Poll Enabled"},
     "mail_poll_interval_sec":      {"type": "int",    "category": "mail",      "label_zh": "轮询间隔(s)",  "label_en": "Poll Interval (s)"},
     "mail_query":                  {"type": "string", "category": "mail",      "label_zh": "Gmail查询表达式", "label_en": "Gmail Query"},
+    "mail_attachment_subdir":      {"type": "string", "category": "mail",      "label_zh": "邮件附件子目录", "label_en": "Mail Attachment Subdirectory"},
     "ollama_base_url":             {"type": "string", "category": "advanced",  "label_zh": "Ollama地址",   "label_en": "Ollama Base URL"},
     "person_keywords":             {"type": "json",   "category": "keywords",  "label_zh": "家庭成员名",   "label_en": "Person Names"},
     "pet_keywords":                {"type": "json",   "category": "keywords",  "label_zh": "宠物名",       "label_en": "Pet Names"},

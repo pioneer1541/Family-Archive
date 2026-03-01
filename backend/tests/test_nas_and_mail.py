@@ -105,11 +105,19 @@ def test_mail_poll_downloads_attachment_and_creates_event(client, tmp_path: Path
         }
     }
 
+    nas_root = tmp_path / "nas_mount"
+    nas_root.mkdir(parents=True, exist_ok=True)
+
     monkeypatch.setattr(mail_ingest, "_gmail_service", lambda: (_FakeGmailService(full_payload), ""))
     monkeypatch.setattr(mail_ingest.settings, "mail_attachment_root", str(tmp_path / "mail_data"))
     monkeypatch.setattr(mail_ingest.settings, "mail_allowed_extensions", ["txt"])
     monkeypatch.setattr(mail_ingest.settings, "mail_query", "has:attachment")
     monkeypatch.setattr(mail_ingest.settings, "mail_max_results", 10)
+    r_cfg = client.patch(
+        "/v1/settings",
+        json={"nas_default_source_dir": str(nas_root), "mail_attachment_subdir": "email_attachments"},
+    )
+    assert r_cfg.status_code == 200
 
     r = client.post("/v1/mail/poll", json={"max_results": 5})
     assert r.status_code == 200
@@ -132,6 +140,7 @@ def test_mail_poll_downloads_attachment_and_creates_event(client, tmp_path: Path
     items = ev.json().get("items") or []
     assert len(items) >= 1
     assert any(str(it.get("status") or "") == "downloaded" for it in items)
+    assert any("email_attachments" in str(it.get("attachment_path") or "") for it in items)
 
     r2 = client.post("/v1/mail/poll", json={"max_results": 5})
     assert r2.status_code == 200
@@ -226,3 +235,22 @@ def test_mail_poll_skips_inline_image_asset(client, tmp_path: Path, monkeypatch)
     assert ev.status_code == 200
     items = ev.json().get("items") or []
     assert any(str(it.get("attachment_name") or "") == "image003.png" and str(it.get("detail") or "") == "inline_asset" for it in items)
+
+
+def test_connectivity_health_reports_nas_read_write(client, tmp_path: Path):
+    nas_root = tmp_path / "nas_for_connectivity"
+    nas_root.mkdir(parents=True, exist_ok=True)
+
+    # 通过 settings 写入运行时配置，模拟用户在 UI 中配置 NAS 目录。
+    r_patch = client.patch("/v1/settings", json={"nas_default_source_dir": str(nas_root)})
+    assert r_patch.status_code == 200
+
+    r_conn = client.get("/v1/health/connectivity")
+    assert r_conn.status_code == 200
+    body = r_conn.json()
+    nas = body.get("nas") or {}
+    assert nas.get("path") == str(nas_root)
+    assert nas.get("readable") is True
+    assert nas.get("writable") is True
+    assert nas.get("ok") is True
+    assert nas.get("error") is None

@@ -290,7 +290,7 @@ export interface OllamaModel {
 export interface ConnectivityStatus {
   ollama: {ok: boolean; model_count: number; latency_ms?: number; error?: string};
   qdrant: {ok: boolean; collection: string; error?: string};
-  nas: {ok: boolean; path: string; error?: string};
+  nas: {ok: boolean; path: string; readable: boolean; writable: boolean; error?: string | null};
   gmail: {ok: boolean; credentials_present: boolean; token_present: boolean};
 }
 

@@ -1445,11 +1445,11 @@ from app.runtime_config import (  # noqa: E402
 
 def _setting_source(key: str, db: Session) -> str:
     env_var, _ = _RUNTIME_CONFIGURABLE[key]
-    if env_var and _os.environ.get(env_var) is not None:
-        return "env"
     row = db.get(AppSetting, key)
     if row is not None:
         return "db"
+    if env_var and _os.environ.get(env_var) is not None:
+        return "env"
     return "default"
 
 
@@ -1475,7 +1475,7 @@ def get_settings_endpoint(db: Session = Depends(get_db)):
 
 @router.patch("/settings")
 def patch_settings(body: dict, db: Session = Depends(get_db)):
-    """Update one or more settings in the DB (env vars always take precedence at read time)."""
+    """Update one or more settings in the DB."""
     import json as _json
     for key, value in body.items():
         if key not in _RUNTIME_CONFIGURABLE:
@@ -1583,11 +1583,62 @@ def connectivity_health(db: Session = Depends(get_db)):
         qdrant_result = {"ok": False, "error": str(exc)}
 
     # NAS directory
-    nas_dir = get_runtime_setting("nas_default_source_dir", db)
-    nas_ok = os.path.isdir(nas_dir)
-    nas_result = {"ok": nas_ok, "path": nas_dir}
-    if not nas_ok:
+    nas_dir = str(get_runtime_setting("nas_default_source_dir", db) or "").strip()
+    nas_result = {
+        "ok": False,
+        "path": nas_dir,
+        "readable": False,
+        "writable": False,
+        "error": None,
+    }
+    if not nas_dir:
+        nas_result["error"] = "nas directory is empty"
+    elif not os.path.isdir(nas_dir):
         nas_result["error"] = "directory not found"
+    else:
+        readable = bool(os.access(nas_dir, os.R_OK))
+        writable = bool(os.access(nas_dir, os.W_OK))
+        read_err = ""
+        write_err = ""
+
+        # 读权限实测：尝试列举目录项，避免仅依赖 os.access 的假阳性。
+        if readable:
+            try:
+                with os.scandir(nas_dir) as entries:
+                    next(entries, None)
+            except Exception as exc:
+                readable = False
+                read_err = str(exc)
+
+        # 写权限实测：创建并删除临时文件，覆盖创建/写入/清理完整链路。
+        test_path = os.path.join(nas_dir, f".fkv_rw_test_{int(time.time() * 1000)}")
+        if writable:
+            try:
+                with open(test_path, "w", encoding="utf-8") as fh:
+                    fh.write("ok")
+                os.remove(test_path)
+            except Exception as exc:
+                writable = False
+                write_err = str(exc)
+                try:
+                    if os.path.exists(test_path):
+                        os.remove(test_path)
+                except Exception:
+                    pass
+
+        error = None
+        if not readable:
+            error = read_err or "directory not readable"
+        elif not writable:
+            error = write_err or "directory not writable"
+        nas_result.update(
+            {
+                "readable": readable,
+                "writable": writable,
+                "ok": bool(readable and writable),
+                "error": error,
+            }
+        )
 
     # Gmail credentials
     creds_path = settings.mail_credentials_path

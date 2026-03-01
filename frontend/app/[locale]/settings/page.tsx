@@ -274,12 +274,15 @@ export default function SettingsPage() {
               {connectivity && (
                 <div className="connectivity-status">
                   <StatusBadge ok={connectivity.nas.ok} label={connectivity.nas.ok ? t('connOk') : t('connFail')} />
+                  <span className="settings-hint">{`${t('nasPath')}: ${connectivity.nas.path || '-'}`}</span>
+                  <span className="settings-hint">{`${t('nasReadable')}: ${connectivity.nas.readable ? t('yes') : t('no')}`}</span>
+                  <span className="settings-hint">{`${t('nasWritable')}: ${connectivity.nas.writable ? t('yes') : t('no')}`}</span>
                   {!connectivity.nas.ok && connectivity.nas.error && (
                     <span className="settings-hint">{connectivity.nas.error}</span>
                   )}
                 </div>
               )}
-              <button type="button" className="btn-secondary" onClick={handleTestConn}>{t('testConn')}</button>
+              <button type="button" className="btn-secondary" onClick={handleTestConn}>{t('testRw')}</button>
             </div>
           )}
 

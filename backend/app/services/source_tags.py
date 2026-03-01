@@ -125,6 +125,12 @@ def infer_source_type(path: str) -> str:
     p = _real(path)
     if not p:
         return "file"
+    mail_subdir = str(getattr(settings, "mail_attachment_subdir", "email_attachments") or "").strip().strip("/\\")
+    if mail_subdir:
+        marker = f"{os.sep}{mail_subdir}{os.sep}"
+        # 兼容 NAS 挂载目录下的邮件附件子目录识别。
+        if marker in p:
+            return "mail"
     if _is_within(p, settings.mail_attachment_root):
         return "mail"
     if _is_within(p, settings.nas_default_source_dir):

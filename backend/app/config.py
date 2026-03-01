@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     ingestion_chunk_target_tokens: int = 320
     ingestion_chunk_overlap_tokens: int = 48
     ingestion_allowed_extensions: List[str] = ["pdf", "docx", "txt", "md", "xlsx"]
-    ingestion_scan_exclude_dirs: List[str] = [".git", "@eadir", "#recycle", "$recycle.bin", "node_modules", "__pycache__", "mail_attachments"]
+    ingestion_scan_exclude_dirs: List[str] = [".git", "@eadir", "#recycle", "$recycle.bin", "node_modules", "__pycache__", "mail_attachments", "email_attachments"]
     ingestion_scan_max_files_per_run: int = 5000
     ingestion_ocr_fallback_enabled: bool = True
     ingestion_vl_fallback_enabled: bool = True
@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     ingestion_phash_hamming_threshold: int = 8
     max_search_hits: int = 20
 
-    nas_default_source_dir: str = "/volume1/Family_Archives"
+    nas_default_source_dir: str = ""
     nas_allowed_extensions: List[str] = ["pdf", "doc", "docx", "xls", "xlsx", "jpg", "jpeg", "png", "webp", "tif", "tiff", "heic"]
     nas_auto_scan_enabled: bool = False
     nas_scan_interval_sec: int = 900
@@ -85,6 +85,7 @@ class Settings(BaseSettings):
     mail_credentials_path: str = "/app/secrets/gmail/credentials.json"
     mail_token_path: str = "/app/secrets/gmail/token.json"
     mail_attachment_root: str = "/app/data/mail_attachments"
+    mail_attachment_subdir: str = "email_attachments"
     mail_allowed_extensions: List[str] = ["pdf", "doc", "docx", "xls", "xlsx", "jpg", "jpeg", "png", "webp", "tif", "tiff", "heic"]
     mail_require_attachment_disposition: bool = True
     mail_skip_inline_images: bool = True

@@ -15,7 +15,7 @@ Family Vault indexes your documents (PDFs, scans, bills, insurance policies, con
 - **AI Agent** — Ask natural-language questions and get structured answers with source references
 - **Graph Agent** — Optional LangGraph-based multi-step reasoning: extracts typed slots from retrieved chunks, runs a recovery loop when evidence is sparse, and streams progress via SSE. Improves answer accuracy on complex documents (insurance policies, contracts, bill aggregates)
 - **Async map-reduce summarisation** — Large PDFs are summarised in background Celery tasks with per-page checkpointing; partial results are saved every 10 pages so a timeout never loses all progress
-- **NAS sync** — Auto-scan a local directory (e.g. Synology `/volume1/Family_Archives`)
+- **NAS sync** — Auto-scan a user-configurable mounted directory (set in Settings UI)
 - **Gmail integration** — Auto-ingest email attachments (PDF statements, invoices)
 - **Settings UI** — Configure models, timeouts, keywords, and connectivity without editing env vars
 - **Password protection** — First-visit setup wizard; bcrypt-hashed password stored locally
@@ -68,6 +68,24 @@ On first visit you'll be prompted to set a password and (optionally) configure t
 
 - **Drag & drop** files directly from the Documents page
 - Or point the NAS scanner at a local folder via **Settings → Storage & Scan**
+
+### 5 — Mount your NAS directory (required for NAS sync)
+
+Add a volume mount in `docker-compose.yml` and then set the mounted path in **Settings → Storage & Scan**:
+
+```yaml
+services:
+  fkv-api:
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+      - /mnt/nas:/mnt/nas
+  fkv-worker:
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+      - /mnt/nas:/mnt/nas
+```
 
 ---
 
@@ -183,13 +201,13 @@ The following env vars in `docker-compose.yml` control deployment-time behaviour
 | `FAMILY_VAULT_QDRANT_ENABLE` | `1` | Enable vector search |
 | `FAMILY_VAULT_ALLOWED_ORIGINS` | `http://localhost:18181` | CORS allowed origins |
 | `FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED` | `1` | Enable background NAS scan |
-| `FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR` | `/volume1/Family_Archives` | Directory to scan |
 | `FAMILY_VAULT_MAIL_POLL_ENABLED` | `0` | Enable Gmail polling |
 | `FAMILY_VAULT_JWT_SECRET` | *(auto-generated)* | JWT signing secret (set manually for persistence) |
 | `FAMILY_VAULT_AGENT_GRAPH_ENABLED` | `0` | Set to `1` to use the LangGraph graph agent instead of the legacy v2 agent |
 | `FAMILY_VAULT_AGENT_SYNTH_TIMEOUT_SEC` | `60` | LLM synthesis timeout in seconds — increase for large multi-chunk answers |
 
 Runtime-configurable settings (model names, timeouts, keywords, etc.) are stored in the database and editable through the Settings UI.
+`FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR` is intentionally not pinned in `docker-compose.yml`; set it from the UI so users can change it at runtime.
 
 ---
 
