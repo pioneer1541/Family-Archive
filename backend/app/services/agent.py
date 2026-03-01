@@ -463,6 +463,56 @@ def _clean_search_fallback_snippet(value: Any, *, cap: int = 280) -> str:
     return _safe_text(base, cap=cap)
 
 
+def _cap_detail_sections(sections: list, *, max_total_chars: int = 2500) -> list:
+    """Limit the serialised size of detail_sections to max_total_chars.
+
+    Without this cap, detail_sections grows unbounded when the slot extractor
+    returns many fields, which can push the synthesiser prompt over the
+    effective context window of small local models (1.7-4b).
+
+    Handles both plain dicts and Pydantic model instances (DetailSection).
+    """
+    import json as _json
+
+    def _to_dict(obj: Any) -> dict:
+        if isinstance(obj, dict):
+            return obj
+        if hasattr(obj, "model_dump") and callable(getattr(obj, "model_dump")):
+            try:
+                return obj.model_dump()
+            except Exception:
+                pass
+        if hasattr(obj, "__dict__"):
+            return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+        return {}
+
+    result = []
+    remaining = max_total_chars
+    for section_raw in sections:
+        if remaining <= 0:
+            break
+        section = _to_dict(section_raw)
+        rows = list(section.get("rows") or [])
+        capped_rows = []
+        for row_raw in rows:
+            if remaining <= 0:
+                break
+            row = _to_dict(row_raw)
+            row_json = _json.dumps(row, ensure_ascii=False)
+            if len(row_json) > remaining:
+                # Truncate the value fields to fit
+                row = dict(row)
+                for k in ("value_en", "value_zh", "value"):
+                    if k in row and isinstance(row[k], str) and len(row[k]) > 60:
+                        row[k] = row[k][:60] + "…"
+            row_json = _json.dumps(row, ensure_ascii=False)
+            capped_rows.append(row)
+            remaining -= len(row_json)
+        if capped_rows:
+            result.append({**section, "rows": capped_rows})
+    return result
+
+
 def _json_safe_value(value: Any) -> Any:
     if hasattr(value, "model_dump") and callable(getattr(value, "model_dump")):
         try:
@@ -2853,6 +2903,15 @@ def _synth_prompt(
                 "EVIDENCE POLICY:\n"
                 "- Use ONLY the data provided. Never invent amounts, dates, names, or policy numbers.\n"
                 + insufficient_rule +
+                "SOURCE DISCIPLINE:\n"
+                "- Multiple chunks may come from different documents. Each chunk has title_en, title_zh and category_path.\n"
+                "- First identify which document title/category best matches the query subject.\n"
+                "- Extract each fact (date, amount, name, ID) ONLY from the matching document. "
+                "Ignore values that appear in unrelated documents even if they look plausible.\n"
+                "- If a date or amount is only found in a document that clearly does NOT match the query subject "
+                "(e.g. a pet insurance date when asked about car insurance; a payment date when asked about an AGM), "
+                "do NOT report it — list the field in missing_fields instead.\n"
+                "- Higher score = more relevant; treat the top-scored chunk's document as the primary source.\n"
                 "\nOUTPUT RULES:\n"
                 + lang_rule +
                 "- key_points: 2-4 bilingual bullet points with concrete facts.\n"
@@ -2885,7 +2944,7 @@ def _synth_prompt(
                     "bill_attention": _json_safe_value(bundle.get("bill_attention") or {}),
                     "bill_monthly": _json_safe_value(bundle.get("bill_monthly") or {}),
                     "detail_topic": str(bundle.get("detail_topic") or ""),
-                    "detail_sections": _json_safe_value(bundle.get("detail_sections") or []),
+                    "detail_sections": _json_safe_value(_cap_detail_sections(bundle.get("detail_sections") or [])),
                     "missing_fields": _json_safe_value(bundle.get("missing_fields") or []),
                     "coverage_stats": _json_safe_value(bundle.get("coverage_stats") or {}),
                     "answerability": str(bundle.get("answerability") or "sufficient"),

@@ -498,13 +498,76 @@ def _repair_query_spec_with_rules(*, query: str, planner_intent: str, planner_do
     if not list(repaired.get("preferred_categories") or []) and list(rule_spec.get("preferred_categories") or []):
         repaired["preferred_categories"] = list(rule_spec.get("preferred_categories") or [])
 
-    if not bool(repaired.get("strict_domain_filter")) and bool(rule_spec.get("strict_domain_filter")) and str(repaired.get("subject_domain") or "") == "bills":
+    # Developer/property/vendor queries: override incorrect bill categories to legal/contracts.
+    # The LLM sometimes maps "开发商" (developer/vendor) queries to finance/bills which is
+    # completely wrong; the relevant evidence is in legal/contracts (Vendor's Statement /
+    # Residential Sale Contract).  We enable strict_domain_filter so Qdrant restricts the
+    # semantic search to legal/contracts chunks only, ensuring the Vendor's Statement is
+    # ranked and returned.  The legal/contracts category in Qdrant has 100+ points so
+    # there is no risk of zero-hit.
+    _developer_tokens = ("开发商", "developer", "vendor statement", "建商", "地产开发", "房产开发")
+    _current_cats = [str(c or "").strip().rstrip("/") for c in list(repaired.get("preferred_categories") or [])]
+    if (any(tok in query.lower() for tok in _developer_tokens)
+            and _current_cats
+            and all(c.startswith("finance") for c in _current_cats)):
+        repaired["preferred_categories"] = ["legal/contracts"]
+        repaired["strict_domain_filter"] = True
+
+    # Health insurance extras queries asking for 额度/limits: add annual_limit to target_slots
+    # so the slot extraction specifically looks for dollar amounts in the retrieved chunks.
+    _health_limit_tokens = ("额度", "报销", "limit", "reimburse", "annual limit", "benefit")
+    _health_ins_cats = [str(c or "").strip() for c in list(repaired.get("preferred_categories") or [])]
+    if (str(repaired.get("subject_domain") or "") in {"insurance", "health"}
+            and any(tok in query.lower() for tok in _health_limit_tokens)
+            and any("health" in c or "insurance" in c for c in _health_ins_cats)):
+        _existing_slots = list(repaired.get("target_slots") or [])
+        for _slot in ("annual_limit", "benefit_amount", "coverage_limit"):
+            if _slot not in _existing_slots:
+                _existing_slots.append(_slot)
+        repaired["target_slots"] = _existing_slots
+
+    # Only promote strict_domain_filter when the effective preferred_categories are specific
+    # subcategories (e.g. "finance/bills/internet"), not the broad parent "finance/bills".
+    # Exact-match retrieval on "finance/bills" returns 0 because all bills are stored at
+    # finance/bills/* — promoting strict on a broad parent would cause strict_domain_zero_hit.
+    _override_cats = list(rule_spec.get("preferred_categories") or [])
+    _effective_cats = _override_cats or list(repaired.get("preferred_categories") or [])
+    _cats_are_specific = bool(_effective_cats) and not any(
+        str(c or "").strip().rstrip("/") == "finance/bills" for c in _effective_cats
+    )
+    if not bool(repaired.get("strict_domain_filter")) and bool(rule_spec.get("strict_domain_filter")) and str(repaired.get("subject_domain") or "") == "bills" and _cats_are_specific:
         repaired["strict_domain_filter"] = bool(rule_spec.get("strict_domain_filter"))
+        # When promoting strict_domain_filter, also replace broad LLM categories with
+        # the rule-based specific subcategory (e.g. "finance/bills" → "finance/bills/internet"),
+        # so _needs_llm_assist doesn't trigger on a still-broad preferred_categories.
+        if _override_cats:
+            repaired["preferred_categories"] = _override_cats
+
+    # Safety: never apply strict_domain_filter with the broad parent "finance/bills" category.
+    # All bills are stored at finance/bills/* subcategories; exact-match on the parent always
+    # returns 0. This handles both LLM-generated strict=True and rule-override cases.
+    if bool(repaired.get("strict_domain_filter")) and str(repaired.get("subject_domain") or "") == "bills":
+        _final_cats = list(repaired.get("preferred_categories") or [])
+        if not _final_cats or any(str(c or "").strip().rstrip("/") == "finance/bills" for c in _final_cats):
+            repaired["strict_domain_filter"] = False
 
     # Q1-like bill scalar queries should not stay as "list" when rule-spec resolved scalar slots.
     if str(repaired.get("task_kind") or "") == "list" and str(rule_spec.get("task_kind") or "") == "fact_lookup":
         if "bill_amount" in list(repaired.get("target_slots") or []) or "bill_amount" in list(rule_spec.get("target_slots") or []):
             repaired["task_kind"] = "fact_lookup"
+
+    # For bill aggregate monthly queries, override task_kind to "aggregate_lookup" so
+    # route_node correctly delegates to structured_fastpath (bill_monthly_total DB path).
+    # Runs AFTER Q1-like conversion so it catches list→fact_lookup cases too.
+    # Applies when: bills domain, task_kind is fact_lookup or list (not yet promoted),
+    # query has a specific month token, and no single bill type is specified.
+    _bill_specific_tokens = ("电费", "燃气费", "燃气账单", "网费", "宽带", "水费",
+                             "electricity", "gas bill", "internet bill", "water bill", "superloop")
+    if (str(repaired.get("subject_domain") or "") == "bills"
+            and str(repaired.get("task_kind") or "") in {"fact_lookup", "list"}
+            and re.search(r"\d{1,2}月份?|\d{4}年?\d{1,2}月", query)
+            and not any(tok in query for tok in _bill_specific_tokens)):
+        repaired["task_kind"] = "aggregate_lookup"
 
     repaired.setdefault("version", str(rule_spec.get("version") or "v2"))
     repaired.setdefault("time_scope", dict(rule_spec.get("time_scope") or {}))
@@ -563,6 +626,22 @@ def planner_node(state: AgentGraphState, config: dict[str, Any] | None = None) -
             planner_doc_scope=dict(planner.doc_scope or {}),
             spec=spec,
         )
+
+    # Post-spec guard: ensure bill aggregate monthly queries route to structured_fastpath.
+    # Applied unconditionally here so it covers both the repair and the build-from-scratch
+    # paths above. When the LLM assigns fact_lookup/list/search_bundle etc. to
+    # "2月份的账单有哪些？" style queries, the route_node condition
+    # `task_kind in {"aggregate_lookup","list"}` would miss them; overriding to
+    # aggregate_lookup fixes that without touching other queries.
+    # We use a blacklist (not in safe-to-keep set) rather than a whitelist to
+    # catch any novel task_kind string the LLM might produce (e.g. "search_bundle").
+    _bill_agg_specific_tokens = ("电费", "燃气费", "燃气账单", "网费", "宽带", "水费",
+                                 "electricity", "gas bill", "internet bill", "water bill", "superloop")
+    if (str(spec.get("subject_domain") or "") == "bills"
+            and str(spec.get("task_kind") or "") not in {"aggregate_lookup", "queue", "mutate"}
+            and re.search(r"\d{1,2}月份?|\d{4}年?\d{1,2}月", req.query)
+            and not any(tok in req.query for tok in _bill_agg_specific_tokens)):
+        spec["task_kind"] = "aggregate_lookup"
 
     router_conf = estimate_queryspec_confidence(req.query, spec)
     router_triggered = False
@@ -1298,6 +1377,12 @@ def recovery_plan_node(state: AgentGraphState, config: dict[str, Any] | None = N
         return {"terminal": True, "terminal_reason": "sufficient"}
     if answerability == "partial" and not critical_missing:
         return {"terminal": True, "terminal_reason": "partial_critical_complete"}
+    # Fix 1C: after at least one recovery attempt, accept a partial result
+    # rather than exhausting the loop budget.  Avoids loop_budget_exhausted
+    # for questions where the critical slots genuinely cannot be extracted
+    # from any chunk (non-canonical slot names, multi-entity aggregates, etc.)
+    if answerability == "partial" and loop_count >= 1:
+        return {"terminal": True, "terminal_reason": "partial_after_recovery"}
     if loop_count >= loop_budget:
         return {"terminal": True, "terminal_reason": "loop_budget_exhausted"}
     if strict_domain and not candidate_hits:

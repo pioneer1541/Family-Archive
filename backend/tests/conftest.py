@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -21,6 +22,16 @@ from app.db import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
 
 
+def _wal_checkpoint() -> None:
+    """强制 WAL checkpoint，确保所有事务已落盘，避免 SQLite 状态残留。"""
+    with engine.connect() as _conn:
+        try:
+            _conn.execute(text("PRAGMA wal_checkpoint(TRUNCATE)"))
+            _conn.commit()
+        except Exception:
+            pass
+
+
 @pytest.fixture(autouse=True)
 def reset_database(request):
     if request.node.get_closest_marker("no_db_reset"):
@@ -30,7 +41,18 @@ def reset_database(request):
         Base.metadata.drop_all(bind=engine)
     except OperationalError:
         pass
-    Base.metadata.create_all(bind=engine)
+    # 强制 WAL checkpoint，防止上一测试残留的事务锁导致 create_all 冲突
+    _wal_checkpoint()
+    try:
+        Base.metadata.create_all(bind=engine)
+    except OperationalError:
+        # create_all 遇到残留表时（drop_all 未完全成功），再做一次 drop → create
+        try:
+            Base.metadata.drop_all(bind=engine)
+        except Exception:
+            pass
+        _wal_checkpoint()
+        Base.metadata.create_all(bind=engine)
     yield
     try:
         Base.metadata.drop_all(bind=engine)

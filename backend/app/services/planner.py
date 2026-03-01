@@ -126,6 +126,8 @@ def _pick_intent_rule(query: str) -> tuple[str, float]:
     text = str(query or "").strip().lower()
     if not text:
         return ("search_semantic", 0.0)
+
+    matched: list[tuple[str, float]] = []
     for intent, keys in _INTENT_RULES:
         if any(key.lower() in text for key in keys):
             if intent == "detail_extract":
@@ -150,11 +152,25 @@ def _pick_intent_rule(query: str) -> tuple[str, float]:
                         "birth date",
                     )
                 )
-                return (intent, 0.81 if topic_hits else 0.7)
-            return (intent, 0.74)
-    if len(text) <= 4:
-        return ("search_keyword", 0.58)
-    return ("search_semantic", 0.52)
+                matched.append((intent, 0.81 if topic_hits else 0.7))
+            else:
+                matched.append((intent, 0.74))
+
+    if not matched:
+        if len(text) <= 4:
+            return ("search_keyword", 0.58)
+        return ("search_semantic", 0.52)
+
+    # Single intent: return directly (original behaviour preserved).
+    if len(matched) == 1:
+        return matched[0]
+
+    # Multiple intents matched: fall back to search_bundle so the retrieval
+    # layer uses hybrid search across all relevant dimensions instead of a
+    # single-intent strategy.  Confidence is the average of matched intents
+    # capped at 0.68 to signal the ambiguity.
+    avg_conf = sum(c for _, c in matched) / len(matched)
+    return ("search_bundle", min(0.68, avg_conf))
 
 
 def _safe_query_lang(req: PlannerRequest) -> str:
@@ -549,7 +565,7 @@ def route_and_rewrite(req: PlannerRequest) -> RouterDecision:
         sub_intent = str(raw.get("sub_intent") or "search_semantic").strip()
         if sub_intent not in _VALID_SUB_INTENTS:
             sub_intent = "search_semantic"
-        return RouterDecision(
+        llm_decision = RouterDecision(
             route=route,
             rewritten_query=str(raw.get("rewritten_query") or "").strip(),
             domain=str(raw.get("domain") or "generic").strip(),
@@ -560,5 +576,13 @@ def route_and_rewrite(req: PlannerRequest) -> RouterDecision:
             ui_lang=req.ui_lang,
             query_lang=req.query_lang,
         )
+        # Post-validate: heuristic calculate routes take precedence over LLM lookup routes.
+        # LLMs can inconsistently classify well-defined patterns like "2月份的账单" — the
+        # deterministic heuristic rules for calculate/bill_monthly_total are authoritative.
+        if llm_decision.route != "calculate":
+            heuristic = _router_heuristic(req)
+            if heuristic.route == "calculate":
+                return heuristic
+        return llm_decision
     except Exception:
         return _router_heuristic(req)

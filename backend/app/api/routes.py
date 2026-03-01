@@ -1218,6 +1218,78 @@ def map_reduce_summary(payload: MapReduceSummaryRequest, db: Session = Depends(g
     return out
 
 
+class MapReduceAsyncResponse(BaseModel):
+    task_id: str
+    doc_id: str
+    status: str = "queued"
+
+
+class MapReduceStatusResponse(BaseModel):
+    doc_id: str
+    job_status: str
+    page_summaries_available: bool
+    section_summaries_available: bool
+    pages_done: int
+    pages_total: int
+
+
+@router.post("/summaries/map-reduce/async", response_model=MapReduceAsyncResponse)
+def map_reduce_summary_async(payload: MapReduceSummaryRequest, db: Session = Depends(get_db)) -> MapReduceAsyncResponse:
+    """Dispatch a map-reduce summarisation job asynchronously via Celery.
+
+    Returns immediately with a task_id. Poll GET /summaries/map-reduce/status/{doc_id}
+    to track progress. The synchronous POST /summaries/map-reduce endpoint is
+    unchanged for backward compatibility.
+    """
+    doc = crud.get_document(db, payload.doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail=f"Document not found: {payload.doc_id}")
+    task = celery_app.send_task(
+        "fkv.map_reduce.process",
+        kwargs={
+            "doc_id": payload.doc_id,
+            "ui_lang": str(payload.ui_lang or "zh"),
+            "chunk_group_size": int(payload.chunk_group_size or 6),
+        },
+    )
+    doc.mapreduce_job_status = "queued"
+    db.commit()
+    return MapReduceAsyncResponse(task_id=str(task.id), doc_id=payload.doc_id)
+
+
+@router.get("/summaries/map-reduce/status/{doc_id}", response_model=MapReduceStatusResponse)
+def map_reduce_status(doc_id: str, db: Session = Depends(get_db)) -> MapReduceStatusResponse:
+    """Return the current map-reduce checkpoint status for a document.
+
+    ``job_status`` progresses through:
+      ``queued`` → ``pages_N/T`` → ``sections_N/T`` → ``completed``
+    """
+    doc = crud.get_document(db, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail=f"Document not found: {doc_id}")
+    job_status = str(doc.mapreduce_job_status or "")
+    pages_done = 0
+    pages_total = 0
+    if job_status.startswith("pages_"):
+        _parts = job_status[len("pages_"):].split("/")
+        if len(_parts) == 2:
+            try:
+                pages_done = int(_parts[0])
+                pages_total = int(_parts[1])
+            except ValueError:
+                pass
+    page_summaries_available = str(doc.mapreduce_page_summaries_json or "[]").strip() not in ("", "[]")
+    section_summaries_available = str(doc.mapreduce_section_summaries_json or "[]").strip() not in ("", "[]")
+    return MapReduceStatusResponse(
+        doc_id=doc_id,
+        job_status=job_status,
+        page_summaries_available=page_summaries_available,
+        section_summaries_available=section_summaries_available,
+        pages_done=pages_done,
+        pages_total=pages_total,
+    )
+
+
 @router.post("/mail/poll", response_model=MailPollResponse)
 def poll_mailbox(payload: MailPollRequest | None = None, db: Session = Depends(get_db)) -> MailPollResponse:
     out = poll_mailbox_and_enqueue(db, max_results=(payload.max_results if payload else None))

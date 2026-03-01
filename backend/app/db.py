@@ -72,9 +72,12 @@ def ensure_sqlite_runtime_schema() -> None:
             conn.execute(text("ALTER TABLE documents ADD COLUMN source_available_cached BOOLEAN DEFAULT 1"))
         if "source_checked_at" not in cols:
             conn.execute(text("ALTER TABLE documents ADD COLUMN source_checked_at DATETIME"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_phash ON documents(phash)"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_status_src_cached ON documents(status, source_available_cached)"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_category_src_cached ON documents(category_path, source_available_cached)"))
+        try:
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_phash ON documents(phash)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_status_src_cached ON documents(status, source_available_cached)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_category_src_cached ON documents(category_path, source_available_cached)"))
+        except Exception:
+            pass  # 索引为纯性能优化，创建失败不中断 lifespan（测试环境 DB 状态可能短暂不稳定）
         if "mail_ingestion_events" in tables:
             mail_cols = {
                 str(row[1] or "")

@@ -47,6 +47,28 @@ def test_queryspec_detects_network_provider_contact_slots():
     assert any(slot in spec["target_slots"] for slot in ["contact_phone", "contact_email"])
     aliases = [str(x).lower() for x in (spec.get("subject_aliases") or [])]
     assert any(tok in aliases for tok in ["internet bill", "nbn", "superloop"])
+    # strict_domain_filter must be True for fact_lookup with explicit internet service tokens
+    assert spec["strict_domain_filter"] is True
+    # generic aliases must not pollute the first 4 alias slots used by query_variant_node
+    assert "bill" not in aliases[:4]
+    assert "invoice" not in aliases[:4]
+    assert "账单" not in aliases[:4]
+
+
+def test_queryspec_internet_fact_lookup_no_generic_alias_pollution():
+    """entity_fact_lookup (联系方式) with internet tokens → strict filter + no generic alias pollution."""
+    spec = build_query_spec_from_query("家里网络提供商的联系方式是什么？", planner_intent="entity_fact_lookup")
+    assert spec["subject_domain"] == "bills"
+    assert spec["task_kind"] == "fact_lookup"
+    assert spec["strict_domain_filter"] is True
+    assert spec["preferred_categories"] == ["finance/bills/internet"]
+    aliases = [str(x).lower() for x in (spec.get("subject_aliases") or [])]
+    # internet-specific aliases must appear
+    assert any(tok in aliases for tok in ["internet bill", "nbn", "superloop", "网络提供商"])
+    # generic aliases must not occupy the first 4 slots (query_variant combined query)
+    assert "bill" not in aliases[:4]
+    assert "invoice" not in aliases[:4]
+    assert "账单" not in aliases[:4]
 
 
 def test_queryspec_keeps_monthly_bill_summary_as_aggregate_lookup():

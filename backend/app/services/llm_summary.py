@@ -697,13 +697,27 @@ def summarize_final_with_model(
     section_summaries_zh: list[str],
     semantic_chunks: list[str],
 ) -> tuple[str, str] | None:
+    # Fix 2B: enforce a total character budget before building the prompt.
+    # Per-item caps are already applied below (260/420 chars), but when there
+    # are many sections the total can exceed the effective attention window of
+    # small local models (1.7-4b).  Dynamically tighten per-item caps so the
+    # combined section + chunk payload stays within 10 000 chars.
+    _sec_en = [str(x or "")[:260] for x in section_summaries_en[:24]]
+    _sec_zh = [str(x or "")[:260] for x in section_summaries_zh[:24]]
+    _chunks = [str(x or "")[:420] for x in semantic_chunks[:8]]
+    _total = sum(len(x) for x in _sec_en) + sum(len(x) for x in _sec_zh) + sum(len(x) for x in _chunks)
+    if _total > 10000:
+        _n_sec = max(1, len(_sec_en))
+        _sec_cap = max(80, (10000 - sum(len(x) for x in _chunks)) // (_n_sec * 2))
+        _sec_en = [x[:_sec_cap] for x in _sec_en]
+        _sec_zh = [x[:_sec_cap] for x in _sec_zh]
     out = _call_json_result(
         FINAL_SUMMARY_PROMPT,
         {
             "title": title,
-            "section_summaries_en": [str(x or "")[:260] for x in section_summaries_en[:24]],
-            "section_summaries_zh": [str(x or "")[:260] for x in section_summaries_zh[:24]],
-            "semantic_chunks": [str(x or "")[:420] for x in semantic_chunks[:8]],
+            "section_summaries_en": _sec_en,
+            "section_summaries_zh": _sec_zh,
+            "semantic_chunks": _chunks,
             "constraints": {"max_chars_per_lang": 620},
         },
         timeout_sec=_stage_timeout("FINAL", 45),

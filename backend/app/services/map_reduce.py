@@ -1,3 +1,4 @@
+import json
 import re
 import time
 from collections import Counter
@@ -216,6 +217,8 @@ def build_map_reduce_summary(db: Session, doc_id: str, ui_lang: str = "zh", chun
     title = str(doc.file_name or doc.title_en or doc.title_zh or "")
     total_pages = len(page_chunks)
     page_fallback_used = False
+    _CHECKPOINT_INTERVAL = 10  # persist progress every N pages
+    doc.mapreduce_job_status = f"pages_0/{total_pages}"
     for idx, page_text in enumerate(page_chunks, start=1):
         model_out = summarize_page_with_model(
             page_text=page_text,
@@ -228,6 +231,17 @@ def build_map_reduce_summary(db: Session, doc_id: str, ui_lang: str = "zh", chun
             page_fallback_used = True
         page_summaries_en.append(str(model_out[0] or "").strip())
         page_summaries_zh.append(str(model_out[1] or "").strip())
+        # Checkpoint: persist completed page summaries to DB every N pages so a
+        # mid-flight HTTP timeout does not lose all prior work.
+        if idx % _CHECKPOINT_INTERVAL == 0 or idx == total_pages:
+            try:
+                doc.mapreduce_page_summaries_json = json.dumps(
+                    {"en": page_summaries_en, "zh": page_summaries_zh}, ensure_ascii=False
+                )
+                doc.mapreduce_job_status = f"pages_{idx}/{total_pages}"
+                db.commit()
+            except Exception:
+                db.rollback()
 
     # Section chunks: 5-10 pages per section as required by long-document spec.
     section_size = max(5, min(10, int(chunk_group_size or 6)))
@@ -263,6 +277,15 @@ def build_map_reduce_summary(db: Session, doc_id: str, ui_lang: str = "zh", chun
         sec_zh = str(sec_model[1] or "").strip()
         section_summaries_en.append(sec_en)
         section_summaries_zh.append(sec_zh)
+        # Checkpoint after each section
+        try:
+            doc.mapreduce_section_summaries_json = json.dumps(
+                {"en": section_summaries_en, "zh": section_summaries_zh}, ensure_ascii=False
+            )
+            doc.mapreduce_job_status = f"sections_{len(section_summaries_en)}/{(total_pages + section_size - 1) // section_size}"
+            db.commit()
+        except Exception:
+            db.rollback()
         sections.append(
             MapReduceSummarySection(
                 index=sec_index,
@@ -324,6 +347,13 @@ def build_map_reduce_summary(db: Session, doc_id: str, ui_lang: str = "zh", chun
         quality_state = "needs_regen"
     else:
         quality_state = "ok"
+
+    # Mark job as completed in DB
+    try:
+        doc.mapreduce_job_status = "completed"
+        db.commit()
+    except Exception:
+        db.rollback()
 
     semantic_count = len(final_semantics) if final_semantics else len(rows)
     out = MapReduceSummaryResponse(

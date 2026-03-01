@@ -676,20 +676,91 @@ def extract_slots_from_chunks(
                     status=best_status,
                 )
         else:
-            label_en, label_zh = _label(slot)
-            results.append(
-                {
-                    "slot": slot,
-                    "label_en": label_en,
-                    "label_zh": label_zh,
-                    "value": "",
-                    "normalized_value": "",
-                    "status": "missing",
-                    "confidence": 0.0,
-                    "evidence_refs": [],
-                    "source_doc_ids": [],
-                }
-            )
+            # Fix 1A: label-term context window fallback for non-canonical slots.
+            # If the structured extractor found nothing, scan top-6 chunks for any
+            # slot-label or hint term, and return a 240-char evidence window at
+            # confidence=0.30.  This lets judge_sufficiency() reach "partial" via
+            # has_any_slot_value / target_field_coverage_ok instead of falling
+            # through to "insufficient".
+            # Skip for how-to queries and maintenance slots — those need structured
+            # procedural content; a raw text window would confuse the synthesiser.
+            _howto_skip_slots = {"maintenance_steps", "maintenance_notes", "maintenance_warning", "maintenance_interval", "cleaning_frequency"}
+            if is_howto or slot in _howto_skip_slots:
+                label_en, label_zh = _label(slot)
+                results.append(
+                    {
+                        "slot": slot,
+                        "label_en": label_en,
+                        "label_zh": label_zh,
+                        "value": "",
+                        "normalized_value": "",
+                        "status": "missing",
+                        "confidence": 0.0,
+                        "evidence_refs": [],
+                        "source_doc_ids": [],
+                    }
+                )
+                continue
+            _slot_terms: list[str] = []
+            # (a) English words from the slot name itself (min 3 chars)
+            for _p in slot.split("_"):
+                if len(_p) >= 3:
+                    _slot_terms.append(_p.lower())
+            # (b) Label words from _label()
+            _lbl_en, _lbl_zh = _label(slot)
+            for _w in _lbl_en.lower().split():
+                if len(_w) >= 3 and _w not in _slot_terms:
+                    _slot_terms.append(_w)
+            # (c) Structured hint terms (may be empty for non-canonical slots)
+            for _ht in slot_query_terms(slot):
+                _ht_str = str(_ht).strip()
+                if _ht_str and _ht_str not in _slot_terms:
+                    _slot_terms.append(_ht_str)
+            # (d) Chinese label if it differs from the raw slot name
+            if _lbl_zh != slot:
+                _slot_terms.append(_lbl_zh)
+            _fallback_value = ""
+            _fallback_chunk: dict[str, Any] | None = None
+            for _ck in candidate_chunks[:6]:
+                _ck_text = " ".join(str(_ck.get("text") or "").split())
+                if not _ck_text:
+                    continue
+                _ck_lower = _ck_text.lower()
+                for _term in _slot_terms:
+                    _pos = _ck_lower.find(_term.lower())
+                    if _pos >= 0:
+                        _start = max(0, _pos - 60)
+                        _end = min(len(_ck_text), _pos + len(_term) + 180)
+                        _fallback_value = _ck_text[_start:_end].strip()
+                        _fallback_chunk = _ck
+                        break
+                if _fallback_value:
+                    break
+            if _fallback_value and _fallback_chunk is not None:
+                _add_result(
+                    results,
+                    slot=slot,
+                    value=_fallback_value,
+                    normalized_value="",
+                    confidence=0.30,
+                    chunk=_fallback_chunk,
+                    status="found",
+                )
+            else:
+                label_en, label_zh = _label(slot)
+                results.append(
+                    {
+                        "slot": slot,
+                        "label_en": label_en,
+                        "label_zh": label_zh,
+                        "value": "",
+                        "normalized_value": "",
+                        "status": "missing",
+                        "confidence": 0.0,
+                        "evidence_refs": [],
+                        "source_doc_ids": [],
+                    }
+                )
     return results
 
 
@@ -899,6 +970,14 @@ def judge_sufficiency(
             partial_evidence_signals.append("slot_ratio_ge_0.25_subject_ok")
         if has_any_slot_value:
             partial_evidence_signals.append("any_slot_value_found")
+    elif hit_count >= 6 and subject_coverage_ok:
+        # Fix 1B: enough context chunks + subject is recognisable → "partial"
+        # rather than "insufficient".  Lets the synthesiser produce a partial
+        # answer with a note about which fields couldn't be extracted, instead
+        # of refusing entirely.  The RB boundary cases are protected by
+        # subject_coverage_ok being False when the topic is absent from the DB.
+        answerability = "partial"
+        partial_evidence_signals.append("high_hit_count_subject_ok")
     elif hit_count > 0:
         answerability = "insufficient"
         refusal_blockers.append("hit_but_no_slot_support")

@@ -13,6 +13,8 @@ Family Vault indexes your documents (PDFs, scans, bills, insurance policies, con
 - **Local AI** — Summarisation, categorisation, and Q&A powered by Ollama (no cloud API calls)
 - **Smart search** — Hybrid vector + lexical retrieval via Qdrant + SQLite
 - **AI Agent** — Ask natural-language questions and get structured answers with source references
+- **Graph Agent** — Optional LangGraph-based multi-step reasoning: extracts typed slots from retrieved chunks, runs a recovery loop when evidence is sparse, and streams progress via SSE. Improves answer accuracy on complex documents (insurance policies, contracts, bill aggregates)
+- **Async map-reduce summarisation** — Large PDFs are summarised in background Celery tasks with per-page checkpointing; partial results are saved every 10 pages so a timeout never loses all progress
 - **NAS sync** — Auto-scan a local directory (e.g. Synology `/volume1/Family_Archives`)
 - **Gmail integration** — Auto-ingest email attachments (PDF statements, invoices)
 - **Settings UI** — Configure models, timeouts, keywords, and connectivity without editing env vars
@@ -120,6 +122,53 @@ All models are selectable in **Settings → LLM Models** after startup.
 
 ---
 
+## Agent Accuracy Improvements
+
+The graph agent went through several rounds of targeted fixes. The table below summarises the problems that existed, what was changed, and what improved.
+
+### Problem 1 — Slot extraction false negatives
+
+| | Detail |
+|---|---|
+| **Problem** | If a document used non-standard field names the structured slot extractor returned "missing", the sufficiency judge declared "insufficient", and the agent returned a blank answer even when the relevant text was present in the retrieved chunks. |
+| **Fix** | `agent_slots.py`: context-window fallback scans the top-6 retrieved chunks for any label or hint term matching the requested slot and returns a 240-character evidence window (confidence 0.30). `judge_sufficiency` now accepts "partial" when ≥ 6 chunks are hit and subject coverage is met. `agent_graph_nodes.py`: after one recovery attempt the graph accepts a partial result (`partial_after_recovery`) instead of looping to budget exhaustion. |
+| **Result** | EXTRACT_OR_JUDGE_FALSE_NONE errors eliminated. Queries that previously returned blank now return a partial answer with source evidence. |
+
+### Problem 2 — Multi-intent routing confusion
+
+| | Detail |
+|---|---|
+| **Problem** | The intent router returned on the first matching rule, so queries matching multiple intents (e.g. "list all February bills and total amount") were assigned a single narrow intent, causing the wrong retrieval strategy and missing data. |
+| **Fix** | `planner.py`: collect all matching `_INTENT_RULES` and if more than one fires return `search_bundle` at a capped confidence of 0.68 to signal ambiguity. A heuristic post-validator in `route_and_rewrite` ensures deterministic bill-aggregate queries always route to `calculate/bill_monthly_total` regardless of what the LLM decides. |
+| **Result** | Monthly bill total queries and multi-part questions now route to the correct handler consistently. |
+
+### Problem 3 — Category routing errors for domain-specific queries
+
+| | Detail |
+|---|---|
+| **Problem** | The LLM planner sometimes mapped "开发商" (property developer) queries to `finance/bills`, returning zero relevant results. Bill aggregate queries with `task_kind` of `search_bundle` or `list` bypassed the structured SQL aggregate path entirely. |
+| **Fix** | `agent_graph_nodes.py`: rule-based overrides detect developer/vendor tokens (`开发商`, `developer`, `vendor statement`) and force `preferred_categories = ["legal/contracts"]` + `strict_domain_filter = True`. Bill aggregate monthly queries (containing a month pattern, no single-bill type) are promoted to `aggregate_lookup` unconditionally. A safety guard prevents `strict_domain_filter` from being applied to the broad `finance/bills` parent path, which has zero exact-match Qdrant points. |
+| **Result** | Developer contact queries resolve to Vendor's Statement chunks. Monthly bill total queries hit the SQL aggregate path. |
+
+### Problem 4 — Large PDF timeouts losing all progress
+
+| | Detail |
+|---|---|
+| **Problem** | Map-reduce summarisation processed all pages sequentially in a single synchronous request. A 60-second LLM timeout on any page aborted the entire job with no output saved. |
+| **Fix** | Map-reduce now runs as an async Celery task (`fkv.map_reduce.process`). Page summaries are checkpointed to the database every 10 pages; section summaries are checkpointed after each section. New REST endpoints: `POST /v1/summaries/map-reduce/async` to start a job, `GET /v1/summaries/map-reduce/status/{doc_id}` to poll partial results. Alembic migration adds `mapreduce_page_summaries_json`, `mapreduce_section_summaries_json`, and `mapreduce_job_status` columns. |
+| **Result** | A 200-page PDF that times out on page 150 retains the first 140 pages of summarised output. Jobs can be resumed or inspected without re-running from scratch. |
+
+### Accuracy summary
+
+| Agent | Custom-10 evaluation set |
+|-------|-------------------------|
+| Legacy v2 | 2 / 10 |
+| Graph agent (after fixes) | 6 / 10 |
+
+Remaining failures are synthesis quality issues (LLM returns wrong date or ignores table data) rather than routing or slot extraction problems.
+
+---
+
 ## Configuration
 
 Most settings are available in the **Settings UI** (no env vars needed after initial deploy).
@@ -137,6 +186,8 @@ The following env vars in `docker-compose.yml` control deployment-time behaviour
 | `FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR` | `/volume1/Family_Archives` | Directory to scan |
 | `FAMILY_VAULT_MAIL_POLL_ENABLED` | `0` | Enable Gmail polling |
 | `FAMILY_VAULT_JWT_SECRET` | *(auto-generated)* | JWT signing secret (set manually for persistence) |
+| `FAMILY_VAULT_AGENT_GRAPH_ENABLED` | `0` | Set to `1` to use the LangGraph graph agent instead of the legacy v2 agent |
+| `FAMILY_VAULT_AGENT_SYNTH_TIMEOUT_SEC` | `60` | LLM synthesis timeout in seconds — increase for large multi-chunk answers |
 
 Runtime-configurable settings (model names, timeouts, keywords, etc.) are stored in the database and editable through the Settings UI.
 

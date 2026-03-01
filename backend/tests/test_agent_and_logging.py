@@ -267,6 +267,7 @@ def test_agent_structured_intents_do_not_call_search(client, monkeypatch):
 
 
 def test_agent_semantic_stats_are_exposed(client, monkeypatch):
+    monkeypatch.setattr(agent_service.settings, "agent_graph_enabled", False)
     def _fake_search(*args, **kwargs):
         return SimpleNamespace(
             hits=[],
@@ -400,7 +401,8 @@ def test_agent_bill_attention_acceptance_sections(client, tmp_path: Path, monkey
     monkeypatch.setattr(agent_service, "list_recent_bill_facts", lambda *args, **kwargs: fake_rows)
 
 
-def test_agent_refusal_policy_blocks_specific_claims_when_evidence_insufficient(client, tmp_path: Path):
+def test_agent_refusal_policy_blocks_specific_claims_when_evidence_insufficient(client, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(agent_service.settings, "agent_graph_enabled", False)
     sample = tmp_path / "subsidy_hint.txt"
     sample.write_text("政府电费补贴政策介绍，可访问网站了解资格。", encoding="utf-8")
     client.post("/v1/ingestion/jobs", json={"file_paths": [str(sample)]})
@@ -419,6 +421,7 @@ def test_agent_refusal_policy_blocks_specific_claims_when_evidence_insufficient(
 
 
 def test_agent_home_aircon_and_property_query_returns_related_docs(client, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(agent_service.settings, "agent_graph_enabled", False)
     ac = tmp_path / "Daikin Warranty Lot 41.txt"
     prop = tmp_path / "Owners Corporation Notice Lot 41.txt"
     ac.write_text(
@@ -519,6 +522,7 @@ def test_agent_home_aircon_and_property_query_returns_related_docs(client, tmp_p
 
 
 def test_agent_network_bill_strict_filter(client, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(agent_service.settings, "agent_graph_enabled", False)
     internet = tmp_path / "network_bill_focus.txt"
     power = tmp_path / "electric_bill_noise.txt"
     gas = tmp_path / "gas_bill_noise.txt"
@@ -610,6 +614,7 @@ def test_agent_network_bill_strict_filter(client, tmp_path: Path, monkeypatch):
 
 
 def test_agent_property_contact_strict_filter(client, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(agent_service.settings, "agent_graph_enabled", False)
     property_doc = tmp_path / "property_contact_guide.txt"
     power_doc = tmp_path / "electric_bill_contact_noise.txt"
     property_doc.write_text(
@@ -694,6 +699,7 @@ def test_agent_property_contact_strict_filter(client, tmp_path: Path, monkeypatc
 
 
 def test_agent_strict_filter_zero_hit_returns_empty_related_docs(client, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(agent_service.settings, "agent_graph_enabled", False)
     power = tmp_path / "electric_bill_only.txt"
     power.write_text("Electricity invoice and meter usage.", encoding="utf-8")
     client.post("/v1/ingestion/jobs", json={"file_paths": [str(power)]})
@@ -751,6 +757,7 @@ def test_agent_strict_filter_zero_hit_returns_empty_related_docs(client, tmp_pat
 
 
 def test_agent_context_policy_fresh_turn_ignores_history(client, monkeypatch):
+    monkeypatch.setattr(agent_service.settings, "agent_graph_enabled", False)
     captured = {"conversation": None}
 
     monkeypatch.setattr(
@@ -823,6 +830,7 @@ def test_agent_context_policy_fresh_turn_ignores_history(client, monkeypatch):
 
 
 def test_agent_context_policy_followup_turn_keeps_history(client, monkeypatch):
+    monkeypatch.setattr(agent_service.settings, "agent_graph_enabled", False)
     captured = {"conversation": None}
 
     monkeypatch.setattr(
@@ -895,6 +903,7 @@ def test_agent_context_policy_followup_turn_keeps_history(client, monkeypatch):
 
 
 def test_agent_monthly_bill_total_route_uses_structured_facts(client, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(agent_service.settings, "agent_graph_enabled", False)
     internet = tmp_path / "internet_bill.txt"
     power = tmp_path / "power_bill.txt"
     internet.write_text("internet bill", encoding="utf-8")
@@ -1022,6 +1031,7 @@ def test_agent_english_current_bills_uses_bill_attention_structured_route(client
 
 
 def test_agent_monthly_bill_total_zero_hit_message_is_not_zero_template(client, monkeypatch):
+    monkeypatch.setattr(agent_service.settings, "agent_graph_enabled", False)
     monkeypatch.setattr(agent_service, "list_recent_bill_facts", lambda *args, **kwargs: [])
     r = client.post("/v1/agent/execute", json={"query": "2024年2月份账单情况", "ui_lang": "zh", "query_lang": "zh"})
     assert r.status_code == 200
@@ -1112,6 +1122,7 @@ def test_agent_english_birthday_query_refuses_without_birthdate_evidence(client,
 
 
 def test_agent_related_docs_order_follows_score_not_updated_time(client, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(agent_service.settings, "agent_graph_enabled", False)
     high = tmp_path / "manual_high_score.txt"
     low = tmp_path / "manual_low_score.txt"
     high.write_text("aircon compressor warranty details and service period", encoding="utf-8")

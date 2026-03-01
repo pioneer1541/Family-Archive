@@ -431,8 +431,16 @@ def _detect_subject_domain(query: str, target_slots: list[str]) -> str:
 def _subject_aliases_for_query(query: str, subject_domain: str) -> list[str]:
     text = _norm(query)
     out: list[str] = []
+    # 预扫描：若有任何 non-generic 组命中，则跳过 generic，防止通用词（bill/invoice/账单）
+    # 占据 aliases[:4] 槽位，导致 query_variant_node 的组合查询缺乏区分力
+    specific_matched = any(
+        group_name != "generic" and any(t.lower() in text for t in terms)
+        for group_name, terms in _SUBJECT_ALIASES.get(subject_domain, {}).items()
+    )
     for group_name, terms in _SUBJECT_ALIASES.get(subject_domain, {}).items():
         if group_name == "generic":
+            if specific_matched:
+                continue  # 已命中特定服务组，跳过 generic 以避免 alias 槽位污染
             for t in terms:
                 _add_unique(out, t)
             continue
@@ -520,20 +528,42 @@ def _preferred_categories(query: str, subject_domain: str, task_kind: str) -> tu
     text = _norm(query)
     preferred = list(_PREFERRED_CATEGORIES.get(subject_domain, tuple()))
     strict = False
-    internet_bill_tokens = ("网费", "网络费", "网络账单", "宽带", "宽带费", "internet", "nbn", "broadband", "superloop")
+    internet_bill_tokens = ("网费", "网络费", "网络账单", "网络提供商", "宽带", "宽带费", "宽带运营商", "internet", "nbn", "broadband", "superloop")
     electricity_tokens = ("电费", "electricity", "power")
     gas_tokens = ("燃气", "gas")
     water_tokens = ("水费", "water")
     if subject_domain == "bills" and task_kind in {"aggregate_lookup", "list"}:
-        strict = True
+        # Only apply strict filter when a specific bill type is identified.
+        # For generic "all bills" queries (no specific type token), keep strict=False so
+        # we don't apply an exact-match filter on the broad "finance/bills" path — all
+        # bills are stored at finance/bills/*, so exact match on "finance/bills" returns 0.
         if any(tok in text for tok in electricity_tokens):
+            strict = True
             preferred = list(_BILL_STRICT_CATEGORIES["electricity"])
         elif any(tok in text for tok in gas_tokens):
+            strict = True
             preferred = list(_BILL_STRICT_CATEGORIES["gas"])
         elif any(tok in text for tok in water_tokens):
+            strict = True
             preferred = list(_BILL_STRICT_CATEGORIES["water"])
         elif any(tok in text for tok in internet_bill_tokens):
+            strict = True
             preferred = list(_BILL_STRICT_CATEGORIES["internet"])
+    elif subject_domain == "bills" and task_kind == "fact_lookup":
+        # entity_fact_lookup（联系方式、账单金额）若明确指定服务商类型，也应严格过滤，
+        # 防止跨服务 chunk 污染（如网络提供商查询召回电费账单）
+        if any(tok in text for tok in internet_bill_tokens):
+            strict = True
+            preferred = list(_BILL_STRICT_CATEGORIES["internet"])
+        elif any(tok in text for tok in electricity_tokens):
+            strict = True
+            preferred = list(_BILL_STRICT_CATEGORIES["electricity"])
+        elif any(tok in text for tok in gas_tokens):
+            strict = True
+            preferred = list(_BILL_STRICT_CATEGORIES["gas"])
+        elif any(tok in text for tok in water_tokens):
+            strict = True
+            preferred = list(_BILL_STRICT_CATEGORIES["water"])
     elif subject_domain == "bills":
         if any(tok in text for tok in internet_bill_tokens):
             preferred = list(dict.fromkeys([*_BILL_STRICT_CATEGORIES["internet"], *preferred]))

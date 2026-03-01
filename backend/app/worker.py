@@ -9,6 +9,7 @@ from app.services.ingestion import (
     mark_job_terminal_failure,
     process_ingestion_job,
 )
+from app.services.map_reduce import build_map_reduce_summary
 from app.services.sync_run import execute_sync_run
 
 settings = get_settings()
@@ -68,6 +69,40 @@ def execute_sync_run_task(
                     "exc_type": type(exc).__name__,
                 }
             ),
+        )
+        raise
+    finally:
+        db.close()
+
+
+@celery_app.task(bind=True, name="fkv.map_reduce.process")
+def run_map_reduce_task(self, doc_id: str, ui_lang: str = "zh", chunk_group_size: int = 6):
+    """Async Celery task for long-document map-reduce summarisation.
+
+    Persists intermediate page/section checkpoints to the DB so that if the
+    HTTP request times out, completed work is not lost and can be resumed
+    via the status endpoint.
+    """
+    db = SessionLocal()
+    try:
+        result = build_map_reduce_summary(db, doc_id=doc_id, ui_lang=ui_lang, chunk_group_size=chunk_group_size)
+        return {
+            "doc_id": doc_id,
+            "status": "completed",
+            "quality_state": str(result.quality_state or ""),
+            "pages_total": int(result.pages_total or 0),
+            "pages_used": int(result.pages_used or 0),
+        }
+    except ValueError as exc:
+        logger.warning(
+            "map_reduce_task_value_error",
+            extra=sanitize_log_context({"doc_id": str(doc_id or ""), "error": str(exc)}),
+        )
+        return {"doc_id": doc_id, "status": "failed", "error": str(exc)}
+    except Exception as exc:
+        logger.warning(
+            "map_reduce_task_failed",
+            extra=sanitize_log_context({"doc_id": str(doc_id or ""), "exc_type": type(exc).__name__}),
         )
         raise
     finally:

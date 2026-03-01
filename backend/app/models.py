@@ -73,6 +73,12 @@ class Document(Base):
     longdoc_pages_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
     longdoc_pages_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Map-reduce checkpoint fields — persist intermediate results so that a
+    # mid-flight timeout does not lose already-completed page/section summaries.
+    mapreduce_page_summaries_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]", server_default="[]")
+    mapreduce_section_summaries_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]", server_default="[]")
+    mapreduce_job_status: Mapped[str] = mapped_column(String(32), nullable=False, default="", server_default="")
+
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: dt.datetime.now(dt.UTC))
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: dt.datetime.now(dt.UTC), onupdate=lambda: dt.datetime.now(dt.UTC)
