@@ -16,6 +16,7 @@ services:
       - FAMILY_VAULT_QDRANT_ENABLE=1
       - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
       - FAMILY_VAULT_SUMMARY_MODEL=lfm2:latest
+      - FAMILY_VAULT_JWT_SECRET=${JWT_SECRET}
       - FAMILY_VAULT_CATEGORY_MODEL=qwen3:4b-instruct
       - FAMILY_VAULT_FRIENDLY_NAME_MODEL=lfm2:latest
       - FAMILY_VAULT_SUMMARY_TIMEOUT_PAGE_SEC=90
@@ -35,6 +36,10 @@ services:
       - ./backend:/app
       - ./data:/app/data
       - ./secrets/gmail:/app/secrets/gmail:ro
+      # Docker socket - 用于容器内执行 docker 命令 (如文档预览、PDF 处理等)
+      # 注意：此挂载给予容器对宿主机 Docker 的只读访问权限
+      # 如果不需要此功能，可以注释掉这一行
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       # 请在此处挂载 NAS/本地目录，然后在 Settings UI 中设置 NAS 源目录路径。
       # - /mnt/nas:/mnt/nas:ro
       # - /mnt/nas:/volume1/Family_Archives
@@ -61,6 +66,7 @@ services:
       - FAMILY_VAULT_QDRANT_ENABLE=1
       - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
       - FAMILY_VAULT_SUMMARY_MODEL=lfm2:latest
+      - FAMILY_VAULT_JWT_SECRET=${JWT_SECRET}
       - FAMILY_VAULT_CATEGORY_MODEL=qwen3:4b-instruct
       - FAMILY_VAULT_FRIENDLY_NAME_MODEL=lfm2:latest
       - FAMILY_VAULT_SUMMARY_TIMEOUT_PAGE_SEC=90
@@ -109,16 +115,15 @@ services:
       - ./data/qdrant:/qdrant/storage
 
   fkv-frontend:
-    image: mcr.microsoft.com/playwright:v1.50.0-jammy
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     container_name: fkv-frontend
-    working_dir: /app
-    command: ["sh", "-c", "npm install && npm run dev"]
+    restart: unless-stopped
     environment:
       - NEXT_PUBLIC_FKV_API_BASE=/api
       - FKV_INTERNAL_API_BASE=http://fkv-api:18080
       - NEXT_DIST_DIR=.next-runtime
-    volumes:
-      - ./frontend:/app
     ports:
       - "18181:18081"
     depends_on:

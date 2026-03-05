@@ -1,0 +1,145 @@
+# Family Vault - Full Docker Compose
+# Includes: API, Worker, Frontend, Redis, Qdrant, Nginx, Ollama (optional GPU)
+
+services:
+  # === Core Services ===
+  
+  fkv-api:
+    build: ./backend
+    container_name: fkv-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER=0
+      - FAMILY_VAULT_DATABASE_URL=sqlite:////app/data/family_vault.db
+      - FAMILY_VAULT_REDIS_URL=redis://redis:6379/0
+      - FAMILY_VAULT_QDRANT_URL=http://qdrant:6333
+      - FAMILY_VAULT_QDRANT_COLLECTION=fkv_docs_v1
+      - FAMILY_VAULT_QDRANT_ENABLE=1
+      - FAMILY_VAULT_OLLAMA_BASE_URL=http://fkv-ollama:11434
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "18080"]
+    volumes:
+      - fkv-data:/app/data
+      - fkv-secrets:/app/secrets:ro
+      # NAS 挂载点 - 根据实际路径修改
+      # - /mnt/nas:/mnt/nas:ro
+    expose:
+      - "18080"
+    depends_on:
+      - redis
+      - qdrant
+    networks:
+      - fkv-internal
+
+  fkv-worker:
+    build: ./backend
+    container_name: fkv-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER=0
+      - FAMILY_VAULT_DATABASE_URL=sqlite:////app/data/family_vault.db
+      - FAMILY_VAULT_REDIS_URL=redis://redis:6379/0
+      - FAMILY_VAULT_QDRANT_URL=http://qdrant:6333
+      - FAMILY_VAULT_QDRANT_COLLECTION=fkv_docs_v1
+      - FAMILY_VAULT_QDRANT_ENABLE=1
+      - FAMILY_VAULT_OLLAMA_BASE_URL=http://fkv-ollama:11434
+      - FAMILY_VAULT_CELERY_WORKER_CONCURRENCY=2
+    command:
+      - sh
+      - -c
+      - celery -A app.worker worker --loglevel=info --concurrency=2 --prefetch-multiplier=1
+    volumes:
+      - fkv-data:/app/data
+      - fkv-secrets:/app/secrets:ro
+    depends_on:
+      - redis
+      - qdrant
+    networks:
+      - fkv-internal
+
+  fkv-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fkv-frontend
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_FKV_API_BASE=/api
+      - FKV_INTERNAL_API_BASE=http://fkv-api:18080
+    expose:
+      - "18081"
+    depends_on:
+      - fkv-api
+    networks:
+      - fkv-internal
+
+  redis:
+    image: redis:7-alpine
+    container_name: fkv-redis
+    restart: unless-stopped
+    volumes:
+      - fkv-redis:/data
+    networks:
+      - fkv-internal
+
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
+    container_name: fkv-qdrant
+    restart: unless-stopped
+    volumes:
+      - fkv-qdrant:/qdrant/storage
+    networks:
+      - fkv-internal
+
+  # === Optional Services ===
+
+  fkv-nginx:
+    image: nginx:alpine
+    container_name: fkv-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - fkv-api
+      - fkv-frontend
+    networks:
+      - fkv-internal
+    profiles:
+      - full
+
+  fkv-ollama:
+    image: ollama/ollama:latest
+    container_name: fkv-ollama
+    restart: unless-stopped
+    # GPU 支持 - 取消注释启用
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    volumes:
+      - fkv-ollama:/root/.ollama
+    networks:
+      - fkv-internal
+    profiles:
+      - full
+
+networks:
+  fkv-internal:
+    driver: bridge
+
+volumes:
+  fkv-data:
+  fkv-secrets:
+  fkv-redis:
+  fkv-qdrant:
+  fkv-ollama:
