@@ -4,8 +4,7 @@ LLM Router 路由器
 支持回退机制
 """
 
-import os
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
@@ -122,7 +121,7 @@ class LLMRouter:
             return self._providers[cache_key]
         
         # 查询数据库
-        query = db.query(LLMProvider).filter(LLMProvider.is_active == True)
+        query = db.query(LLMProvider).filter(LLMProvider.is_active is True)
         
         if provider_name:
             # 按名称或 ID 匹配
@@ -131,7 +130,7 @@ class LLMRouter:
             )
         else:
             # 获取默认 Provider
-            query = query.filter(LLMProvider.is_default == True)
+            query = query.filter(LLMProvider.is_default is True)
         
         provider_record = query.first()
         

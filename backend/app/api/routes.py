@@ -33,7 +33,6 @@ from app.models import (
     MailIngestionEvent,
     SyncRun,
     SyncRunItem,
-    Task,
 )
 from app.schemas import (
     AgentExecuteRequest,
@@ -1486,14 +1485,12 @@ def get_settings_endpoint(db: Session = Depends(get_db)):
 @router.patch("/settings")
 def patch_settings(body: dict, db: Session = Depends(get_db)):
     """Update one or more settings in the DB."""
-    import json as _json
     for key, value in body.items():
         if key not in _RUNTIME_CONFIGURABLE:
             raise HTTPException(status_code=400, detail=f"Unknown setting: {key!r}")
         str_value = str(value) if not isinstance(value, str) else value
         row = db.get(AppSetting, key)
         if row is None:
-            from datetime import UTC
             row = AppSetting(key=key, value=str_value, updated_at=dt.datetime.now(dt.UTC))
             db.add(row)
         else:

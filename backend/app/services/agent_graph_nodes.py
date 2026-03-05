@@ -1,4 +1,3 @@
-import datetime as dt
 import hashlib
 import json
 import re
@@ -24,7 +23,6 @@ from app.schemas import (
     PlannerDecision,
     PlannerRequest,
     ResultCard,
-    ResultCardAction,
     ResultCardSource,
     SearchRequest,
 )

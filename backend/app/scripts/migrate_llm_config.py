@@ -26,7 +26,6 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine
 from app.llm_models.llm_provider import LLMProvider, ProviderType
-from app.utils.encryption import encrypt
 
 
 def table_exists(table_name: str) -> bool:
@@ -49,7 +48,7 @@ def create_default_ollama_provider(db: Session, dry_run: bool = False):
     # 检查是否已存在默认 Ollama Provider
     existing = db.query(LLMProvider).filter(
         LLMProvider.provider_type == ProviderType.OLLAMA,
-        LLMProvider.is_default == True
+        LLMProvider.is_default is True
     ).first()
     
     if existing:

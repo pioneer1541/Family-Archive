@@ -6,7 +6,7 @@ LLM Provider 数据模型
 import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
-from typing import Optional, List
+from typing import Optional
 
 from sqlalchemy import String, Boolean, DateTime, Text, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column
