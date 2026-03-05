@@ -121,7 +121,7 @@ def get_runtime_setting(key: str, db: Session | None = None) -> str:
     # 3. Env var (non-empty env var overrides default; empty env var is ignored)
     if env_var:
         env_val = os.environ.get(env_var)
-        if env_val is not None:
+        if env_val:
             _set_cache(key, env_val, now)
             return env_val
 

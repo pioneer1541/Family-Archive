@@ -1443,12 +1443,22 @@ from app.runtime_config import (  # noqa: E402
 )
 
 
+# Settings that require worker restart to take effect
+RESTART_REQUIRED_KEYS = {
+    "planner_model", "synthesizer_model", "embed_model", "summary_model",
+    "category_model", "friendly_name_model", "vl_extract_model",
+    "summary_timeout_page_sec", "summary_timeout_section_sec",
+    "summary_timeout_final_sec", "agent_synth_timeout_sec",
+    "ollama_base_url",
+}
+
+
 def _setting_source(key: str, db: Session) -> str:
     env_var, _ = _RUNTIME_CONFIGURABLE[key]
     row = db.get(AppSetting, key)
     if row is not None:
         return "db"
-    if env_var and _os.environ.get(env_var) is not None:
+    if env_var and _os.environ.get(env_var):
         return "env"
     return "default"
 
@@ -1491,7 +1501,10 @@ def patch_settings(body: dict, db: Session = Depends(get_db)):
             row.updated_at = dt.datetime.now(dt.UTC)
     db.commit()
     invalidate_runtime_cache(*list(body.keys()))
-    return {"ok": True}
+    
+    # Check if restart is required
+    restart_required = bool(set(body.keys()) & RESTART_REQUIRED_KEYS)
+    return {"ok": True, "restart_required": restart_required}
 
 
 @router.get("/settings/keywords")
@@ -1655,3 +1668,62 @@ def connectivity_health(db: Session = Depends(get_db)):
         "nas": nas_result,
         "gmail": gmail_result,
     }
+
+
+# ---------------------------------------------------------------------------
+# Service restart
+# ---------------------------------------------------------------------------
+
+@router.post("/restart")
+
+# ---------------------------------------------------------------------------
+# Service restart
+# ---------------------------------------------------------------------------
+
+@router.post("/restart")
+def restart_services():
+    """Restart backend services (worker) to apply configuration changes."""
+    import socket
+    import os
+    
+    in_docker = os.path.exists("/.dockerenv")
+    
+    if not in_docker:
+        return {"ok": False, "error": "Restart only available in Docker environment", "manual": True}
+    
+    try:
+        sock_path = "/var/run/docker.sock"
+        if not os.path.exists(sock_path):
+            return {"ok": False, "error": "Docker socket not available", "manual": True}
+        
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.settimeout(30)
+        sock.connect(sock_path)
+        
+        # HTTP request to restart container via Docker API
+        request = "POST /containers/fkv-worker/restart HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n"
+        sock.sendall(request.encode())
+        
+        response = b""
+        while True:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            response += chunk
+            if b"\r\n\r\n" in response:
+                break
+        
+        sock.close()
+        
+        response_str = response.decode("utf-8", errors="ignore")
+        if "HTTP/1.1 204" in response_str or "HTTP/1.1 200" in response_str:
+            return {"ok": True, "message": "Worker restarted successfully"}
+        else:
+            return {"ok": False, "error": f"Failed to restart: {response_str[:200]}", "manual": True}
+            
+    except socket.timeout:
+        return {"ok": False, "error": "Restart command timed out", "manual": True}
+    except FileNotFoundError:
+        return {"ok": False, "error": "Docker socket not found", "manual": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "manual": True}
