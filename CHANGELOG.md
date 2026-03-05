@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 多用户系统
+  - User 模型和数据库迁移
+  - 用户注册、登录、登出 API（/api/v1/auth/*）
+  - 密码修改、账户删除（软删除）
+  - JWT 包含 user_id 和 role
+  - 角色区分（admin/user）
+  - 保留旧 admin 迁移兼容性
+
 - LLM 多提供商支持
   - 支持 Ollama、OpenAI、Kimi、GLM、Custom 五种提供商
   - API Key 加密存储 (Fernet 对称加密)
