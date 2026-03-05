@@ -25,7 +25,9 @@ def _dct_basis(n: int, keep: int) -> list[list[float]]:
     return out
 
 
-def compute_image_phash(path: str, *, hash_size: int = 8, highfreq_factor: int = 4) -> str:
+def compute_image_phash(
+    path: str, *, hash_size: int = 8, highfreq_factor: int = 4
+) -> str:
     size = int(hash_size) * int(highfreq_factor)
     if size <= 0:
         return ""

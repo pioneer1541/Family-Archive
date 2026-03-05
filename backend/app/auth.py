@@ -41,9 +41,11 @@ _ADMIN_PASSWORD_KEY = "admin_password_hash"
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class UserContext:
     """User context extracted from JWT token."""
+
     user_id: str
     email: str
     role: str
@@ -73,7 +75,9 @@ def verify_password(plain: str, hashed: str) -> bool:
 def is_setup_complete(db: Session) -> bool:
     """Return True if at least one active admin user exists."""
     result = db.execute(
-        select(User).where(User.role == "admin", User.is_active is True, User.deleted_at is None).limit(1)
+        select(User)
+        .where(User.role == "admin", User.is_active is True, User.deleted_at is None)
+        .limit(1)
     ).scalar()
     if result is not None:
         return True
@@ -97,6 +101,7 @@ def set_admin_password(plain: str, db: Session) -> None:
     else:
         # Create new admin user
         import uuid
+
         admin_user = User(
             id=str(uuid.uuid4()),
             email="admin@local",
@@ -109,7 +114,9 @@ def set_admin_password(plain: str, db: Session) -> None:
     # Also update legacy app_settings for backward compatibility
     row = db.get(AppSetting, _ADMIN_PASSWORD_KEY)
     if row is None:
-        row = AppSetting(key=_ADMIN_PASSWORD_KEY, value=hashed, updated_at=datetime.now(UTC))
+        row = AppSetting(
+            key=_ADMIN_PASSWORD_KEY, value=hashed, updated_at=datetime.now(UTC)
+        )
         db.add(row)
     else:
         row.value = hashed
@@ -158,6 +165,7 @@ def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
 def create_user(db: Session, email: str, password: str, role: str = "user") -> User:
     """Create a new user with hashed password."""
     import uuid
+
     normalized_email = email.lower().strip()
     hashed = hash_password(password)
     user = User(
@@ -223,7 +231,9 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
 
 def create_access_token(user: User, expires_delta: Optional[timedelta] = None) -> str:
     """Create a JWT token for a user."""
-    expire = datetime.now(UTC) + (expires_delta or timedelta(hours=_ACCESS_TOKEN_EXPIRE_HOURS))
+    expire = datetime.now(UTC) + (
+        expires_delta or timedelta(hours=_ACCESS_TOKEN_EXPIRE_HOURS)
+    )
     payload = {
         "sub": user.id,
         "email": user.email,
@@ -235,8 +245,14 @@ def create_access_token(user: User, expires_delta: Optional[timedelta] = None) -
 
 def create_legacy_access_token(expires_delta: Optional[timedelta] = None) -> str:
     """Create a legacy JWT token for admin (backward compatibility)."""
-    expire = datetime.now(UTC) + (expires_delta or timedelta(hours=_ACCESS_TOKEN_EXPIRE_HOURS))
-    return jwt.encode({"sub": "admin", "role": "admin", "exp": expire}, _SECRET_KEY, algorithm=_ALGORITHM)
+    expire = datetime.now(UTC) + (
+        expires_delta or timedelta(hours=_ACCESS_TOKEN_EXPIRE_HOURS)
+    )
+    return jwt.encode(
+        {"sub": "admin", "role": "admin", "exp": expire},
+        _SECRET_KEY,
+        algorithm=_ALGORITHM,
+    )
 
 
 def decode_access_token(token: str) -> Optional[UserContext]:

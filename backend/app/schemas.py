@@ -685,6 +685,7 @@ class HealthResponse(BaseModel):
 # User authentication schemas
 # ---------------------------------------------------------------------------
 
+
 class UserRegisterRequest(BaseModel):
     email: str = Field(min_length=3, max_length=255)
     password: str = Field(min_length=8, max_length=128)
@@ -717,6 +718,7 @@ class AuthStatusResponse(BaseModel):
 # Gmail Credentials schemas
 # ---------------------------------------------------------------------------
 
+
 class GmailCredentialCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     client_id: str = Field(min_length=1, max_length=256)
@@ -724,8 +726,12 @@ class GmailCredentialCreate(BaseModel):
     redirect_uri: str = Field(default="http://localhost", max_length=512)
     token: str | None = None
     refresh_token: str | None = None
-    token_uri: str = Field(default="https://oauth2.googleapis.com/token", max_length=256)
-    auth_uri: str = Field(default="https://accounts.google.com/o/oauth2/auth", max_length=256)
+    token_uri: str = Field(
+        default="https://oauth2.googleapis.com/token", max_length=256
+    )
+    auth_uri: str = Field(
+        default="https://accounts.google.com/o/oauth2/auth", max_length=256
+    )
     scopes: str = Field(default="https://www.googleapis.com/auth/gmail.readonly")
 
 

@@ -34,7 +34,9 @@ class LLMProvider(Base):
 
     __tablename__ = "llm_providers"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
     """Provider 唯一标识 UUID"""
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -62,7 +64,9 @@ class LLMProvider(Base):
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     """是否为默认 Provider"""
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )
     """创建时间"""
 
     updated_at: Mapped[datetime] = mapped_column(

@@ -96,7 +96,9 @@ def _candidate_rules_paths() -> list[Path]:
     env_path = str(settings.tag_rules_path or "").strip()
     backend_root = Path(__file__).resolve().parents[2]
     return [
-        Path(env_path) if env_path else backend_root / "services/kb-worker/config/tag_rules.json",
+        Path(env_path)
+        if env_path
+        else backend_root / "services/kb-worker/config/tag_rules.json",
         backend_root / "services/kb-worker/config/tag_rules.json",
     ]
 
@@ -169,7 +171,11 @@ def _dedupe_keep_order(values: Iterable[str]) -> list[str]:
 
 
 def _safe_tuple(values: Iterable[str]) -> tuple[str, ...]:
-    return tuple(_dedupe_keep_order(str(v or "").strip().lower() for v in values if str(v or "").strip()))
+    return tuple(
+        _dedupe_keep_order(
+            str(v or "").strip().lower() for v in values if str(v or "").strip()
+        )
+    )
 
 
 def _safe_int(value: object, *, default: int, min_value: int, max_value: int) -> int:
@@ -185,7 +191,9 @@ def load_tag_rules() -> TagRules:
     raw = _load_raw_rules()
     allowed_families = _safe_tuple(raw.get("allowed_families") or _FAMILY_LABELS.keys())
     topic_whitelist = _safe_tuple(raw.get("topic_whitelist") or ())
-    status_whitelist = _safe_tuple(raw.get("status_whitelist") or ("important", "review", "todo", "archived"))
+    status_whitelist = _safe_tuple(
+        raw.get("status_whitelist") or ("important", "review", "todo", "archived")
+    )
     label_map_raw = raw.get("label_map") if isinstance(raw, dict) else {}
 
     label_map: dict[str, dict[str, str]] = {}
@@ -204,8 +212,12 @@ def load_tag_rules() -> TagRules:
         synonyms_alias_to_canonical=_build_synonyms_map(raw),
         topic_whitelist=topic_whitelist,
         status_whitelist=status_whitelist,
-        max_tags_per_doc=_safe_int(raw.get("max_tags_per_doc"), default=12, min_value=1, max_value=64),
-        max_topic_tags_per_doc=_safe_int(raw.get("max_topic_tags_per_doc"), default=3, min_value=1, max_value=20),
+        max_tags_per_doc=_safe_int(
+            raw.get("max_tags_per_doc"), default=12, min_value=1, max_value=64
+        ),
+        max_topic_tags_per_doc=_safe_int(
+            raw.get("max_topic_tags_per_doc"), default=3, min_value=1, max_value=20
+        ),
         label_map=label_map,
     )
 
@@ -247,7 +259,9 @@ def normalize_tag_key(tag_key: str, *, allow_unknown_family: bool = False) -> st
     return normalized[:128]
 
 
-def normalize_tag_list(tag_keys: Iterable[str], *, strict: bool = False) -> tuple[list[str], list[str]]:
+def normalize_tag_list(
+    tag_keys: Iterable[str], *, strict: bool = False
+) -> tuple[list[str], list[str]]:
     out: list[str] = []
     invalid: list[str] = []
     seen: set[str] = set()
@@ -359,7 +373,9 @@ def _vendor_from_mail(from_addr: str) -> str:
     return key
 
 
-def _tags_from_keyword_map(text_blob: str, family: str, mapping: dict[str, str]) -> list[str]:
+def _tags_from_keyword_map(
+    text_blob: str, family: str, mapping: dict[str, str]
+) -> list[str]:
     out: list[str] = []
     for token, value in mapping.items():
         token_norm = _normalize_text_blob(token)
@@ -436,7 +452,9 @@ def infer_auto_tags(
     mail_from: str = "",
     mail_subject: str = "",
 ) -> list[str]:
-    text_blob = _normalize_text_blob(file_name, source_path, summary_en, summary_zh, content_excerpt, mail_subject)
+    text_blob = _normalize_text_blob(
+        file_name, source_path, summary_en, summary_zh, content_excerpt, mail_subject
+    )
 
     candidates: list[str] = []
 

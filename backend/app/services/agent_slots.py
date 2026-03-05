@@ -179,7 +179,9 @@ def _looks_like_raw_page_snippet(value: str) -> bool:
     return bool(re.match(r"^\[page\s*\d+\]", raw, flags=re.I))
 
 
-def _should_suppress_slot_value(*, slot: str, value: str, confidence: float, query_spec: dict[str, Any]) -> bool:
+def _should_suppress_slot_value(
+    *, slot: str, value: str, confidence: float, query_spec: dict[str, Any]
+) -> bool:
     _ = (
         slot,
         confidence,
@@ -244,7 +246,8 @@ def _looks_low_quality_howto_steps(text: str) -> bool:
     if "page " in low and not any(tok in low for tok in _HOWTO_OBJECT_TOKENS):
         return True
     if "owners corporation" in low and not any(
-        tok in low for tok in ("check", "clean", "inspect", "replace", "检查", "清洁", "维护")
+        tok in low
+        for tok in ("check", "clean", "inspect", "replace", "检查", "清洁", "维护")
     ):
         return True
     if "plumbing" in low and not any(tok in low for tok in _HOWTO_OBJECT_TOKENS):
@@ -258,7 +261,9 @@ def _looks_low_quality_howto_steps(text: str) -> bool:
     return False
 
 
-def _pick_howto_sentences(text: str, *, keywords: tuple[str, ...], max_items: int = 2) -> list[str]:
+def _pick_howto_sentences(
+    text: str, *, keywords: tuple[str, ...], max_items: int = 2
+) -> list[str]:
     out: list[str] = []
     for line in _split_sentences_loose(text):
         low = line.lower()
@@ -330,7 +335,8 @@ def _add_result(
         return
     if any(
         str(item.get("slot") or "") == slot
-        and str(item.get("normalized_value") or item.get("value") or "") == (normalized_value or value)
+        and str(item.get("normalized_value") or item.get("value") or "")
+        == (normalized_value or value)
         for item in results
     ):
         return
@@ -390,7 +396,12 @@ def _prefer_bill_amount_values(vals: list[str]) -> list[str]:
             score += 2.0
         if any(tok in low for tok in ("aud", "$", "usd", "eur")):
             score += 1.0
-        if n is not None and float(n).is_integer() and 1900 <= n <= 2100 and "." not in s:
+        if (
+            n is not None
+            and float(n).is_integer()
+            and 1900 <= n <= 2100
+            and "." not in s
+        ):
             score -= 5.0
         if n is not None and n <= 0:
             score -= 0.5
@@ -399,7 +410,9 @@ def _prefer_bill_amount_values(vals: list[str]) -> list[str]:
     return [v for v in sorted(vals, key=_score, reverse=True)]
 
 
-def _bill_amount_candidate_confidence(text: str, value: str, all_vals: list[str]) -> float:
+def _bill_amount_candidate_confidence(
+    text: str, value: str, all_vals: list[str]
+) -> float:
     low = str(text or "").lower()
     v = str(value or "")
     base = 0.75
@@ -409,15 +422,23 @@ def _bill_amount_candidate_confidence(text: str, value: str, all_vals: list[str]
     idx = low.find(v.lower())
     if idx >= 0:
         window = low[max(0, idx - 48) : idx + max(len(v), 1) + 48]
-        if any(tok in window for tok in ("total", "total amount", "amount due", "bill total", "summary")):
+        if any(
+            tok in window
+            for tok in ("total", "total amount", "amount due", "bill total", "summary")
+        ):
             base += 0.18
         if any(tok in window for tok in ("amount", "due")):
             base += 0.08
-        if any(tok in window for tok in ("gst", "fee", "charge", "surcharge", "credit", "discount")):
+        if any(
+            tok in window
+            for tok in ("gst", "fee", "charge", "surcharge", "credit", "discount")
+        ):
             base -= 0.14
     if n is not None:
         bigger = [
-            (_numeric_from_amount_text(x) or 0.0) for x in all_vals if (_numeric_from_amount_text(x) or 0.0) > n + 5
+            (_numeric_from_amount_text(x) or 0.0)
+            for x in all_vals
+            if (_numeric_from_amount_text(x) or 0.0) > n + 5
         ]
         if n < 20 and bigger:
             base -= 0.12
@@ -461,7 +482,9 @@ def _slot_candidate_context_bonus(
     chunk: dict[str, Any],
     candidate: dict[str, Any],
 ) -> float:
-    if slot not in _BILL_CONTACT_SLOTS or not _queryspec_internet_bill_context(query_spec):
+    if slot not in _BILL_CONTACT_SLOTS or not _queryspec_internet_bill_context(
+        query_spec
+    ):
         return 0.0
     hay = _chunk_haystack(chunk)
     cat = str(chunk.get("category_path") or "").lower()
@@ -478,7 +501,9 @@ def _slot_candidate_context_bonus(
         bonus += 0.22
     if has_neg_anchor and not has_internet_anchor:
         bonus -= 0.28
-    if cat.startswith(("finance/bills/water", "finance/bills/electricity", "finance/bills/gas")):
+    if cat.startswith(
+        ("finance/bills/water", "finance/bills/electricity", "finance/bills/gas")
+    ):
         bonus -= 0.22
 
     if slot in {"vendor", "provider"}:
@@ -499,9 +524,14 @@ def _slot_candidate_context_bonus(
         if any(x in hay for x in ("yvw.com.au", "yarra valley water", "globird")):
             bonus -= 0.28
     elif slot == "bill_amount":
-        if "superloop" in hay or any(x in hay for x in ("internet bill", "网络账单", "宽带")):
+        if "superloop" in hay or any(
+            x in hay for x in ("internet bill", "网络账单", "宽带")
+        ):
             bonus += 0.28
-        if any(x in hay for x in ("previous bill", "summarypreviousbill")) and not has_internet_anchor:
+        if (
+            any(x in hay for x in ("previous bill", "summarypreviousbill"))
+            and not has_internet_anchor
+        ):
             bonus -= 0.12
     elif slot == "billing_period":
         if has_internet_anchor:
@@ -563,13 +593,17 @@ def _extract_generic_slot(slot: str, chunk: dict[str, Any]) -> list[dict[str, An
         if (
             slot == "engineer_phone"
             and phones
-            and not _keyword_near(text, ("engineer", "technician", "维修", "工程师", "service"))
+            and not _keyword_near(
+                text, ("engineer", "technician", "维修", "工程师", "service")
+            )
         ):
             return results
         if (
             slot == "emergency_contact_phone"
             and phones
-            and not _keyword_near(text, ("emergency", "urgent", "hotline", "紧急", "assistance"))
+            and not _keyword_near(
+                text, ("emergency", "urgent", "hotline", "紧急", "assistance")
+            )
         ):
             return results
         for val in phones:
@@ -604,10 +638,16 @@ def _extract_generic_slot(slot: str, chunk: dict[str, Any]) -> list[dict[str, An
             refs = [x for x in refs if _keyword_near(text, ("policy", "保单"))] or refs
         if slot == "invoice_no":
             refs = [x for x in refs if any(ch.isdigit() for ch in x)]
-            refs = [x for x in refs if _keyword_near(text, ("invoice", "发票", "inv"))] or refs
+            refs = [
+                x for x in refs if _keyword_near(text, ("invoice", "发票", "inv"))
+            ] or refs
         if slot == "work_order_no":
             refs = [x for x in refs if any(ch.isdigit() for ch in x)]
-            refs = [x for x in refs if _keyword_near(text, ("work order", "ticket", "工单", "维修"))] or refs
+            refs = [
+                x
+                for x in refs
+                if _keyword_near(text, ("work order", "ticket", "工单", "维修"))
+            ] or refs
         for val in refs:
             _add_result(
                 results,
@@ -683,7 +723,9 @@ def _extract_generic_slot(slot: str, chunk: dict[str, Any]) -> list[dict[str, An
         return results
 
     if slot == "maintenance_steps":
-        steps = _pick_howto_sentences(howto_text, keywords=_HOWTO_ACTION_TOKENS, max_items=2)
+        steps = _pick_howto_sentences(
+            howto_text, keywords=_HOWTO_ACTION_TOKENS, max_items=2
+        )
         if steps:
             joined = "；".join(steps)
             _add_result(
@@ -697,7 +739,9 @@ def _extract_generic_slot(slot: str, chunk: dict[str, Any]) -> list[dict[str, An
         return results
 
     if slot == "maintenance_notes":
-        notes = _pick_howto_sentences(howto_text, keywords=_HOWTO_NOTE_TOKENS, max_items=2)
+        notes = _pick_howto_sentences(
+            howto_text, keywords=_HOWTO_NOTE_TOKENS, max_items=2
+        )
         if notes:
             joined = "；".join(notes)
             _add_result(
@@ -711,7 +755,9 @@ def _extract_generic_slot(slot: str, chunk: dict[str, Any]) -> list[dict[str, An
         return results
 
     if slot == "maintenance_warning":
-        warns = _pick_howto_sentences(howto_text, keywords=_HOWTO_WARN_TOKENS, max_items=2)
+        warns = _pick_howto_sentences(
+            howto_text, keywords=_HOWTO_WARN_TOKENS, max_items=2
+        )
         if warns:
             joined = "；".join(warns)
             _add_result(
@@ -845,7 +891,11 @@ def _extract_generic_slot(slot: str, chunk: dict[str, Any]) -> list[dict[str, An
                     chunk=chunk,
                 )
                 return results
-            if "yvw.com.au" in lowered or "yarra valley water" in lowered or re.search(r"\byvw\b", lowered):
+            if (
+                "yvw.com.au" in lowered
+                or "yarra valley water" in lowered
+                or re.search(r"\byvw\b", lowered)
+            ):
                 _add_result(
                     results,
                     slot=slot,
@@ -880,7 +930,9 @@ def _extract_generic_slot(slot: str, chunk: dict[str, Any]) -> list[dict[str, An
             _add_result(
                 results,
                 slot=slot,
-                value=ep.best_snippet(text, ["bill", "invoice", "provider", "supplier"], cap=80),
+                value=ep.best_snippet(
+                    text, ["bill", "invoice", "provider", "supplier"], cap=80
+                ),
                 confidence=0.45,
                 chunk=chunk,
             )
@@ -947,14 +999,26 @@ def extract_slots_from_chunks(
     include_generic_fallback: bool = True,
 ) -> list[dict[str, Any]]:
     target_slots = [
-        str(item or "").strip() for item in (query_spec.get("target_slots") or []) if str(item or "").strip()
+        str(item or "").strip()
+        for item in (query_spec.get("target_slots") or [])
+        if str(item or "").strip()
     ]
     if not target_slots and subtasks:
-        target_slots = [str(task.get("slot") or "").strip() for task in subtasks if str(task.get("slot") or "").strip()]
+        target_slots = [
+            str(task.get("slot") or "").strip()
+            for task in subtasks
+            if str(task.get("slot") or "").strip()
+        ]
     if include_generic_fallback:
-        if bool(query_spec.get("needs_presence_evidence")) and "presence_evidence" not in target_slots:
+        if (
+            bool(query_spec.get("needs_presence_evidence"))
+            and "presence_evidence" not in target_slots
+        ):
             target_slots.append("presence_evidence")
-        if bool(query_spec.get("needs_status_evidence")) and "status_evidence" not in target_slots:
+        if (
+            bool(query_spec.get("needs_status_evidence"))
+            and "status_evidence" not in target_slots
+        ):
             target_slots.append("status_evidence")
     task_kind = str(query_spec.get("task_kind") or "")
     is_howto = task_kind == "howto_lookup" or ("maintenance_interval" in target_slots)
@@ -963,7 +1027,11 @@ def extract_slots_from_chunks(
             if extra not in target_slots:
                 target_slots.append(extra)
 
-    candidate_chunks = _augment_howto_chunks_with_neighbors(context_chunks) if is_howto else list(context_chunks or [])
+    candidate_chunks = (
+        _augment_howto_chunks_with_neighbors(context_chunks)
+        if is_howto
+        else list(context_chunks or [])
+    )
 
     results: list[dict[str, Any]] = []
     for slot in target_slots[:16]:
@@ -982,7 +1050,10 @@ def extract_slots_from_chunks(
                         score -= 0.2
                     else:
                         score += 0.08
-                elif slot == "maintenance_interval" and _looks_low_quality_howto_snippet(str(item.get("value") or "")):
+                elif (
+                    slot == "maintenance_interval"
+                    and _looks_low_quality_howto_snippet(str(item.get("value") or ""))
+                ):
                     score -= 0.18
                 slot_candidates.append((score, -len(slot_candidates), item, chunk))
         if slot_candidates:
@@ -1132,13 +1203,20 @@ def derive_facts(
 
     def first_val(slot: str) -> str:
         for row in by_slot.get(slot, []):
-            if str(row.get("status") or "") == "found" and str(row.get("value") or "").strip():
+            if (
+                str(row.get("status") or "") == "found"
+                and str(row.get("value") or "").strip()
+            ):
                 return str(row.get("value") or "")
         return ""
 
     for name in [str(x or "").strip() for x in derivations if str(x or "").strip()]:
         if name == "compare_expiry_to_next_month":
-            expiry = first_val("expiry_date") or first_val("due_date") or first_val("warranty_end")
+            expiry = (
+                first_val("expiry_date")
+                or first_val("due_date")
+                or first_val("warranty_end")
+            )
             parsed = ep.parse_date(expiry)
             if parsed is None:
                 out.append(
@@ -1176,7 +1254,9 @@ def derive_facts(
                     term_years = 0
                 if start and term_years > 0:
                     try:
-                        maturity = dt.date(start.year + term_years, start.month, min(start.day, 28))
+                        maturity = dt.date(
+                            start.year + term_years, start.month, min(start.day, 28)
+                        )
                     except Exception:
                         maturity = dt.date(start.year + term_years, start.month, 1)
             if maturity is None:
@@ -1232,7 +1312,13 @@ def derive_facts(
             if m:
                 months = int(m.group(1))
             elif str(interval or "").strip():
-                months = 12 if any(tok in str(interval).lower() for tok in ("year", "annual", "年")) else 0
+                months = (
+                    12
+                    if any(
+                        tok in str(interval).lower() for tok in ("year", "annual", "年")
+                    )
+                    else 0
+                )
             if last is None or months <= 0:
                 out.append(
                     {
@@ -1274,7 +1360,9 @@ def slot_coverage(
     def _covered(slot: str) -> bool:
         rows = by_slot.get(slot, [])
         return any(
-            str(r.get("status") or "") in {"found", "derived"} and str(r.get("value") or "").strip() for r in rows
+            str(r.get("status") or "") in {"found", "derived"}
+            and str(r.get("value") or "").strip()
+            for r in rows
         )
 
     missing_required = [slot for slot in required_slots if not _covered(slot)]
@@ -1314,13 +1402,19 @@ def judge_sufficiency(
 ) -> dict[str, Any]:
     coverage = slot_coverage(slot_results, required_slots, critical_slots)
     derived_success = any(
-        str(item.get("status") or "") == "derived" and str(item.get("value") or "").strip() for item in derivations
+        str(item.get("status") or "") == "derived"
+        and str(item.get("value") or "").strip()
+        for item in derivations
     )
     hit_count = len(context_chunks or [])
     partial_evidence_signals: list[str] = []
     refusal_blockers: list[str] = []
 
-    subject_aliases = [str(x).lower() for x in (query_spec.get("subject_aliases") or []) if str(x or "").strip()]
+    subject_aliases = [
+        str(x).lower()
+        for x in (query_spec.get("subject_aliases") or [])
+        if str(x or "").strip()
+    ]
     parts: list[str] = []
     for item in (context_chunks or [])[:12]:
         parts.extend(
@@ -1337,11 +1431,18 @@ def judge_sufficiency(
         subject_coverage_ok = any(alias in flat for alias in subject_aliases)
 
     target_field_coverage_ok = True
-    target_slots = [str(x or "") for x in (query_spec.get("target_slots") or []) if str(x or "").strip()]
+    target_slots = [
+        str(x or "")
+        for x in (query_spec.get("target_slots") or [])
+        if str(x or "").strip()
+    ]
     slot_map = {str(item.get("slot") or ""): item for item in slot_results}
     covered_slots: set[str] = set()
     for row in slot_results:
-        if str(row.get("status") or "") in {"found", "derived"} and str(row.get("value") or "").strip():
+        if (
+            str(row.get("status") or "") in {"found", "derived"}
+            and str(row.get("value") or "").strip()
+        ):
             covered_slots.add(str(row.get("slot") or ""))
     has_any_slot_value = bool(covered_slots)
     if target_slots:
@@ -1420,7 +1521,11 @@ def judge_sufficiency(
         answerability = "none"
         refusal_blockers.append("no_context")
 
-    presence_status_missing = [slot for slot in ("presence_evidence", "status_evidence") if slot in missing_critical]
+    presence_status_missing = [
+        slot
+        for slot in ("presence_evidence", "status_evidence")
+        if slot in missing_critical
+    ]
     if (needs_presence or needs_status) and presence_status_missing:
         refusal_blockers.extend([f"missing_{slot}" for slot in presence_status_missing])
         if hit_count <= 0:
@@ -1431,7 +1536,13 @@ def judge_sufficiency(
                 answerability = "partial"
             elif answerability == "none":
                 answerability = (
-                    "partial" if (has_any_slot_value or subject_coverage_ok or target_field_coverage_ok) else "none"
+                    "partial"
+                    if (
+                        has_any_slot_value
+                        or subject_coverage_ok
+                        or target_field_coverage_ok
+                    )
+                    else "none"
                 )
             elif answerability == "insufficient" and (
                 has_any_slot_value or subject_coverage_ok or target_field_coverage_ok
@@ -1458,14 +1569,21 @@ def judge_sufficiency(
         if (
             steps_status in {"found", "derived"}
             and steps_val
-            and (maint_status not in {"found", "derived"} or _looks_low_quality_howto_snippet(maint_val))
+            and (
+                maint_status not in {"found", "derived"}
+                or _looks_low_quality_howto_snippet(maint_val)
+            )
         ):
             partial_evidence_signals.append("howto_steps_without_interval")
             if hit_count > 0 and answerability in {"none", "insufficient"}:
                 answerability = "partial"
             if answerability == "sufficient":
                 answerability = "partial"
-        if steps_status in {"found", "derived"} and steps_val and _looks_low_quality_howto_steps(steps_val):
+        if (
+            steps_status in {"found", "derived"}
+            and steps_val
+            and _looks_low_quality_howto_steps(steps_val)
+        ):
             refusal_blockers.append("low_quality_howto_steps")
             partial_evidence_signals.append("howto_steps_low_quality")
             if answerability == "sufficient":
@@ -1476,7 +1594,9 @@ def judge_sufficiency(
         "subject_coverage_ok": bool(subject_coverage_ok),
         "target_field_coverage_ok": bool(target_field_coverage_ok),
         "answerability": answerability,
-        "partial_evidence_signals": sorted({x for x in partial_evidence_signals if str(x).strip()}),
+        "partial_evidence_signals": sorted(
+            {x for x in partial_evidence_signals if str(x).strip()}
+        ),
         "refusal_blockers": sorted({x for x in refusal_blockers if str(x).strip()}),
     }
 
@@ -1518,6 +1638,8 @@ def slot_result_map(slot_results: list[dict[str, Any]]) -> dict[str, dict[str, A
         if not slot:
             continue
         current = out.get(slot)
-        if current is None or float(row.get("confidence") or 0.0) > float(current.get("confidence") or 0.0):
+        if current is None or float(row.get("confidence") or 0.0) > float(
+            current.get("confidence") or 0.0
+        ):
             out[slot] = row
     return out

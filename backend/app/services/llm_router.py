@@ -66,7 +66,9 @@ class ModelKey:
         elif source == "cloud":
             if "/" in rest:
                 provider_name, model_name = rest.split("/", 1)
-                return cls(source="cloud", model_name=model_name, provider_name=provider_name)
+                return cls(
+                    source="cloud", model_name=model_name, provider_name=provider_name
+                )
             else:
                 # cloud:<model> 格式，provider_name 为 None
                 return cls(source="cloud", model_name=rest)
@@ -106,7 +108,9 @@ class LLMRouter:
             self._local_provider = create_provider(config)
         return self._local_provider
 
-    def _get_cloud_provider(self, db: Session, provider_name: Optional[str] = None) -> Optional[LLMProviderInterface]:
+    def _get_cloud_provider(
+        self, db: Session, provider_name: Optional[str] = None
+    ) -> Optional[LLMProviderInterface]:
         """
         获取云端 Provider
 
@@ -128,7 +132,9 @@ class LLMRouter:
 
         if provider_name:
             # 按名称或 ID 匹配
-            query = query.filter((LLMProvider.name == provider_name) | (LLMProvider.id == provider_name))
+            query = query.filter(
+                (LLMProvider.name == provider_name) | (LLMProvider.id == provider_name)
+            )
         else:
             # 获取默认 Provider
             query = query.filter(LLMProvider.is_default is True)
@@ -153,7 +159,9 @@ class LLMRouter:
         }
 
         config = LLMConfig(
-            provider_type=provider_type_map.get(provider_record.provider_type, ServiceProviderType.CUSTOM),
+            provider_type=provider_type_map.get(
+                provider_record.provider_type, ServiceProviderType.CUSTOM
+            ),
             base_url=provider_record.base_url,
             api_key=api_key,
             model_name=provider_record.model_name,
@@ -163,7 +171,9 @@ class LLMRouter:
         self._providers[cache_key] = provider
         return provider
 
-    def get_llm_client(self, db: Session, model_key: str, fallback: bool = True) -> tuple[LLMProviderInterface, str]:
+    def get_llm_client(
+        self, db: Session, model_key: str, fallback: bool = True
+    ) -> tuple[LLMProviderInterface, str]:
         """
         获取 LLM 客户端
 
@@ -186,7 +196,9 @@ class LLMRouter:
             model_name = parsed.model_name
 
             if provider is None and fallback:
-                logger.warning(f"云端 Provider {parsed.provider_name} 不可用，回退到本地 Ollama")
+                logger.warning(
+                    f"云端 Provider {parsed.provider_name} 不可用，回退到本地 Ollama"
+                )
                 provider = self._get_local_provider()
                 model_name = settings.summary_model
 
@@ -210,7 +222,9 @@ def get_router() -> LLMRouter:
     return _router
 
 
-def get_llm_client(db: Session, model_key: str, fallback: bool = True) -> tuple[LLMProviderInterface, str]:
+def get_llm_client(
+    db: Session, model_key: str, fallback: bool = True
+) -> tuple[LLMProviderInterface, str]:
     """
     便捷函数：获取 LLM 客户端
 
