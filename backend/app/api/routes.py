@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import crud
+from app.api.auth_routes import router as auth_router
 from app.api.deps import get_db
 from app.auth import (
     COOKIE_NAME,
@@ -1827,3 +1828,9 @@ def restart_services():
         return {"ok": False, "error": "Docker socket not found", "manual": True}
     except Exception as e:
         return {"ok": False, "error": str(e), "manual": True}
+
+
+_root_router = APIRouter()
+_root_router.include_router(router)
+_root_router.include_router(auth_router)
+router = _root_router

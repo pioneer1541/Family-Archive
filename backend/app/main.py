@@ -119,6 +119,7 @@ async def lifespan(_app: FastAPI):
 
 _AUTH_EXEMPT_PREFIXES = (
     "/v1/auth/",
+    "/api/v1/auth/",
     "/health",
     "/",
 )

@@ -679,3 +679,35 @@ class HealthResponse(BaseModel):
     service: str
     version: str
     status: str
+
+
+# ---------------------------------------------------------------------------
+# User authentication schemas
+# ---------------------------------------------------------------------------
+
+class UserRegisterRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class UserLoginRequest(BaseModel):
+    email: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class UserChangePasswordRequest(BaseModel):
+    old_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class UserResponse(BaseModel):
+    user_id: str
+    email: str
+    role: str
+    created_at: datetime
+
+
+class AuthStatusResponse(BaseModel):
+    setup_complete: bool
+    authenticated: bool = False
+    user: UserResponse | None = None
