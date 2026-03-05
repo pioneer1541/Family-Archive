@@ -4,7 +4,6 @@ API Key 加密工具
 """
 
 import os
-import base64
 from pathlib import Path
 from cryptography.fernet import Fernet
 from typing import Optional
@@ -29,7 +28,7 @@ class APIKeyEncryptor:
         # 1. 从环境变量获取
         env_key = os.getenv("FAMILY_VAULT_ENCRYPTION_KEY")
         if env_key:
-            return base64.urlsafe_b64decode(env_key)
+            return env_key.encode()
         
         # 2. 从密钥文件获取
         key_paths = [

@@ -143,11 +143,15 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       if (Object.keys(patch).length > 0) {
-        const result = await fetch('/api/v1/settings', {
+        const r = await fetch('/api/v1/settings', {
           method: 'PATCH',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(patch),
-        }).then(r => r.json()).catch(() => ({}));
+        });
+        const result = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          throw new Error((result as {detail?: string})?.detail || 'Settings update failed');
+        }
         if (result?.restart_required) {
           setRestartRequired(true);
         }
