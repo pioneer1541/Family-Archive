@@ -60,7 +60,9 @@ def _is_excluded_file_name(path: str) -> bool:
     return False
 
 
-def _is_supported_file(path: str, allowed_exts: set[str], *, photo_exts: set[str], photo_max_bytes: int) -> bool:
+def _is_supported_file(
+    path: str, allowed_exts: set[str], *, photo_exts: set[str], photo_max_bytes: int
+) -> bool:
     if not os.path.isfile(path):
         return False
     if _is_excluded_file_name(path):
@@ -113,7 +115,12 @@ def discover_files(
         if os.path.isfile(p):
             stats["raw_files"] += 1
             rp = os.path.realpath(p)
-            if _is_supported_file(rp, allowed_exts, photo_exts=photo_exts, photo_max_bytes=photo_cap) and rp not in seen:
+            if (
+                _is_supported_file(
+                    rp, allowed_exts, photo_exts=photo_exts, photo_max_bytes=photo_cap
+                )
+                and rp not in seen
+            ):
                 seen.add(rp)
                 files.append(rp)
             if len(files) >= cap:
@@ -131,7 +138,12 @@ def discover_files(
                     full = os.path.realpath(os.path.join(root, fn))
                     if full in seen:
                         continue
-                    if _is_supported_file(full, allowed_exts, photo_exts=photo_exts, photo_max_bytes=photo_cap):
+                    if _is_supported_file(
+                        full,
+                        allowed_exts,
+                        photo_exts=photo_exts,
+                        photo_max_bytes=photo_cap,
+                    ):
                         seen.add(full)
                         files.append(full)
                     if len(files) >= cap:
@@ -149,7 +161,12 @@ def discover_files(
                     full = os.path.realpath(os.path.join(cur, fn))
                     if full in seen:
                         continue
-                    if _is_supported_file(full, allowed_exts, photo_exts=photo_exts, photo_max_bytes=photo_cap):
+                    if _is_supported_file(
+                        full,
+                        allowed_exts,
+                        photo_exts=photo_exts,
+                        photo_max_bytes=photo_cap,
+                    ):
                         seen.add(full)
                         files.append(full)
                     if len(files) >= cap:
@@ -165,7 +182,9 @@ def discover_files(
     return (files, stats)
 
 
-def collect_incremental_changes(db: Session, files: list[str], *, source_type: str) -> list[str]:
+def collect_incremental_changes(
+    db: Session, files: list[str], *, source_type: str
+) -> list[str]:
     changed: list[str] = []
     now = dt.datetime.now(dt.UTC)
     src_type = str(source_type or "nas").strip() or "nas"
@@ -177,7 +196,9 @@ def collect_incremental_changes(db: Session, files: list[str], *, source_type: s
             st = os.stat(p)
         except Exception:
             continue
-        mtime_ns = int(getattr(st, "st_mtime_ns", int(float(st.st_mtime) * 1_000_000_000)))
+        mtime_ns = int(
+            getattr(st, "st_mtime_ns", int(float(st.st_mtime) * 1_000_000_000))
+        )
         size = int(getattr(st, "st_size", 0) or 0)
         row = db.get(models.SourceFileState, p)
         if row is None:
@@ -202,13 +223,23 @@ def collect_incremental_changes(db: Session, files: list[str], *, source_type: s
     return changed
 
 
-def purge_source_states_outside_root(db: Session, *, source_type: str, root: str) -> int:
+def purge_source_states_outside_root(
+    db: Session, *, source_type: str, root: str
+) -> int:
     src = str(source_type or "").strip()
     rt = _real(root)
     if (not src) or (not rt):
         return 0
 
-    rows = db.execute(select(models.SourceFileState).where(models.SourceFileState.source_type == src)).scalars().all()
+    rows = (
+        db.execute(
+            select(models.SourceFileState).where(
+                models.SourceFileState.source_type == src
+            )
+        )
+        .scalars()
+        .all()
+    )
     removed = 0
     for row in rows:
         path = str(getattr(row, "path", "") or "").strip()

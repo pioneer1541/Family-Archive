@@ -106,14 +106,35 @@ _SLOT_HINTS: dict[str, tuple[str, ...]] = {
     "beneficiary": ("受益人", "beneficiary"),
     "premium_amount": ("保费", "premium", "年保费"),
     "expiry_date": ("到期", "expiry", "expire", "due date", "有效期"),
-    "coverage_scope": ("保障范围", "覆盖范围", "coverage", "covered", "exclusion", "除外"),
+    "coverage_scope": (
+        "保障范围",
+        "覆盖范围",
+        "coverage",
+        "covered",
+        "exclusion",
+        "除外",
+    ),
     "claim_status": ("理赔", "获批", "同意", "claim status", "approved"),
-    "emergency_contact_phone": ("紧急联络电话", "emergency contact", "hotline", "紧急电话"),
+    "emergency_contact_phone": (
+        "紧急联络电话",
+        "emergency contact",
+        "hotline",
+        "紧急电话",
+    ),
     "brand": ("品牌", "brand"),
     "model": ("型号", "model"),
     "purchase_date": ("什么时候买", "购买日期", "purchase date", "bought"),
     "warranty_end": ("保修期", "warranty", "warranty end", "保修截止"),
-    "maintenance_interval": ("多久", "间隔", "how often", "every", "过滤网", "清洁", "保养", "维护"),
+    "maintenance_interval": (
+        "多久",
+        "间隔",
+        "how often",
+        "every",
+        "过滤网",
+        "清洁",
+        "保养",
+        "维护",
+    ),
     "work_order_no": ("工单号", "work order", "ticket number", "ticket no"),
     "engineer_phone": ("工程师手机号", "engineer phone", "technician phone"),
     "invoice_no": ("发票号", "发票号码", "invoice number"),
@@ -134,8 +155,28 @@ _SLOT_HINTS: dict[str, tuple[str, ...]] = {
     "due_date": ("截止日期", "due date", "什么时候", "到期"),
     "billing_period": ("计费周期", "billing period"),
     "payment_status": ("已缴", "未缴", "payment status", "paid", "unpaid"),
-    "vendor": ("供应商", "哪家", "提供商", "服务商", "运营商", "网络提供商", "宽带提供商", "provider", "vendor", "客服电话"),
-    "contact_phone": ("电话", "手机号", "联系方式", "联系电话", "联络方式", "contact phone", "phone", "hotline"),
+    "vendor": (
+        "供应商",
+        "哪家",
+        "提供商",
+        "服务商",
+        "运营商",
+        "网络提供商",
+        "宽带提供商",
+        "provider",
+        "vendor",
+        "客服电话",
+    ),
+    "contact_phone": (
+        "电话",
+        "手机号",
+        "联系方式",
+        "联系电话",
+        "联络方式",
+        "contact phone",
+        "phone",
+        "hotline",
+    ),
     "contact_email": ("邮箱", "联系方式", "联系邮箱", "email", "e-mail"),
     "provider": ("哪家", "提供商", "服务商", "运营商", "provider", "company"),
     "reference_no": ("编号", "reference", "号码", "no."),
@@ -173,9 +214,21 @@ _SLOT_DOMAIN_PRIORITIES: dict[str, tuple[str, ...]] = {
 _SUBJECT_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
     "insurance": {
         "generic": ("insurance", "policy", "保单", "保险"),
-        "health": ("health insurance", "private health", "hospital cover", "医疗险", "医保"),
+        "health": (
+            "health insurance",
+            "private health",
+            "hospital cover",
+            "医疗险",
+            "医保",
+        ),
         "life": ("life insurance", "人寿保险", "人寿"),
-        "vehicle": ("car insurance", "vehicle insurance", "motor insurance", "车险", "车辆保险"),
+        "vehicle": (
+            "car insurance",
+            "vehicle insurance",
+            "motor insurance",
+            "车险",
+            "车辆保险",
+        ),
         "property": ("property insurance", "home insurance", "财产险", "家庭财产险"),
     },
     "appliances": {
@@ -201,7 +254,20 @@ _SUBJECT_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
         "generic": ("bill", "invoice", "账单"),
         "energy": ("energy", "electricity", "gas", "电费", "燃气"),
         "water": ("water bill", "水费"),
-        "internet": ("internet bill", "internet provider", "网络费", "网费", "网络账单", "网络提供商", "宽带", "宽带费", "宽带运营商", "broadband", "nbn", "superloop"),
+        "internet": (
+            "internet bill",
+            "internet provider",
+            "网络费",
+            "网费",
+            "网络账单",
+            "网络提供商",
+            "宽带",
+            "宽带费",
+            "宽带运营商",
+            "broadband",
+            "nbn",
+            "superloop",
+        ),
     },
 }
 
@@ -230,9 +296,7 @@ _PREFERRED_CATEGORIES: dict[str, tuple[str, ...]] = {
         "health/medical_records",
         "home/insurance/pet",
     ),
-    "bills": (
-        "finance/bills",
-    ),
+    "bills": ("finance/bills",),
 }
 
 _BILL_STRICT_CATEGORIES: dict[str, tuple[str, ...]] = {
@@ -242,7 +306,9 @@ _BILL_STRICT_CATEGORIES: dict[str, tuple[str, ...]] = {
     "internet": ("finance/bills/internet",),
 }
 
-_MONTH_SCOPE_RE = re.compile(r"过去\s*(\d{1,2})\s*个?月|last\s*(\d{1,2})\s*months?", flags=re.I)
+_MONTH_SCOPE_RE = re.compile(
+    r"过去\s*(\d{1,2})\s*个?月|last\s*(\d{1,2})\s*months?", flags=re.I
+)
 
 
 def _norm(text: str) -> str:
@@ -279,8 +345,12 @@ def _is_explicit_list_request(text: str) -> bool:
 
 
 def _is_bill_scalar_fact_query(text: str) -> bool:
-    has_bill_signal = _has_any(text, ("账单", "bill", "invoice", "网费", "网络费", "宽带", "internet", "nbn"))
-    has_scalar_signal = _has_any(text, ("多少", "多少钱", "金额", "amount", "cost", "price"))
+    has_bill_signal = _has_any(
+        text, ("账单", "bill", "invoice", "网费", "网络费", "宽带", "internet", "nbn")
+    )
+    has_scalar_signal = _has_any(
+        text, ("多少", "多少钱", "金额", "amount", "cost", "price")
+    )
     if not (has_bill_signal and has_scalar_signal):
         return False
     if _is_explicit_list_request(text):
@@ -305,20 +375,58 @@ def _detect_task_kind(query: str, planner_intent: str = "") -> str:
         return "queue"
     if any(tok in text for tok in ("重处理", "reprocess", "标签", "tag")):
         return "mutate"
-    if any(tok in text for tok in ("how to", "如何", "怎么", "步骤", "清洁", "过滤网", "维护", "保养")):
+    if any(
+        tok in text
+        for tok in ("how to", "如何", "怎么", "步骤", "清洁", "过滤网", "维护", "保养")
+    ):
         return "howto_lookup"
-    if any(tok in text for tok in ("过去", "平均", "总共", "合计", "一共", "上季度", "半年", "last quarter", "average", "total", "sum")):
+    if any(
+        tok in text
+        for tok in (
+            "过去",
+            "平均",
+            "总共",
+            "合计",
+            "一共",
+            "上季度",
+            "半年",
+            "last quarter",
+            "average",
+            "total",
+            "sum",
+        )
+    ):
         return "aggregate_lookup"
-    if any(tok in text for tok in ("有没有", "有无", "是否", "did we", "have we", "已", "获批", "同意", "到期了吗", "expired", "due next")):
+    if any(
+        tok in text
+        for tok in (
+            "有没有",
+            "有无",
+            "是否",
+            "did we",
+            "have we",
+            "已",
+            "获批",
+            "同意",
+            "到期了吗",
+            "expired",
+            "due next",
+        )
+    ):
         return "status_check"
     if _is_bill_scalar_fact_query(text):
         return "fact_lookup"
-    if any(tok in text for tok in ("列出", "最近", "latest", "recent", "open document", "打开")) and ("?" not in text and "？" not in text):
+    if any(
+        tok in text
+        for tok in ("列出", "最近", "latest", "recent", "open document", "打开")
+    ) and ("?" not in text and "？" not in text):
         return "list"
     return base or "fact_lookup"
 
 
-def _detect_target_slots(query: str, *, task_kind: str, subject_domain: str) -> list[str]:
+def _detect_target_slots(
+    query: str, *, task_kind: str, subject_domain: str
+) -> list[str]:
     text = _norm(query)
     scores: dict[str, int] = {}
     for slot, hints in _SLOT_HINTS.items():
@@ -333,10 +441,16 @@ def _detect_target_slots(query: str, *, task_kind: str, subject_domain: str) -> 
 
     # Additional disambiguation for common natural-language asks.
     if any(tok in text for tok in ("紧急联络电话", "emergency", "hotline")):
-        scores["emergency_contact_phone"] = max(scores.get("emergency_contact_phone", 0), 5)
-    if any(tok in text for tok in ("工单号", "work order", "ticket number", "ticket no")):
+        scores["emergency_contact_phone"] = max(
+            scores.get("emergency_contact_phone", 0), 5
+        )
+    if any(
+        tok in text for tok in ("工单号", "work order", "ticket number", "ticket no")
+    ):
         scores["work_order_no"] = max(scores.get("work_order_no", 0), 5)
-    if any(tok in text for tok in ("过滤网", "filter")) and any(tok in text for tok in ("清洁", "clean", "多久", "how often")):
+    if any(tok in text for tok in ("过滤网", "filter")) and any(
+        tok in text for tok in ("清洁", "clean", "多久", "how often")
+    ):
         scores["maintenance_interval"] = max(scores.get("maintenance_interval", 0), 6)
     if any(tok in text for tok in ("月供", "monthly payment")):
         scores["monthly_payment"] = max(scores.get("monthly_payment", 0), 6)
@@ -347,36 +461,58 @@ def _detect_target_slots(query: str, *, task_kind: str, subject_domain: str) -> 
         scores["loan_maturity_date"] = max(scores.get("loan_maturity_date", 0), 3)
     if any(tok in text for tok in ("面积", "平方米", "sqm", "m2", "㎡")):
         scores["property_area"] = max(scores.get("property_area", 0), 6)
-    if any(tok in text for tok in ("下次", "next", "补打")) and any(tok in text for tok in ("疫苗", "vaccine")):
+    if any(tok in text for tok in ("下次", "next", "补打")) and any(
+        tok in text for tok in ("疫苗", "vaccine")
+    ):
         scores["vaccine_next_due"] = max(scores.get("vaccine_next_due", 0), 6)
         scores["vaccine_date_last"] = max(scores.get("vaccine_date_last", 0), 4)
         scores["vaccine_interval"] = max(scores.get("vaccine_interval", 0), 3)
-    if any(tok in text for tok in ("网费", "网络费", "宽带", "internet", "nbn")) and any(tok in text for tok in ("多少", "多少钱", "金额", "amount")):
+    if any(
+        tok in text for tok in ("网费", "网络费", "宽带", "internet", "nbn")
+    ) and any(tok in text for tok in ("多少", "多少钱", "金额", "amount")):
         scores["bill_amount"] = max(scores.get("bill_amount", 0), 6)
         scores["vendor"] = max(scores.get("vendor", 0), 3)
         scores["billing_period"] = max(scores.get("billing_period", 0), 2)
     if (
         any(tok in text for tok in ("网络", "宽带", "internet", "nbn", "superloop"))
-        and any(tok in text for tok in ("提供商", "provider", "vendor", "运营商", "服务商"))
-        and any(tok in text for tok in ("联系方式", "联系电话", "电话", "邮箱", "contact"))
+        and any(
+            tok in text for tok in ("提供商", "provider", "vendor", "运营商", "服务商")
+        )
+        and any(
+            tok in text for tok in ("联系方式", "联系电话", "电话", "邮箱", "contact")
+        )
     ):
         scores["vendor"] = max(scores.get("vendor", 0), 6)
         scores["contact_phone"] = max(scores.get("contact_phone", 0), 5)
         scores["contact_email"] = max(scores.get("contact_email", 0), 4)
         scores["provider"] = max(scores.get("provider", 0), 3)
 
-    ordered = [slot for slot, _score in sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))]
+    ordered = [
+        slot for slot, _score in sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
     if ordered:
-        if any(tok in text for tok in ("网费", "网络费", "宽带", "internet", "nbn")) and any(tok in text for tok in ("多少", "多少钱", "金额", "amount")):
+        if any(
+            tok in text for tok in ("网费", "网络费", "宽带", "internet", "nbn")
+        ) and any(tok in text for tok in ("多少", "多少钱", "金额", "amount")):
             preferred_order = ["bill_amount", "vendor", "billing_period"]
-            ordered = [slot for slot in preferred_order if slot in ordered] + [slot for slot in ordered if slot not in preferred_order]
+            ordered = [slot for slot in preferred_order if slot in ordered] + [
+                slot for slot in ordered if slot not in preferred_order
+            ]
         if (
             any(tok in text for tok in ("网络", "宽带", "internet", "nbn", "superloop"))
-            and any(tok in text for tok in ("提供商", "provider", "vendor", "运营商", "服务商"))
-            and any(tok in text for tok in ("联系方式", "联系电话", "电话", "邮箱", "contact"))
+            and any(
+                tok in text
+                for tok in ("提供商", "provider", "vendor", "运营商", "服务商")
+            )
+            and any(
+                tok in text
+                for tok in ("联系方式", "联系电话", "电话", "邮箱", "contact")
+            )
         ):
             preferred_order = ["vendor", "contact_phone", "contact_email", "provider"]
-            ordered = [slot for slot in preferred_order if slot in ordered] + [slot for slot in ordered if slot not in preferred_order]
+            ordered = [slot for slot in preferred_order if slot in ordered] + [
+                slot for slot in ordered if slot not in preferred_order
+            ]
 
     if not ordered:
         if task_kind == "aggregate_lookup" and subject_domain == "bills":
@@ -396,7 +532,10 @@ def _detect_target_slots(query: str, *, task_kind: str, subject_domain: str) -> 
 
 def _score_domains(query: str, target_slots: list[str]) -> dict[str, int]:
     text = _norm(query)
-    scores = {key: 0 for key in ("home", "insurance", "appliances", "bills", "pets", "generic")}
+    scores = {
+        key: 0
+        for key in ("home", "insurance", "appliances", "bills", "pets", "generic")
+    }
     for domain, hints in _DOMAIN_HINTS.items():
         for hint in hints:
             if hint.lower() in text:
@@ -407,7 +546,19 @@ def _score_domains(query: str, target_slots: list[str]) -> dict[str, int]:
         for domain in _SLOT_DOMAIN_PRIORITIES.get(slot, tuple()):
             scores[domain] = scores.get(domain, 0) + 3
 
-    if any(tok in text for tok in ("洗碗机", "dishwasher", "空气净化器", "air purifier", "洗衣机", "冰箱", "空调", "热水器")):
+    if any(
+        tok in text
+        for tok in (
+            "洗碗机",
+            "dishwasher",
+            "空气净化器",
+            "air purifier",
+            "洗衣机",
+            "冰箱",
+            "空调",
+            "热水器",
+        )
+    ):
         scores["appliances"] += 4
     if any(tok in text for tok in ("房贷", "贷款", "mortgage")):
         scores["home"] += 4
@@ -496,39 +647,66 @@ def _detect_time_scope(query: str) -> dict[str, Any]:
     return out
 
 
-def _detect_derivations(query: str, target_slots: list[str], task_kind: str) -> list[str]:
+def _detect_derivations(
+    query: str, target_slots: list[str], task_kind: str
+) -> list[str]:
     text = _norm(query)
     out: list[str] = []
-    if any(tok in text for tok in ("下个月", "next month")) and any(slot in target_slots for slot in ("expiry_date", "due_date", "warranty_end")):
+    if any(tok in text for tok in ("下个月", "next month")) and any(
+        slot in target_slots for slot in ("expiry_date", "due_date", "warranty_end")
+    ):
         _add_unique(out, "compare_expiry_to_next_month")
     if any(tok in text for tok in ("多少年还完", "remaining years", "还完")) and any(
-        slot in target_slots for slot in ("loan_term_years", "loan_start_date", "loan_maturity_date")
+        slot in target_slots
+        for slot in ("loan_term_years", "loan_start_date", "loan_maturity_date")
     ):
         _add_unique(out, "compute_remaining_loan_years")
     if any(tok in text for tok in ("下次补打", "next vaccine", "booster")) and any(
-        slot in target_slots for slot in ("vaccine_next_due", "vaccine_date_last", "vaccine_interval")
+        slot in target_slots
+        for slot in ("vaccine_next_due", "vaccine_date_last", "vaccine_interval")
     ):
         _add_unique(out, "estimate_next_vaccine_due")
-    if task_kind == "status_check" and any(tok in text for tok in ("到期", "expiry", "expire")):
+    if task_kind == "status_check" and any(
+        tok in text for tok in ("到期", "expiry", "expire")
+    ):
         _add_unique(out, "compare_expiry_to_next_month")
     return out[:4]
 
 
 def _detect_needs_presence(query: str) -> bool:
     text = _norm(query)
-    return any(tok in text for tok in ("有没有", "有无", "是否", "do we have", "did we", "have we"))
+    return any(
+        tok in text
+        for tok in ("有没有", "有无", "是否", "do we have", "did we", "have we")
+    )
 
 
 def _detect_needs_status(query: str) -> bool:
     text = _norm(query)
-    return any(tok in text for tok in ("获批", "同意", "approved", "status", "已", "是否已"))
+    return any(
+        tok in text for tok in ("获批", "同意", "approved", "status", "已", "是否已")
+    )
 
 
-def _preferred_categories(query: str, subject_domain: str, task_kind: str) -> tuple[list[str], bool]:
+def _preferred_categories(
+    query: str, subject_domain: str, task_kind: str
+) -> tuple[list[str], bool]:
     text = _norm(query)
     preferred = list(_PREFERRED_CATEGORIES.get(subject_domain, tuple()))
     strict = False
-    internet_bill_tokens = ("网费", "网络费", "网络账单", "网络提供商", "宽带", "宽带费", "宽带运营商", "internet", "nbn", "broadband", "superloop")
+    internet_bill_tokens = (
+        "网费",
+        "网络费",
+        "网络账单",
+        "网络提供商",
+        "宽带",
+        "宽带费",
+        "宽带运营商",
+        "internet",
+        "nbn",
+        "broadband",
+        "superloop",
+    )
     electricity_tokens = ("电费", "electricity", "power")
     gas_tokens = ("燃气", "gas")
     water_tokens = ("水费", "water")
@@ -566,18 +744,30 @@ def _preferred_categories(query: str, subject_domain: str, task_kind: str) -> tu
             preferred = list(_BILL_STRICT_CATEGORIES["water"])
     elif subject_domain == "bills":
         if any(tok in text for tok in internet_bill_tokens):
-            preferred = list(dict.fromkeys([*_BILL_STRICT_CATEGORIES["internet"], *preferred]))
+            preferred = list(
+                dict.fromkeys([*_BILL_STRICT_CATEGORIES["internet"], *preferred])
+            )
         elif any(tok in text for tok in electricity_tokens):
-            preferred = list(dict.fromkeys([*_BILL_STRICT_CATEGORIES["electricity"], *preferred]))
+            preferred = list(
+                dict.fromkeys([*_BILL_STRICT_CATEGORIES["electricity"], *preferred])
+            )
         elif any(tok in text for tok in gas_tokens):
-            preferred = list(dict.fromkeys([*_BILL_STRICT_CATEGORIES["gas"], *preferred]))
+            preferred = list(
+                dict.fromkeys([*_BILL_STRICT_CATEGORIES["gas"], *preferred])
+            )
         elif any(tok in text for tok in water_tokens):
-            preferred = list(dict.fromkeys([*_BILL_STRICT_CATEGORIES["water"], *preferred]))
+            preferred = list(
+                dict.fromkeys([*_BILL_STRICT_CATEGORIES["water"], *preferred])
+            )
     return (preferred, strict)
 
 
 def build_subtasks_from_query_spec(spec: dict[str, Any]) -> list[dict[str, Any]]:
-    target_slots = [str(item or "").strip() for item in (spec.get("target_slots") or []) if str(item or "").strip()]
+    target_slots = [
+        str(item or "").strip()
+        for item in (spec.get("target_slots") or [])
+        if str(item or "").strip()
+    ]
     if not target_slots:
         return []
     out: list[dict[str, Any]] = []
@@ -594,11 +784,18 @@ def build_subtasks_from_query_spec(spec: dict[str, Any]) -> list[dict[str, Any]]
 
 
 def required_slots_from_query_spec(spec: dict[str, Any]) -> tuple[list[str], list[str]]:
-    target_slots = [str(item or "").strip() for item in (spec.get("target_slots") or []) if str(item or "").strip()]
+    target_slots = [
+        str(item or "").strip()
+        for item in (spec.get("target_slots") or [])
+        if str(item or "").strip()
+    ]
     required = list(target_slots)
     critical = list(target_slots)
     # Presence/status checks can still be answered partially if at least one factual slot is found.
-    if bool(spec.get("needs_presence_evidence")) and "presence_evidence" not in required:
+    if (
+        bool(spec.get("needs_presence_evidence"))
+        and "presence_evidence" not in required
+    ):
         required.append("presence_evidence")
         critical.append("presence_evidence")
     if bool(spec.get("needs_status_evidence")) and "status_evidence" not in required:
@@ -621,8 +818,16 @@ def estimate_queryspec_confidence(query: str, spec: dict[str, Any]) -> dict[str,
 
     subject_domain = str(spec.get("subject_domain") or "generic")
     task_kind = str(spec.get("task_kind") or "")
-    target_slots = [str(x or "").strip() for x in (spec.get("target_slots") or []) if str(x or "").strip()]
-    preferred_categories = [str(x or "").strip() for x in (spec.get("preferred_categories") or []) if str(x or "").strip()]
+    target_slots = [
+        str(x or "").strip()
+        for x in (spec.get("target_slots") or [])
+        if str(x or "").strip()
+    ]
+    preferred_categories = [
+        str(x or "").strip()
+        for x in (spec.get("preferred_categories") or [])
+        if str(x or "").strip()
+    ]
 
     canonical_slots = set(_SLOT_HINTS.keys()) | {"presence_evidence", "status_evidence"}
     canonical_target_slots = [s for s in target_slots if s in canonical_slots]
@@ -651,15 +856,35 @@ def estimate_queryspec_confidence(query: str, spec: dict[str, Any]) -> dict[str,
         negative.append("preferred_categories_empty")
 
     task_match = False
-    if task_kind == "aggregate_lookup" and any(tok in text for tok in ("总共", "合计", "一共", "平均", "total", "sum", "average")):
+    if task_kind == "aggregate_lookup" and any(
+        tok in text
+        for tok in ("总共", "合计", "一共", "平均", "total", "sum", "average")
+    ):
         task_match = True
     elif task_kind == "list" and _is_explicit_list_request(text):
         task_match = True
     elif task_kind in {"fact_lookup", "status_check"} and any(
-        tok in text for tok in ("多少", "多少钱", "金额", "是什么", "哪家", "联系方式", "电话", "邮箱", "when", "contact", "phone", "email")
+        tok in text
+        for tok in (
+            "多少",
+            "多少钱",
+            "金额",
+            "是什么",
+            "哪家",
+            "联系方式",
+            "电话",
+            "邮箱",
+            "when",
+            "contact",
+            "phone",
+            "email",
+        )
     ):
         task_match = True
-    elif task_kind == "howto_lookup" and any(tok in text for tok in ("如何", "怎么", "how to", "步骤", "维护", "保养", "清洁")):
+    elif task_kind == "howto_lookup" and any(
+        tok in text
+        for tok in ("如何", "怎么", "how to", "步骤", "维护", "保养", "清洁")
+    ):
         task_match = True
     if task_match:
         score += 0.15
@@ -669,17 +894,27 @@ def estimate_queryspec_confidence(query: str, spec: dict[str, Any]) -> dict[str,
 
     domain_scores = _score_domains(text, canonical_target_slots or target_slots)
     sorted_domains = sorted(domain_scores.items(), key=lambda kv: (-kv[1], kv[0]))
-    if len(sorted_domains) >= 2 and sorted_domains[0][1] > 0 and sorted_domains[1][1] > 0:
+    if (
+        len(sorted_domains) >= 2
+        and sorted_domains[0][1] > 0
+        and sorted_domains[1][1] > 0
+    ):
         gap = sorted_domains[0][1] - sorted_domains[1][1]
         if gap <= 2:
             score -= 0.20
-            ambiguity.append(f"multi_domain_conflict:{sorted_domains[0][0]}~{sorted_domains[1][0]}")
+            ambiguity.append(
+                f"multi_domain_conflict:{sorted_domains[0][0]}~{sorted_domains[1][0]}"
+            )
 
     if (not canonical_target_slots) and subject_domain == "generic":
         score -= 0.15
         negative.append("generic_and_no_canonical_slots")
 
-    if any("\u4e00" <= ch <= "\u9fff" for ch in text) and not canonical_target_slots and not preferred_categories:
+    if (
+        any("\u4e00" <= ch <= "\u9fff" for ch in text)
+        and not canonical_target_slots
+        and not preferred_categories
+    ):
         score -= 0.15
         negative.append("zh_query_sparse_spec")
 
@@ -695,10 +930,16 @@ def estimate_queryspec_confidence(query: str, spec: dict[str, Any]) -> dict[str,
     }
 
 
-def prefilter_router_candidate_categories(spec: dict[str, Any], available_categories: list[str], *, max_candidates: int = 12) -> list[str]:
+def prefilter_router_candidate_categories(
+    spec: dict[str, Any], available_categories: list[str], *, max_candidates: int = 12
+) -> list[str]:
     spec = dict(spec or {})
     max_candidates = max(1, min(24, int(max_candidates or 12)))
-    preferred = [str(x or "").strip() for x in (spec.get("preferred_categories") or []) if str(x or "").strip()]
+    preferred = [
+        str(x or "").strip()
+        for x in (spec.get("preferred_categories") or [])
+        if str(x or "").strip()
+    ]
     subject_domain = str(spec.get("subject_domain") or "generic")
 
     out: list[str] = []
@@ -708,14 +949,25 @@ def prefilter_router_candidate_categories(spec: dict[str, Any], available_catego
         if c and c not in out:
             out.append(c)
 
-    available = [str(x or "").strip() for x in (available_categories or []) if str(x or "").strip()]
+    available = [
+        str(x or "").strip()
+        for x in (available_categories or [])
+        if str(x or "").strip()
+    ]
     for cat in preferred:
         _push(cat)
 
     domain_prefixes: dict[str, tuple[str, ...]] = {
         "bills": ("finance/bills",),
         "insurance": ("home/insurance", "health/insurance", "legal/insurance"),
-        "home": ("home/property", "home/maintenance", "finance/mortgage", "finance/loans", "legal/property", "legal/contracts"),
+        "home": (
+            "home/property",
+            "home/maintenance",
+            "finance/mortgage",
+            "finance/loans",
+            "legal/property",
+            "legal/contracts",
+        ),
         "appliances": ("home/appliances", "home/manuals", "tech/hardware"),
         "pets": ("home/pets", "home/insurance/pet", "health/medical_records"),
     }
@@ -735,20 +987,32 @@ def prefilter_router_candidate_categories(spec: dict[str, Any], available_catego
     return out[:max_candidates]
 
 
-def build_query_spec_from_query(query: str, *, planner_intent: str = "", doc_scope: dict[str, Any] | None = None) -> dict[str, Any]:
+def build_query_spec_from_query(
+    query: str, *, planner_intent: str = "", doc_scope: dict[str, Any] | None = None
+) -> dict[str, Any]:
     text = _norm(query)
     task_kind = _detect_task_kind(text, planner_intent=planner_intent)
     # Pre-pass slots to influence domain selection; then recompute slots with chosen domain.
-    pre_slots = _detect_target_slots(text, task_kind=task_kind, subject_domain="generic")
+    pre_slots = _detect_target_slots(
+        text, task_kind=task_kind, subject_domain="generic"
+    )
     subject_domain = _detect_subject_domain(text, pre_slots)
-    target_slots = _detect_target_slots(text, task_kind=task_kind, subject_domain=subject_domain)
+    target_slots = _detect_target_slots(
+        text, task_kind=task_kind, subject_domain=subject_domain
+    )
     subject_aliases = _subject_aliases_for_query(text, subject_domain)
-    preferred_categories, strict_domain_filter = _preferred_categories(text, subject_domain, task_kind)
+    preferred_categories, strict_domain_filter = _preferred_categories(
+        text, subject_domain, task_kind
+    )
     derivations = _detect_derivations(text, target_slots, task_kind)
 
     if task_kind == "howto_lookup" and not target_slots:
         target_slots = ["maintenance_interval"]
-    if task_kind == "status_check" and not target_slots and subject_domain == "insurance":
+    if (
+        task_kind == "status_check"
+        and not target_slots
+        and subject_domain == "insurance"
+    ):
         target_slots = ["expiry_date"]
 
     return {
@@ -767,11 +1031,15 @@ def build_query_spec_from_query(query: str, *, planner_intent: str = "", doc_sco
     }
 
 
-def apply_query_spec_to_planner_fields(spec: dict[str, Any], planner_dict: dict[str, Any]) -> dict[str, Any]:
+def apply_query_spec_to_planner_fields(
+    spec: dict[str, Any], planner_dict: dict[str, Any]
+) -> dict[str, Any]:
     planner_dict = dict(planner_dict or {})
     planner_dict["task_kind"] = str(spec.get("task_kind") or "")
     planner_dict["subject_domain"] = str(spec.get("subject_domain") or "")
-    planner_dict["target_slots"] = [str(x) for x in (spec.get("target_slots") or []) if str(x or "").strip()]
+    planner_dict["target_slots"] = [
+        str(x) for x in (spec.get("target_slots") or []) if str(x or "").strip()
+    ]
     planner_dict["query_spec"] = spec
     planner_dict["query_spec_version"] = str(spec.get("version") or "v2")
     return planner_dict

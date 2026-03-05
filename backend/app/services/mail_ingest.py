@@ -99,7 +99,10 @@ def _allowed_extension(name: str) -> bool:
     if "." not in fn:
         return False
     ext = fn.rsplit(".", 1)[-1].strip().lower()
-    allowed = {str(x or "").strip().lower().lstrip(".") for x in settings.mail_allowed_extensions}
+    allowed = {
+        str(x or "").strip().lower().lstrip(".")
+        for x in settings.mail_allowed_extensions
+    }
     return ext in allowed
 
 
@@ -112,7 +115,9 @@ def _is_photo_name(name: str) -> bool:
     if "." not in fn:
         return False
     ext = fn.rsplit(".", 1)[-1].strip().lower()
-    photo_exts = {str(x or "").strip().lower().lstrip(".") for x in settings.photo_file_extensions}
+    photo_exts = {
+        str(x or "").strip().lower().lstrip(".") for x in settings.photo_file_extensions
+    }
     return ext in photo_exts
 
 
@@ -179,7 +184,9 @@ def _gmail_service():
     if not os.path.exists(settings.mail_credentials_path):
         return (None, "gmail_credentials_not_found")
     try:
-        creds = GoogleCredentials.from_authorized_user_file(settings.mail_token_path, _GMAIL_SCOPES)
+        creds = GoogleCredentials.from_authorized_user_file(
+            settings.mail_token_path, _GMAIL_SCOPES
+        )
     except Exception:
         return (None, "gmail_token_invalid")
     try:
@@ -193,7 +200,10 @@ def _gmail_service():
     except Exception:
         return (None, "gmail_token_refresh_failed")
     try:
-        return (google_build("gmail", "v1", credentials=creds, cache_discovery=False), "")
+        return (
+            google_build("gmail", "v1", credentials=creds, cache_discovery=False),
+            "",
+        )
     except Exception:
         return (None, "gmail_service_init_failed")
 
@@ -227,8 +237,16 @@ def _event(
 
 def _mail_attachment_base_dir(db: Session | None = None) -> str:
     # 优先将附件写入 NAS 挂载目录下的子目录，便于统一管理与扫描。
-    nas_dir = str(get_runtime_setting("nas_default_source_dir", db) if db is not None else settings.nas_default_source_dir).strip()
-    subdir = str(get_runtime_setting("mail_attachment_subdir", db) if db is not None else settings.mail_attachment_subdir).strip()
+    nas_dir = str(
+        get_runtime_setting("nas_default_source_dir", db)
+        if db is not None
+        else settings.nas_default_source_dir
+    ).strip()
+    subdir = str(
+        get_runtime_setting("mail_attachment_subdir", db)
+        if db is not None
+        else settings.mail_attachment_subdir
+    ).strip()
     safe_subdir = subdir or "email_attachments"
     if nas_dir:
         return os.path.join(nas_dir, safe_subdir)
@@ -236,7 +254,9 @@ def _mail_attachment_base_dir(db: Session | None = None) -> str:
     return os.path.join(settings.mail_attachment_root, safe_subdir)
 
 
-def poll_mailbox_and_enqueue(db: Session, *, max_results: int | None = None, sync_run_id: str | None = None) -> dict:
+def poll_mailbox_and_enqueue(
+    db: Session, *, max_results: int | None = None, sync_run_id: str | None = None
+) -> dict:
     service, err = _gmail_service()
     if service is None:
         return {
@@ -260,8 +280,15 @@ def poll_mailbox_and_enqueue(db: Session, *, max_results: int | None = None, syn
     polled = 0
 
     try:
-        query = str(settings.mail_query or "").strip() or "has:attachment newer_than:30d"
-        resp = service.users().messages().list(userId="me", q=query, maxResults=cap).execute()
+        query = (
+            str(settings.mail_query or "").strip() or "has:attachment newer_than:30d"
+        )
+        resp = (
+            service.users()
+            .messages()
+            .list(userId="me", q=query, maxResults=cap)
+            .execute()
+        )
         msgs = resp.get("messages") or []
         polled = len(msgs)
         for msg in msgs:
@@ -274,7 +301,12 @@ def poll_mailbox_and_enqueue(db: Session, *, max_results: int | None = None, syn
             subject = ""
             from_addr = ""
             try:
-                full = service.users().messages().get(userId="me", id=message_id, format="full").execute()
+                full = (
+                    service.users()
+                    .messages()
+                    .get(userId="me", id=message_id, format="full")
+                    .execute()
+                )
                 payload = full.get("payload") or {}
                 headers = payload.get("headers") or []
                 subject = _header_value(headers, "Subject")
@@ -324,7 +356,13 @@ def poll_mailbox_and_enqueue(db: Session, *, max_results: int | None = None, syn
                         raw = str(body.get("data") or "")
                     else:
                         aid = str(body.get("attachmentId") or "")
-                        att = service.users().messages().attachments().get(userId="me", messageId=message_id, id=aid).execute()
+                        att = (
+                            service.users()
+                            .messages()
+                            .attachments()
+                            .get(userId="me", messageId=message_id, id=aid)
+                            .execute()
+                        )
                         raw = str((att or {}).get("data") or "")
                 except Exception:
                     _event(
@@ -357,10 +395,14 @@ def poll_mailbox_and_enqueue(db: Session, *, max_results: int | None = None, syn
                 try:
                     now = dt.datetime.now(dt.UTC)
                     base_dir = _mail_attachment_base_dir(db)
-                    save_dir = os.path.join(base_dir, now.strftime("%Y"), now.strftime("%m"))
+                    save_dir = os.path.join(
+                        base_dir, now.strftime("%Y"), now.strftime("%m")
+                    )
                     os.makedirs(save_dir, exist_ok=True)
                     safe_name = _safe_filename(fn)
-                    local_path = os.path.realpath(os.path.join(save_dir, f"{message_id}_{safe_name}"))
+                    local_path = os.path.realpath(
+                        os.path.join(save_dir, f"{message_id}_{safe_name}")
+                    )
                     bin_data = base64.urlsafe_b64decode(raw + "===")
                     if _is_photo_too_large(fn, len(bin_data)):
                         _event(

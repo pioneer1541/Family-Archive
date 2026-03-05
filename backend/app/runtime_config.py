@@ -23,61 +23,177 @@ from sqlalchemy.orm import Session
 # ---------------------------------------------------------------------------
 _RUNTIME_CONFIGURABLE: dict[str, tuple[str, str]] = {
     # LLM models
-    "planner_model":               ("FAMILY_VAULT_PLANNER_MODEL",               "qwen3:1.7b"),
-    "synthesizer_model":           ("FAMILY_VAULT_SYNTHESIZER_MODEL",           "qwen3:4b-instruct"),
-    "embed_model":                 ("FAMILY_VAULT_EMBED_MODEL",                 "qwen3-embedding:0.6b"),
-    "summary_model":               ("FAMILY_VAULT_SUMMARY_MODEL",               "qwen3:4b-instruct"),
-    "category_model":              ("FAMILY_VAULT_CATEGORY_MODEL",              "qwen3:4b-instruct"),
-    "friendly_name_model":         ("FAMILY_VAULT_FRIENDLY_NAME_MODEL",         "lfm2:latest"),
-    "vl_extract_model":            ("FAMILY_VAULT_VL_EXTRACT_MODEL",            "qwen3-vl:2b"),
+    "planner_model": ("FAMILY_VAULT_PLANNER_MODEL", "qwen3:1.7b"),
+    "synthesizer_model": ("FAMILY_VAULT_SYNTHESIZER_MODEL", "qwen3:4b-instruct"),
+    "embed_model": ("FAMILY_VAULT_EMBED_MODEL", "qwen3-embedding:0.6b"),
+    "summary_model": ("FAMILY_VAULT_SUMMARY_MODEL", "qwen3:4b-instruct"),
+    "category_model": ("FAMILY_VAULT_CATEGORY_MODEL", "qwen3:4b-instruct"),
+    "friendly_name_model": ("FAMILY_VAULT_FRIENDLY_NAME_MODEL", "lfm2:latest"),
+    "vl_extract_model": ("FAMILY_VAULT_VL_EXTRACT_MODEL", "qwen3-vl:2b"),
     # Timeouts (seconds)
-    "summary_timeout_page_sec":    ("FAMILY_VAULT_SUMMARY_TIMEOUT_PAGE_SEC",    "90"),
+    "summary_timeout_page_sec": ("FAMILY_VAULT_SUMMARY_TIMEOUT_PAGE_SEC", "90"),
     "summary_timeout_section_sec": ("FAMILY_VAULT_SUMMARY_TIMEOUT_SECTION_SEC", "120"),
-    "summary_timeout_final_sec":   ("FAMILY_VAULT_SUMMARY_TIMEOUT_FINAL_SEC",   "120"),
-    "agent_synth_timeout_sec":     ("FAMILY_VAULT_AGENT_SYNTH_TIMEOUT_SEC",     "25"),
+    "summary_timeout_final_sec": ("FAMILY_VAULT_SUMMARY_TIMEOUT_FINAL_SEC", "120"),
+    "agent_synth_timeout_sec": ("FAMILY_VAULT_AGENT_SYNTH_TIMEOUT_SEC", "25"),
     # NAS
-    "nas_auto_scan_enabled":       ("FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED",       "0"),
-    "nas_scan_interval_sec":       ("FAMILY_VAULT_NAS_SCAN_INTERVAL_SEC",       "900"),
-    "nas_default_source_dir":      ("FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR",      ""),
+    "nas_auto_scan_enabled": ("FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED", "0"),
+    "nas_scan_interval_sec": ("FAMILY_VAULT_NAS_SCAN_INTERVAL_SEC", "900"),
+    "nas_default_source_dir": ("FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR", ""),
     # Mail
-    "mail_poll_enabled":           ("FAMILY_VAULT_MAIL_POLL_ENABLED",           "0"),
-    "mail_poll_interval_sec":      ("FAMILY_VAULT_MAIL_POLL_INTERVAL_SEC",      "300"),
-    "mail_query":                  ("FAMILY_VAULT_MAIL_QUERY",                  "has:attachment newer_than:30d"),
-    "mail_attachment_subdir":      ("FAMILY_VAULT_MAIL_ATTACHMENT_SUBDIR",      "email_attachments"),
+    "mail_poll_enabled": ("FAMILY_VAULT_MAIL_POLL_ENABLED", "0"),
+    "mail_poll_interval_sec": ("FAMILY_VAULT_MAIL_POLL_INTERVAL_SEC", "300"),
+    "mail_query": ("FAMILY_VAULT_MAIL_QUERY", "has:attachment newer_than:30d"),
+    "mail_attachment_subdir": (
+        "FAMILY_VAULT_MAIL_ATTACHMENT_SUBDIR",
+        "email_attachments",
+    ),
     # Ollama URL (deployment-time; env var only — DB can override for convenience)
-    "ollama_base_url":             ("FAMILY_VAULT_OLLAMA_BASE_URL",             "http://host.docker.internal:11434"),
+    "ollama_base_url": (
+        "FAMILY_VAULT_OLLAMA_BASE_URL",
+        "http://host.docker.internal:11434",
+    ),
     # User-defined tagging keywords (stored as JSON objects {"terms": {...}})
-    "person_keywords":             ("",                                          '{"terms":{}}'),
-    "pet_keywords":                ("",                                          '{"terms":{}}'),
-    "location_keywords":           ("",                                          '{"terms":{}}'),
+    "person_keywords": ("", '{"terms":{}}'),
+    "pet_keywords": ("", '{"terms":{}}'),
+    "location_keywords": ("", '{"terms":{}}'),
 }
 
 # ---------------------------------------------------------------------------
 # Metadata for the settings UI
 # ---------------------------------------------------------------------------
 SETTING_META: dict[str, dict[str, Any]] = {
-    "planner_model":               {"type": "model",  "category": "llm",       "label_zh": "规划模型",     "label_en": "Planner Model"},
-    "synthesizer_model":           {"type": "model",  "category": "llm",       "label_zh": "合成模型",     "label_en": "Synthesizer Model"},
-    "embed_model":                 {"type": "model",  "category": "llm",       "label_zh": "嵌入模型",     "label_en": "Embedding Model"},
-    "summary_model":               {"type": "model",  "category": "llm",       "label_zh": "摘要生成模型", "label_en": "Summary Model"},
-    "category_model":              {"type": "model",  "category": "llm",       "label_zh": "分类模型",     "label_en": "Category Model"},
-    "friendly_name_model":         {"type": "model",  "category": "llm",       "label_zh": "友好标题模型", "label_en": "Friendly Title Model"},
-    "vl_extract_model":            {"type": "model",  "category": "llm",       "label_zh": "图像识别模型", "label_en": "Vision Model"},
-    "summary_timeout_page_sec":    {"type": "int",    "category": "timeout",   "label_zh": "摘要页超时(s)", "label_en": "Summary Page Timeout (s)"},
-    "summary_timeout_section_sec": {"type": "int",    "category": "timeout",   "label_zh": "摘要章节超时(s)", "label_en": "Summary Section Timeout (s)"},
-    "summary_timeout_final_sec":   {"type": "int",    "category": "timeout",   "label_zh": "摘要合并超时(s)", "label_en": "Summary Final Timeout (s)"},
-    "agent_synth_timeout_sec":     {"type": "int",    "category": "timeout",   "label_zh": "AI问答超时(s)", "label_en": "Agent Synth Timeout (s)"},
-    "nas_auto_scan_enabled":       {"type": "bool",   "category": "nas",       "label_zh": "自动扫描NAS",  "label_en": "NAS Auto Scan"},
-    "nas_scan_interval_sec":       {"type": "int",    "category": "nas",       "label_zh": "扫描间隔(s)",  "label_en": "Scan Interval (s)"},
-    "nas_default_source_dir":      {"type": "path",   "category": "nas",       "label_zh": "NAS源目录",    "label_en": "NAS Source Directory"},
-    "mail_poll_enabled":           {"type": "bool",   "category": "mail",      "label_zh": "启用邮件轮询", "label_en": "Mail Poll Enabled"},
-    "mail_poll_interval_sec":      {"type": "int",    "category": "mail",      "label_zh": "轮询间隔(s)",  "label_en": "Poll Interval (s)"},
-    "mail_query":                  {"type": "string", "category": "mail",      "label_zh": "Gmail查询表达式", "label_en": "Gmail Query"},
-    "mail_attachment_subdir":      {"type": "string", "category": "mail",      "label_zh": "邮件附件子目录", "label_en": "Mail Attachment Subdirectory"},
-    "ollama_base_url":             {"type": "string", "category": "advanced",  "label_zh": "Ollama地址",   "label_en": "Ollama Base URL"},
-    "person_keywords":             {"type": "json",   "category": "keywords",  "label_zh": "家庭成员名",   "label_en": "Person Names"},
-    "pet_keywords":                {"type": "json",   "category": "keywords",  "label_zh": "宠物名",       "label_en": "Pet Names"},
-    "location_keywords":           {"type": "json",   "category": "keywords",  "label_zh": "地址关键字",   "label_en": "Location Keywords"},
+    "planner_model": {
+        "type": "model",
+        "category": "llm",
+        "label_zh": "规划模型",
+        "label_en": "Planner Model",
+    },
+    "synthesizer_model": {
+        "type": "model",
+        "category": "llm",
+        "label_zh": "合成模型",
+        "label_en": "Synthesizer Model",
+    },
+    "embed_model": {
+        "type": "model",
+        "category": "llm",
+        "label_zh": "嵌入模型",
+        "label_en": "Embedding Model",
+    },
+    "summary_model": {
+        "type": "model",
+        "category": "llm",
+        "label_zh": "摘要生成模型",
+        "label_en": "Summary Model",
+    },
+    "category_model": {
+        "type": "model",
+        "category": "llm",
+        "label_zh": "分类模型",
+        "label_en": "Category Model",
+    },
+    "friendly_name_model": {
+        "type": "model",
+        "category": "llm",
+        "label_zh": "友好标题模型",
+        "label_en": "Friendly Title Model",
+    },
+    "vl_extract_model": {
+        "type": "model",
+        "category": "llm",
+        "label_zh": "图像识别模型",
+        "label_en": "Vision Model",
+    },
+    "summary_timeout_page_sec": {
+        "type": "int",
+        "category": "timeout",
+        "label_zh": "摘要页超时(s)",
+        "label_en": "Summary Page Timeout (s)",
+    },
+    "summary_timeout_section_sec": {
+        "type": "int",
+        "category": "timeout",
+        "label_zh": "摘要章节超时(s)",
+        "label_en": "Summary Section Timeout (s)",
+    },
+    "summary_timeout_final_sec": {
+        "type": "int",
+        "category": "timeout",
+        "label_zh": "摘要合并超时(s)",
+        "label_en": "Summary Final Timeout (s)",
+    },
+    "agent_synth_timeout_sec": {
+        "type": "int",
+        "category": "timeout",
+        "label_zh": "AI问答超时(s)",
+        "label_en": "Agent Synth Timeout (s)",
+    },
+    "nas_auto_scan_enabled": {
+        "type": "bool",
+        "category": "nas",
+        "label_zh": "自动扫描NAS",
+        "label_en": "NAS Auto Scan",
+    },
+    "nas_scan_interval_sec": {
+        "type": "int",
+        "category": "nas",
+        "label_zh": "扫描间隔(s)",
+        "label_en": "Scan Interval (s)",
+    },
+    "nas_default_source_dir": {
+        "type": "path",
+        "category": "nas",
+        "label_zh": "NAS源目录",
+        "label_en": "NAS Source Directory",
+    },
+    "mail_poll_enabled": {
+        "type": "bool",
+        "category": "mail",
+        "label_zh": "启用邮件轮询",
+        "label_en": "Mail Poll Enabled",
+    },
+    "mail_poll_interval_sec": {
+        "type": "int",
+        "category": "mail",
+        "label_zh": "轮询间隔(s)",
+        "label_en": "Poll Interval (s)",
+    },
+    "mail_query": {
+        "type": "string",
+        "category": "mail",
+        "label_zh": "Gmail查询表达式",
+        "label_en": "Gmail Query",
+    },
+    "mail_attachment_subdir": {
+        "type": "string",
+        "category": "mail",
+        "label_zh": "邮件附件子目录",
+        "label_en": "Mail Attachment Subdirectory",
+    },
+    "ollama_base_url": {
+        "type": "string",
+        "category": "advanced",
+        "label_zh": "Ollama地址",
+        "label_en": "Ollama Base URL",
+    },
+    "person_keywords": {
+        "type": "json",
+        "category": "keywords",
+        "label_zh": "家庭成员名",
+        "label_en": "Person Names",
+    },
+    "pet_keywords": {
+        "type": "json",
+        "category": "keywords",
+        "label_zh": "宠物名",
+        "label_en": "Pet Names",
+    },
+    "location_keywords": {
+        "type": "json",
+        "category": "keywords",
+        "label_zh": "地址关键字",
+        "label_en": "Location Keywords",
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -111,6 +227,7 @@ def get_runtime_setting(key: str, db: Session | None = None) -> str:
     if db is not None:
         try:
             from app.models import AppSetting  # avoid circular import at module level
+
             row = db.get(AppSetting, key)
             if row is not None:
                 _set_cache(key, row.value, now)

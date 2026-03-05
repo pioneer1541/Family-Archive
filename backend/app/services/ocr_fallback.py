@@ -82,7 +82,11 @@ def _ocr_pdf_path(path: str, *, max_pages: int, dpi: int) -> str:
         if doc_total > limit:
             logger.warning(
                 "ocr_pdf_truncated",
-                extra={"path": path, "pages_total": doc_total, "pages_processed": limit},
+                extra={
+                    "path": path,
+                    "pages_total": doc_total,
+                    "pages_processed": limit,
+                },
             )
         total = min(doc_total, limit)
         for idx in range(total):

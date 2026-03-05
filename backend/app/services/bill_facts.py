@@ -50,7 +50,9 @@ _PERIOD_PATTERNS = [
     re.compile(
         r"(?i)(?:period|billing\s*period|usage\s*period)\s*[:：]?\s*([0-9]{4}-[0-9]{1,2}-[0-9]{1,2}|[0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})\s*(?:to|~|-|–)\s*([0-9]{4}-[0-9]{1,2}-[0-9]{1,2}|[0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})"
     ),
-    re.compile(r"([0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日)\s*(?:至|到|~|-|–)\s*([0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日)"),
+    re.compile(
+        r"([0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日)\s*(?:至|到|~|-|–)\s*([0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日)"
+    ),
     re.compile(
         r"(?i)(?:from\s+)?([0-9]{1,2}-[A-Za-z]{3,9}-[0-9]{2,4}|[0-9]{1,2}\s+[A-Za-z]{3,9}\s+[0-9]{4}|[0-9]{4}-[0-9]{1,2}-[0-9]{1,2})\s*(?:to|~|-|–|至|到)\s*([0-9]{1,2}-[A-Za-z]{3,9}-[0-9]{2,4}|[0-9]{1,2}\s+[A-Za-z]{3,9}\s+[0-9]{4}|[0-9]{4}-[0-9]{1,2}-[0-9]{1,2})"
     ),
@@ -119,7 +121,16 @@ _NEGATIVE_AMOUNT_HINTS = (
 )
 
 _PAID_MARKERS = ["已缴", "已支付", "完成缴费", "paid", "payment received", "settled"]
-_UNPAID_MARKERS = ["未缴", "待缴", "欠费", "逾期", "overdue", "outstanding", "unpaid", "past due"]
+_UNPAID_MARKERS = [
+    "未缴",
+    "待缴",
+    "欠费",
+    "逾期",
+    "overdue",
+    "outstanding",
+    "unpaid",
+    "past due",
+]
 
 
 def _clean_text(value: str) -> str:
@@ -130,7 +141,9 @@ def _parse_date(raw: str) -> dt.datetime | None:
     text = str(raw or "").strip()
     if not text:
         return None
-    text = text.replace("年", "-").replace("月", "-").replace("日", "").replace(".", "-")
+    text = (
+        text.replace("年", "-").replace("月", "-").replace("日", "").replace(".", "-")
+    )
     compact_month = re.fullmatch(r"([0-9]{1,2})([A-Za-z]{3,9})([0-9]{2,4})", text)
     if compact_month:
         text = f"{compact_month.group(1)} {compact_month.group(2)} {compact_month.group(3)}"
@@ -215,7 +228,10 @@ def _extract_amount_and_currency(text: str) -> tuple[float | None, str]:
                 score += 16.0
             if any(token in context for token in _NEGATIVE_AMOUNT_HINTS):
                 score -= 78.0
-            if any(token in context for token in ("discount", "rebate", "credit", "折扣", "抵扣", "优惠")):
+            if any(
+                token in context
+                for token in ("discount", "rebate", "credit", "折扣", "抵扣", "优惠")
+            ):
                 score -= 8.0
             if amount <= 0:
                 score -= 50.0
@@ -241,7 +257,12 @@ def _extract_amount_and_currency(text: str) -> tuple[float | None, str]:
             if amount >= 1000:
                 score += 4.0
 
-            if "$" in match.group(0) or "aud" in context or "australia" in lowered or "澳币" in context:
+            if (
+                "$" in match.group(0)
+                or "aud" in context
+                or "australia" in lowered
+                or "澳币" in context
+            ):
                 currency = "AUD"
             elif "人民币" in context or "元" in context:
                 currency = "CNY"
@@ -301,7 +322,12 @@ def _extract_billing_period(text: str) -> tuple[dt.datetime | None, dt.datetime 
     return (None, None)
 
 
-def _has_date_anchor(*, due_date: dt.datetime | None, period_start: dt.datetime | None, period_end: dt.datetime | None) -> bool:
+def _has_date_anchor(
+    *,
+    due_date: dt.datetime | None,
+    period_start: dt.datetime | None,
+    period_end: dt.datetime | None,
+) -> bool:
     return due_date is not None or period_start is not None or period_end is not None
 
 
@@ -332,7 +358,14 @@ def _infer_vendor(file_name: str) -> str:
     return text[:160]
 
 
-def _build_confidence(*, amount_due: float | None, due_date: dt.datetime | None, payment_status: str, period_start: dt.datetime | None, period_end: dt.datetime | None) -> float:
+def _build_confidence(
+    *,
+    amount_due: float | None,
+    due_date: dt.datetime | None,
+    payment_status: str,
+    period_start: dt.datetime | None,
+    period_end: dt.datetime | None,
+) -> float:
     score = 0.15
     if amount_due is not None:
         score += 0.45
@@ -345,7 +378,9 @@ def _build_confidence(*, amount_due: float | None, due_date: dt.datetime | None,
     return max(0.0, min(1.0, round(score, 2)))
 
 
-def extract_bill_fact_payload(document: Document, *, content_excerpt: str = "") -> dict[str, Any] | None:
+def extract_bill_fact_payload(
+    document: Document, *, content_excerpt: str = ""
+) -> dict[str, Any] | None:
     category_path = str(document.category_path or "").strip().lower()
     if not category_path.startswith("finance/bills"):
         return None
@@ -370,7 +405,11 @@ def extract_bill_fact_payload(document: Document, *, content_excerpt: str = "") 
     amount_due, currency = _extract_amount_and_currency(merged)
     due_date = _extract_due_date(merged)
     period_start, period_end = _extract_billing_period(merged)
-    if amount_due is None or (not _has_date_anchor(due_date=due_date, period_start=period_start, period_end=period_end)):
+    if amount_due is None or (
+        not _has_date_anchor(
+            due_date=due_date, period_start=period_start, period_end=period_end
+        )
+    ):
         return None
 
     payment_status = _infer_payment_status(merged, due_date)
@@ -399,9 +438,15 @@ def extract_bill_fact_payload(document: Document, *, content_excerpt: str = "") 
     }
 
 
-def upsert_bill_fact_for_document(db: Session, document: Document, *, content_excerpt: str = "") -> BillFact | None:
+def upsert_bill_fact_for_document(
+    db: Session, document: Document, *, content_excerpt: str = ""
+) -> BillFact | None:
     payload = extract_bill_fact_payload(document, content_excerpt=content_excerpt)
-    existing = db.execute(select(BillFact).where(BillFact.document_id == document.id)).scalars().first()
+    existing = (
+        db.execute(select(BillFact).where(BillFact.document_id == document.id))
+        .scalars()
+        .first()
+    )
     if payload is None:
         if existing is not None:
             db.delete(existing)
@@ -422,7 +467,9 @@ def upsert_bill_fact_for_document(db: Session, document: Document, *, content_ex
     existing.payment_date = payload["payment_date"]
     existing.confidence = float(payload["confidence"] or 0.0)
     existing.evidence_text = str(payload["evidence_text"] or "")[:1200]
-    existing.extraction_version = str(payload["extraction_version"] or "bill-facts-v1")[:32]
+    existing.extraction_version = str(payload["extraction_version"] or "bill-facts-v1")[
+        :32
+    ]
     existing.updated_at = dt.datetime.now(dt.UTC)
     db.flush()
     return existing
@@ -452,20 +499,31 @@ def list_recent_bill_facts(
         stmt = stmt.where(anchor_expr >= since)
     if target_month is not None:
         month_str = f"{int(target_month):02d}"
-        date_cols = [BillFact.billing_period_end, BillFact.billing_period_start, BillFact.due_date]
+        date_cols = [
+            BillFact.billing_period_end,
+            BillFact.billing_period_start,
+            BillFact.due_date,
+        ]
         if target_year is not None:
             year_str = str(int(target_year))
-            stmt = stmt.where(or_(*(
-                and_(func.strftime("%m", col) == month_str, func.strftime("%Y", col) == year_str)
-                for col in date_cols
-            )))
+            stmt = stmt.where(
+                or_(
+                    *(
+                        and_(
+                            func.strftime("%m", col) == month_str,
+                            func.strftime("%Y", col) == year_str,
+                        )
+                        for col in date_cols
+                    )
+                )
+            )
         else:
-            stmt = stmt.where(or_(*(func.strftime("%m", col) == month_str for col in date_cols)))
-    rows = (
-        db.execute(
-            stmt.order_by(anchor_expr.desc().nullslast(), BillFact.updated_at.desc())
-            .limit(safe_limit)
+            stmt = stmt.where(
+                or_(*(func.strftime("%m", col) == month_str for col in date_cols))
+            )
+    rows = db.execute(
+        stmt.order_by(anchor_expr.desc().nullslast(), BillFact.updated_at.desc()).limit(
+            safe_limit
         )
-        .all()
-    )
+    ).all()
     return [(bill, doc) for bill, doc in rows]

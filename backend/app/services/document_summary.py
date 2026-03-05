@@ -9,7 +9,10 @@ _DATE_PATTERNS = [
     re.compile(r"\b(?:0?[1-9]|1[0-2])[/-]20\d{2}\b"),
     re.compile(r"20\d{2}\s*年\s*(?:0?[1-9]|1[0-2])\s*月"),
 ]
-_AMOUNT_PATTERN = re.compile(r"(?:[$€£]|aud|usd|cny|rmb)?\s*\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?", flags=re.IGNORECASE)
+_AMOUNT_PATTERN = re.compile(
+    r"(?:[$€£]|aud|usd|cny|rmb)?\s*\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?",
+    flags=re.IGNORECASE,
+)
 _NOISE_PATTERN = re.compile(r"^[\W_]+$")
 _HAS_ZH = re.compile(r"[\u4e00-\u9fff]")
 
@@ -133,7 +136,9 @@ def _compact_text(text: str, limit: int) -> str:
 
 
 def _normalize_token(token: str) -> str:
-    out = "".join(ch for ch in str(token or "") if ch.isalnum() or ("\u4e00" <= ch <= "\u9fff"))
+    out = "".join(
+        ch for ch in str(token or "") if ch.isalnum() or ("\u4e00" <= ch <= "\u9fff")
+    )
     return out.strip().lower()
 
 
@@ -203,7 +208,9 @@ def _sentence_score(sentence: str, keywords: list[str]) -> int:
     return score
 
 
-def _pick_key_sentences(text: str, *, keywords: list[str], max_sentences: int = 3) -> list[str]:
+def _pick_key_sentences(
+    text: str, *, keywords: list[str], max_sentences: int = 3
+) -> list[str]:
     rows = _split_sentences(text)
     if not rows:
         short = _compact_text(text, 240)
@@ -304,7 +311,9 @@ def build_document_summaries(
         sentence_en = _compact_text(scoped, 220)
 
     themes_zh = _zh_themes(keywords, cap=4)
-    theme_text_zh = "、".join(themes_zh) if themes_zh else (category_label_zh or "通用主题")
+    theme_text_zh = (
+        "、".join(themes_zh) if themes_zh else (category_label_zh or "通用主题")
+    )
     date_text = "、".join(dates) if dates else "未明确给出"
     amount_text = "、".join(amounts) if amounts else "未明确给出"
 

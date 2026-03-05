@@ -6,12 +6,23 @@ from collections import Counter
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Document, IngestionJob, IngestionJobStatus, MailIngestionEvent, SyncRun, SyncRunItem
+from app.models import (
+    Document,
+    IngestionJob,
+    IngestionJobStatus,
+    MailIngestionEvent,
+    SyncRun,
+    SyncRunItem,
+)
 from app.services.mail_ingest import poll_mailbox_and_enqueue
 from app.services.nas import run_nas_scan
 
 _TERMINAL_ITEM_STAGES = {"completed", "failed", "duplicate", "skipped"}
-_JOB_ACTIVE = {IngestionJobStatus.RUNNING.value, IngestionJobStatus.RETRYING.value, IngestionJobStatus.CREATED.value}
+_JOB_ACTIVE = {
+    IngestionJobStatus.RUNNING.value,
+    IngestionJobStatus.RETRYING.value,
+    IngestionJobStatus.CREATED.value,
+}
 _ACTIVE_ITEM_STAGES = {"discovered", "queued", "pending", "processing"}
 
 
@@ -59,7 +70,12 @@ def _find_doc_by_source_path(db: Session, source_path: str) -> Document | None:
     if not path:
         return None
     return (
-        db.execute(select(Document).where(Document.source_path == path).order_by(Document.updated_at.desc()).limit(1))
+        db.execute(
+            select(Document)
+            .where(Document.source_path == path)
+            .order_by(Document.updated_at.desc())
+            .limit(1)
+        )
         .scalars()
         .first()
     )
@@ -79,7 +95,11 @@ def _upsert_item(
     existing = (
         db.execute(
             select(SyncRunItem)
-            .where(SyncRunItem.run_id == run_id, SyncRunItem.source_type == source_type, SyncRunItem.source_path == source_path)
+            .where(
+                SyncRunItem.run_id == run_id,
+                SyncRunItem.source_type == source_type,
+                SyncRunItem.source_path == source_path,
+            )
             .limit(1)
         )
         .scalars()
@@ -113,7 +133,13 @@ def start_sync_run(
     mail_max_results: int | None = None,
 ) -> SyncRun:
     run = create_sync_run(db)
-    return execute_sync_run(db, run.id, nas_paths=nas_paths, recursive=recursive, mail_max_results=mail_max_results)
+    return execute_sync_run(
+        db,
+        run.id,
+        nas_paths=nas_paths,
+        recursive=recursive,
+        mail_max_results=mail_max_results,
+    )
 
 
 def create_sync_run(db: Session) -> SyncRun:
@@ -141,14 +167,20 @@ def execute_sync_run(
     run.finished_at = None
 
     nas_out = run_nas_scan(db, paths=nas_paths, recursive=recursive)
-    mail_out = poll_mailbox_and_enqueue(db, max_results=mail_max_results, sync_run_id=run.id)
+    mail_out = poll_mailbox_and_enqueue(
+        db, max_results=mail_max_results, sync_run_id=run.id
+    )
 
     run.nas_job_id = str(nas_out.get("job_id") or "")[:36]
     run.mail_job_id = str(mail_out.get("job_id") or "")[:36]
     run.nas_summary_json = _safe_json(nas_out)
     run.mail_summary_json = _safe_json(mail_out)
 
-    nas_paths_to_track = [str(p or "").strip() for p in (nas_out.get("queued_paths") or []) if str(p or "").strip()]
+    nas_paths_to_track = [
+        str(p or "").strip()
+        for p in (nas_out.get("queued_paths") or [])
+        if str(p or "").strip()
+    ]
     for source_path in nas_paths_to_track:
         _upsert_item(
             db,
@@ -214,7 +246,11 @@ def refresh_sync_run_status(db: Session, run_id: str) -> SyncRun | None:
         return None
 
     items = (
-        db.execute(select(SyncRunItem).where(SyncRunItem.run_id == run.id).order_by(SyncRunItem.updated_at.desc()))
+        db.execute(
+            select(SyncRunItem)
+            .where(SyncRunItem.run_id == run.id)
+            .order_by(SyncRunItem.updated_at.desc())
+        )
         .scalars()
         .all()
     )
@@ -222,12 +258,17 @@ def refresh_sync_run_status(db: Session, run_id: str) -> SyncRun | None:
     source_paths = {
         str(item.source_path or "").strip()
         for item in items
-        if str(item.source_path or "").strip() and (not str(item.source_path or "").strip().startswith("mail://"))
+        if str(item.source_path or "").strip()
+        and (not str(item.source_path or "").strip().startswith("mail://"))
     }
     docs_by_path: dict[str, Document] = {}
     if source_paths:
         doc_rows = (
-            db.execute(select(Document).where(Document.source_path.in_(source_paths)).order_by(Document.updated_at.desc()))
+            db.execute(
+                select(Document)
+                .where(Document.source_path.in_(source_paths))
+                .order_by(Document.updated_at.desc())
+            )
             .scalars()
             .all()
         )
@@ -237,7 +278,10 @@ def refresh_sync_run_status(db: Session, run_id: str) -> SyncRun | None:
                 docs_by_path[path] = doc
 
     for item in items:
-        if str(item.doc_id or "").strip() and str(item.stage or "") in _TERMINAL_ITEM_STAGES:
+        if (
+            str(item.doc_id or "").strip()
+            and str(item.stage or "") in _TERMINAL_ITEM_STAGES
+        ):
             continue
         source_path = str(item.source_path or "").strip()
         if source_path.startswith("mail://"):
@@ -253,8 +297,14 @@ def refresh_sync_run_status(db: Session, run_id: str) -> SyncRun | None:
             item.file_size = int(doc.file_size or 0)
 
     counts = Counter(str(item.stage or "discovered") for item in items)
-    active_jobs = _job_is_active(db, run.nas_job_id) or _job_is_active(db, run.mail_job_id)
-    all_terminal = all(str(item.stage or "") in _TERMINAL_ITEM_STAGES for item in items) if items else True
+    active_jobs = _job_is_active(db, run.nas_job_id) or _job_is_active(
+        db, run.mail_job_id
+    )
+    all_terminal = (
+        all(str(item.stage or "") in _TERMINAL_ITEM_STAGES for item in items)
+        if items
+        else True
+    )
     active_count = sum(int(counts.get(key, 0)) for key in _ACTIVE_ITEM_STAGES)
     is_active = bool(active_jobs) or (active_count > 0)
 
@@ -266,7 +316,11 @@ def refresh_sync_run_status(db: Session, run_id: str) -> SyncRun | None:
         run.finished_at = run.finished_at or dt.datetime.now(dt.UTC)
     elif all_terminal:
         run.finished_at = run.finished_at or dt.datetime.now(dt.UTC)
-        run.status = "failed" if int(counts.get("failed", 0)) > 0 and int(counts.get("completed", 0)) == 0 else "completed"
+        run.status = (
+            "failed"
+            if int(counts.get("failed", 0)) > 0 and int(counts.get("completed", 0)) == 0
+            else "completed"
+        )
     else:
         run.status = "running"
         run.finished_at = None
@@ -277,13 +331,21 @@ def refresh_sync_run_status(db: Session, run_id: str) -> SyncRun | None:
 
 
 def get_sync_summary(db: Session, run: SyncRun) -> dict[str, int]:
-    items = db.execute(select(SyncRunItem.stage).where(SyncRunItem.run_id == run.id)).all()
+    items = db.execute(
+        select(SyncRunItem.stage).where(SyncRunItem.run_id == run.id)
+    ).all()
     counts = Counter(str(row[0] or "discovered") for row in items)
     total = len(items)
     active_count = sum(int(counts.get(key, 0)) for key in _ACTIVE_ITEM_STAGES)
     terminal_count = sum(int(counts.get(key, 0)) for key in _TERMINAL_ITEM_STAGES)
-    active_jobs = _job_is_active(db, run.nas_job_id) or _job_is_active(db, run.mail_job_id)
-    progress_pct = 100 if total <= 0 else max(0, min(100, int(round((terminal_count / total) * 100))))
+    active_jobs = _job_is_active(db, run.nas_job_id) or _job_is_active(
+        db, run.mail_job_id
+    )
+    progress_pct = (
+        100
+        if total <= 0
+        else max(0, min(100, int(round((terminal_count / total) * 100))))
+    )
     return {
         "total": total,
         "discovered": int(counts.get("discovered", 0)),
@@ -302,7 +364,11 @@ def get_sync_summary(db: Session, run: SyncRun) -> dict[str, int]:
 
 
 def get_sync_last(db: Session) -> SyncRun | None:
-    return db.execute(select(SyncRun).order_by(SyncRun.started_at.desc()).limit(1)).scalars().first()
+    return (
+        db.execute(select(SyncRun).order_by(SyncRun.started_at.desc()).limit(1))
+        .scalars()
+        .first()
+    )
 
 
 def get_sync_source_summary(run: SyncRun) -> tuple[dict, dict]:

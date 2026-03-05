@@ -46,7 +46,9 @@ def _extract_year_month(text: str) -> tuple[int | None, int | None]:
         if 1 <= m <= 12:
             return (y, m)
 
-    ymd = re.search(r"(20\d{2})[\/\-.](0?[1-9]|1[0-2])(?:[\/\-.](?:0?[1-9]|[12]\d|3[01]))?", raw)
+    ymd = re.search(
+        r"(20\d{2})[\/\-.](0?[1-9]|1[0-2])(?:[\/\-.](?:0?[1-9]|[12]\d|3[01]))?", raw
+    )
     if ymd:
         return (int(ymd.group(1)), int(ymd.group(2)))
 
@@ -103,7 +105,14 @@ def _pick_kind(hay: str, category_path: str) -> tuple[str, str]:
 
     rules = [
         (
-            ("agm", "annual general meeting", "meeting notice", "会议通知", "业主大会", "年会"),
+            (
+                "agm",
+                "annual general meeting",
+                "meeting notice",
+                "会议通知",
+                "业主大会",
+                "年会",
+            ),
             ("AGM会议通知", "AGM Meeting Notice"),
         ),
         (
@@ -111,7 +120,14 @@ def _pick_kind(hay: str, category_path: str) -> tuple[str, str]:
             ("电费账单", "Electricity Bill"),
         ),
         (
-            ("water bill", "yarra valley water", "water usage", "water rates", "sewerage", "水费"),
+            (
+                "water bill",
+                "yarra valley water",
+                "water usage",
+                "water rates",
+                "sewerage",
+                "水费",
+            ),
             ("水费账单", "Water Bill"),
         ),
         (
@@ -171,7 +187,15 @@ def generate_friendly_names(
     mail_subject: str = "",
 ) -> tuple[str, str]:
     base = _clean_base(file_name)
-    hay = " ".join([base, str(text or "")[:5000], str(mail_subject or ""), str(category_path or ""), str(source_type or "")])
+    hay = " ".join(
+        [
+            base,
+            str(text or "")[:5000],
+            str(mail_subject or ""),
+            str(category_path or ""),
+            str(source_type or ""),
+        ]
+    )
     year, month = _extract_year_month(hay)
     kind_zh, kind_en = _pick_kind(hay, category_path)
     keep_date = _should_prefix_date(category_path=category_path, hay=hay)

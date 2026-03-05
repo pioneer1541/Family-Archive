@@ -41,7 +41,13 @@ async def _mail_poll_loop(stop_event: asyncio.Event) -> None:
         except Exception as exc:
             logger.warning(
                 "mail_poll_loop_failed",
-                extra=sanitize_log_context({"status": "warn", "error_code": "mail_poll_loop_failed", "detail": str(exc)}),
+                extra=sanitize_log_context(
+                    {
+                        "status": "warn",
+                        "error_code": "mail_poll_loop_failed",
+                        "detail": str(exc),
+                    }
+                ),
             )
         finally:
             db.close()
@@ -61,7 +67,13 @@ async def _nas_scan_loop(stop_event: asyncio.Event) -> None:
         except Exception as exc:
             logger.warning(
                 "nas_scan_loop_failed",
-                extra=sanitize_log_context({"status": "warn", "error_code": "nas_scan_loop_failed", "detail": str(exc)}),
+                extra=sanitize_log_context(
+                    {
+                        "status": "warn",
+                        "error_code": "nas_scan_loop_failed",
+                        "detail": str(exc),
+                    }
+                ),
             )
         finally:
             db.close()
@@ -85,7 +97,13 @@ async def lifespan(_app: FastAPI):
         except Exception as exc:
             logger.warning(
                 "qdrant_init_failed",
-                extra=sanitize_log_context({"status": "warn", "error_code": "qdrant_init_failed", "detail": str(exc)}),
+                extra=sanitize_log_context(
+                    {
+                        "status": "warn",
+                        "error_code": "qdrant_init_failed",
+                        "detail": str(exc),
+                    }
+                ),
             )
     if settings.nas_auto_scan_enabled:
         background_tasks.append(asyncio.create_task(_nas_scan_loop(stop_event)))
@@ -128,14 +146,18 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 db.close()
             if not setup_done:
                 return await call_next(request)
-            return JSONResponse(status_code=401, content={"detail": "Not authenticated."})
+            return JSONResponse(
+                status_code=401, content={"detail": "Not authenticated."}
+            )
 
         return await call_next(request)
 
 
 app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifespan)
 
-allow_all_origins = len(settings.allowed_origins) == 1 and settings.allowed_origins[0] == "*"
+allow_all_origins = (
+    len(settings.allowed_origins) == 1 and settings.allowed_origins[0] == "*"
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
@@ -144,6 +166,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(AuthMiddleware)
+
 
 @app.get("/")
 def root() -> dict[str, str]:

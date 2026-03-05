@@ -17,9 +17,16 @@ logger = get_logger(__name__)
 
 
 @celery_app.task(bind=True, name="fkv.ingestion.process_job")
-def process_ingestion_job_task(self, job_id: str, force_reprocess: bool = False, reprocess_doc_id: str | None = None):
+def process_ingestion_job_task(
+    self,
+    job_id: str,
+    force_reprocess: bool = False,
+    reprocess_doc_id: str | None = None,
+):
     try:
-        return process_ingestion_job(job_id, force_reprocess=force_reprocess, reprocess_doc_id=reprocess_doc_id)
+        return process_ingestion_job(
+            job_id, force_reprocess=force_reprocess, reprocess_doc_id=reprocess_doc_id
+        )
     except Exception as exc:
         max_retries = max(0, int(settings.ingestion_retry_max_retries))
         current_retry = int(getattr(self.request, "retries", 0))
@@ -27,9 +34,14 @@ def process_ingestion_job_task(self, job_id: str, force_reprocess: bool = False,
 
         if current_retry < max_retries:
             retry_count = current_retry + 1
-            mark_job_retrying(job_id, error_code=error_code, retry_count=retry_count, max_retries=max_retries)
+            mark_job_retrying(
+                job_id,
+                error_code=error_code,
+                retry_count=retry_count,
+                max_retries=max_retries,
+            )
             base_delay = max(1, int(settings.ingestion_retry_base_delay_sec))
-            countdown = base_delay * (2 ** current_retry)
+            countdown = base_delay * (2**current_retry)
             raise self.retry(exc=exc, countdown=countdown, max_retries=max_retries)
 
         mark_job_terminal_failure(job_id, error_code=f"retry_exhausted:{error_code}")
@@ -65,7 +77,9 @@ def execute_sync_run_task(
             extra=sanitize_log_context(
                 {
                     "run_id": str(run_id or ""),
-                    "error_code": compact_error_code(f"sync_run_failed:{type(exc).__name__}"),
+                    "error_code": compact_error_code(
+                        f"sync_run_failed:{type(exc).__name__}"
+                    ),
                     "exc_type": type(exc).__name__,
                 }
             ),
@@ -76,7 +90,9 @@ def execute_sync_run_task(
 
 
 @celery_app.task(bind=True, name="fkv.map_reduce.process")
-def run_map_reduce_task(self, doc_id: str, ui_lang: str = "zh", chunk_group_size: int = 6):
+def run_map_reduce_task(
+    self, doc_id: str, ui_lang: str = "zh", chunk_group_size: int = 6
+):
     """Async Celery task for long-document map-reduce summarisation.
 
     Persists intermediate page/section checkpoints to the DB so that if the
@@ -85,7 +101,9 @@ def run_map_reduce_task(self, doc_id: str, ui_lang: str = "zh", chunk_group_size
     """
     db = SessionLocal()
     try:
-        result = build_map_reduce_summary(db, doc_id=doc_id, ui_lang=ui_lang, chunk_group_size=chunk_group_size)
+        result = build_map_reduce_summary(
+            db, doc_id=doc_id, ui_lang=ui_lang, chunk_group_size=chunk_group_size
+        )
         return {
             "doc_id": doc_id,
             "status": "completed",
@@ -96,13 +114,17 @@ def run_map_reduce_task(self, doc_id: str, ui_lang: str = "zh", chunk_group_size
     except ValueError as exc:
         logger.warning(
             "map_reduce_task_value_error",
-            extra=sanitize_log_context({"doc_id": str(doc_id or ""), "error": str(exc)}),
+            extra=sanitize_log_context(
+                {"doc_id": str(doc_id or ""), "error": str(exc)}
+            ),
         )
         return {"doc_id": doc_id, "status": "failed", "error": str(exc)}
     except Exception as exc:
         logger.warning(
             "map_reduce_task_failed",
-            extra=sanitize_log_context({"doc_id": str(doc_id or ""), "exc_type": type(exc).__name__}),
+            extra=sanitize_log_context(
+                {"doc_id": str(doc_id or ""), "exc_type": type(exc).__name__}
+            ),
         )
         raise
     finally:

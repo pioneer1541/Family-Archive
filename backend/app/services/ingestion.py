@@ -11,7 +11,14 @@ from app.celery_app import celery_app
 from app.config import get_settings
 from app.db import SessionLocal
 from app.logging_utils import get_logger, sanitize_log_context
-from app.models import Chunk, Document, DocumentStatus, IngestionJob, IngestionJobStatus, MailIngestionEvent
+from app.models import (
+    Chunk,
+    Document,
+    DocumentStatus,
+    IngestionJob,
+    IngestionJobStatus,
+    MailIngestionEvent,
+)
 from app.services.bill_facts import upsert_bill_fact_for_document
 from app.services.document_summary import build_document_summaries
 from app.services.friendly_name import generate_friendly_names
@@ -34,8 +41,17 @@ from app.services.parsing import (
     file_meta,
 )
 from app.services.path_scan import discover_files
-from app.services.qdrant import delete_records_by_point_ids, qdrant_payload, stable_point_id, upsert_records
-from app.services.source_tags import DEFAULT_CATEGORY_PATH, category_labels_for_path, infer_source_type
+from app.services.qdrant import (
+    delete_records_by_point_ids,
+    qdrant_payload,
+    stable_point_id,
+    upsert_records,
+)
+from app.services.source_tags import (
+    DEFAULT_CATEGORY_PATH,
+    category_labels_for_path,
+    infer_source_type,
+)
 from app.services.tag_rules import infer_auto_tags
 
 settings = get_settings()
@@ -71,14 +87,18 @@ def parse_retry_meta(error_code: str | None) -> tuple[int, int]:
         return (0, 0)
 
 
-def mark_job_retrying(job_id: str, *, error_code: str, retry_count: int, max_retries: int) -> None:
+def mark_job_retrying(
+    job_id: str, *, error_code: str, retry_count: int, max_retries: int
+) -> None:
     db = SessionLocal()
     try:
         job = db.get(IngestionJob, job_id)
         if job is None:
             return
         job.status = IngestionJobStatus.RETRYING.value
-        job.error_code = build_retry_error_code(error_code, retry_count=retry_count, max_retries=max_retries)
+        job.error_code = build_retry_error_code(
+            error_code, retry_count=retry_count, max_retries=max_retries
+        )
         db.commit()
         logger.warning(
             "ingestion_job_retrying",
@@ -120,10 +140,16 @@ def mark_job_terminal_failure(job_id: str, *, error_code: str) -> None:
         db.close()
 
 
-def enqueue_ingestion_job(job_id: str, force_reprocess: bool = False, reprocess_doc_id: str | None = None) -> str:
+def enqueue_ingestion_job(
+    job_id: str, force_reprocess: bool = False, reprocess_doc_id: str | None = None
+) -> str:
     if settings.celery_task_always_eager:
         try:
-            process_ingestion_job(job_id, force_reprocess=force_reprocess, reprocess_doc_id=reprocess_doc_id)
+            process_ingestion_job(
+                job_id,
+                force_reprocess=force_reprocess,
+                reprocess_doc_id=reprocess_doc_id,
+            )
         except Exception as exc:
             code = compact_error_code(f"sync_failed:{type(exc).__name__}")
             mark_job_terminal_failure(job_id, error_code=code)
@@ -133,25 +159,36 @@ def enqueue_ingestion_job(job_id: str, force_reprocess: bool = False, reprocess_
         celery_app.send_task(
             "fkv.ingestion.process_job",
             args=[job_id],
-            kwargs={"force_reprocess": force_reprocess, "reprocess_doc_id": reprocess_doc_id},
+            kwargs={
+                "force_reprocess": force_reprocess,
+                "reprocess_doc_id": reprocess_doc_id,
+            },
         )
         return "celery"
     except Exception:
         try:
-            process_ingestion_job(job_id, force_reprocess=force_reprocess, reprocess_doc_id=reprocess_doc_id)
+            process_ingestion_job(
+                job_id,
+                force_reprocess=force_reprocess,
+                reprocess_doc_id=reprocess_doc_id,
+            )
         except Exception as exc:
             code = compact_error_code(f"sync_fallback_failed:{type(exc).__name__}")
             mark_job_terminal_failure(job_id, error_code=code)
         return "sync"
 
 
-def _status_after_run(success_count: int, failed_count: int, duplicate_count: int) -> str:
+def _status_after_run(
+    success_count: int, failed_count: int, duplicate_count: int
+) -> str:
     if success_count <= 0 and duplicate_count <= 0 and failed_count > 0:
         return IngestionJobStatus.FAILED.value
     return IngestionJobStatus.COMPLETED.value
 
 
-def _mark_doc_failed(doc: Document, error_code: str, *, detail: str | None = None) -> None:
+def _mark_doc_failed(
+    doc: Document, error_code: str, *, detail: str | None = None
+) -> None:
     doc.status = DocumentStatus.FAILED.value
     safe_code = compact_error_code(error_code)
     doc.error_code = safe_code[:120]
@@ -208,7 +245,9 @@ def _photo_max_bytes() -> int:
 
 
 def _is_photo_ext(ext: str) -> bool:
-    photo_exts = {str(x or "").strip().lower().lstrip(".") for x in settings.photo_file_extensions}
+    photo_exts = {
+        str(x or "").strip().lower().lstrip(".") for x in settings.photo_file_extensions
+    }
     return str(ext or "").strip().lower().lstrip(".") in photo_exts
 
 
@@ -222,7 +261,13 @@ def _is_photo_too_large(*, file_ext: str, file_size: int) -> bool:
 
 
 def _document_exists_by_sha(db, sha256: str) -> Document | None:
-    return db.scalar(select(Document).where(Document.sha256 == sha256, Document.status == DocumentStatus.COMPLETED.value).limit(1))
+    return db.scalar(
+        select(Document)
+        .where(
+            Document.sha256 == sha256, Document.status == DocumentStatus.COMPLETED.value
+        )
+        .limit(1)
+    )
 
 
 def _document_exists_by_phash(db, phash: str, *, threshold: int) -> Document | None:
@@ -230,12 +275,16 @@ def _document_exists_by_phash(db, phash: str, *, threshold: int) -> Document | N
     if not safe_hash:
         return None
     limit = max(0, int(threshold))
-    rows = db.execute(
-        select(Document).where(
-            Document.status == DocumentStatus.COMPLETED.value,
-            Document.phash.is_not(None),
+    rows = (
+        db.execute(
+            select(Document).where(
+                Document.status == DocumentStatus.COMPLETED.value,
+                Document.phash.is_not(None),
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     best_doc: Document | None = None
     best_distance: int | None = None
@@ -251,7 +300,13 @@ def _document_exists_by_phash(db, phash: str, *, threshold: int) -> Document | N
     return best_doc
 
 
-def _collect_payload_records(document: Document, chunks: list[Chunk], *, source_type: str, tags: list[str] | None = None) -> list[dict[str, Any]]:
+def _collect_payload_records(
+    document: Document,
+    chunks: list[Chunk],
+    *,
+    source_type: str,
+    tags: list[str] | None = None,
+) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for c in chunks:
         out.append(
@@ -369,7 +424,11 @@ def _process_single_path(
             duplicate_count += 1
             return (success_count, failed_count, duplicate_count)
 
-        if bool(settings.ingestion_phash_dedup_enabled) and image_phash and (not force_reprocess):
+        if (
+            bool(settings.ingestion_phash_dedup_enabled)
+            and image_phash
+            and (not force_reprocess)
+        ):
             similar = _document_exists_by_phash(
                 db,
                 image_phash,
@@ -445,10 +504,21 @@ def _process_single_path(
                 return (success_count, failed_count, duplicate_count)
 
         if reprocess_doc_id:
-            old_chunk_ids = [str(item) for item in db.execute(select(Chunk.id).where(Chunk.document_id == document.id)).scalars().all()]
+            old_chunk_ids = [
+                str(item)
+                for item in db.execute(
+                    select(Chunk.id).where(Chunk.document_id == document.id)
+                )
+                .scalars()
+                .all()
+            ]
             db.execute(delete(Chunk).where(Chunk.document_id == document.id))
 
-        chunks = chunk_text(text, target_tokens=settings.ingestion_chunk_target_tokens, overlap_tokens=settings.ingestion_chunk_overlap_tokens)
+        chunks = chunk_text(
+            text,
+            target_tokens=settings.ingestion_chunk_target_tokens,
+            overlap_tokens=settings.ingestion_chunk_overlap_tokens,
+        )
         if not chunks:
             _mark_doc_failed(document, "chunk_empty")
             failed_count += 1
@@ -480,8 +550,14 @@ def _process_single_path(
             title_zh=document.title_zh,
         )
         summary_flags = detect_summary_quality_flags(summary_en, summary_zh)
-        document.summary_quality_state = "needs_regen" if is_low_quality_summary(summary_en, summary_zh) else "ok"
-        document.summary_last_error = ",".join(summary_flags)[:240] if document.summary_quality_state != "ok" else ""
+        document.summary_quality_state = (
+            "needs_regen" if is_low_quality_summary(summary_en, summary_zh) else "ok"
+        )
+        document.summary_last_error = (
+            ",".join(summary_flags)[:240]
+            if document.summary_quality_state != "ok"
+            else ""
+        )
         document.summary_model = str(settings.summary_model or "")[:64]
         document.summary_version = "prompt-v2"
 
@@ -495,7 +571,9 @@ def _process_single_path(
         if classified is not None:
             category_label_en, category_label_zh, category_path = classified
             document.category_version = "taxonomy-v1"
-        safe_category_path, blocked_legacy_path = apply_legacy_category_guard(category_path)
+        safe_category_path, blocked_legacy_path = apply_legacy_category_guard(
+            category_path
+        )
         if blocked_legacy_path:
             logger.warning(
                 "legacy_category_blocked",
@@ -559,7 +637,9 @@ def _process_single_path(
             mail_from=mail_from,
             mail_subject=mail_subject,
         )
-        crud.sync_auto_tags_for_document(db, document_id=document.id, auto_tag_keys=auto_tags)
+        crud.sync_auto_tags_for_document(
+            db, document_id=document.id, auto_tag_keys=auto_tags
+        )
         document_tags = crud.get_document_tag_keys(db, document.id)
 
         chunk_rows: list[Chunk] = []
@@ -577,13 +657,19 @@ def _process_single_path(
         document.status = DocumentStatus.COMPLETED.value
         db.flush()
 
-        payload_records = _collect_payload_records(document, chunk_rows, source_type=source_type, tags=document_tags)
+        payload_records = _collect_payload_records(
+            document, chunk_rows, source_type=source_type, tags=document_tags
+        )
         try:
             upsert_records(payload_records)
             for c in chunk_rows:
                 c.embedding_status = "ready" if settings.qdrant_enable else "pending"
             if old_chunk_ids:
-                old_point_ids = [stable_point_id(document.id, chunk_id) for chunk_id in old_chunk_ids if chunk_id]
+                old_point_ids = [
+                    stable_point_id(document.id, chunk_id)
+                    for chunk_id in old_chunk_ids
+                    if chunk_id
+                ]
                 try:
                     delete_records_by_point_ids(old_point_ids, wait=True)
                 except Exception as exc:
@@ -602,7 +688,13 @@ def _process_single_path(
         except Exception as exc:
             logger.warning(
                 "qdrant_upsert_error",
-                extra=sanitize_log_context({"doc_id": document.id, "error_code": "qdrant_upsert_error", "detail": str(exc)}),
+                extra=sanitize_log_context(
+                    {
+                        "doc_id": document.id,
+                        "error_code": "qdrant_upsert_error",
+                        "detail": str(exc),
+                    }
+                ),
             )
 
         success_count += 1
@@ -617,7 +709,9 @@ def _process_single_path(
         return (success_count, failed_count, duplicate_count)
 
 
-def process_ingestion_job(job_id: str, force_reprocess: bool = False, reprocess_doc_id: str | None = None) -> dict[str, Any]:
+def process_ingestion_job(
+    job_id: str, force_reprocess: bool = False, reprocess_doc_id: str | None = None
+) -> dict[str, Any]:
     db = SessionLocal()
     try:
         job = db.get(IngestionJob, job_id)

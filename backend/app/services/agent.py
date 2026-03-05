@@ -64,15 +64,39 @@ _ACTION_META: dict[str, dict[str, Any]] = {
     "open_docs": {"action_type": "navigate", "payload": {"target": "docs"}},
     "retrieve_docs": {"action_type": "navigate", "payload": {"target": "docs"}},
     "list_by_category": {"action_type": "navigate", "payload": {"target": "cats"}},
-    "search_documents": {"action_type": "agent_command", "payload": {"command": "search"}},
+    "search_documents": {
+        "action_type": "agent_command",
+        "payload": {"command": "search"},
+    },
     "queue_ops": {"action_type": "agent_command", "payload": {"command": "queue_view"}},
-    "queue_view": {"action_type": "agent_command", "payload": {"command": "queue_view"}},
-    "list_recent": {"action_type": "agent_command", "payload": {"command": "list_recent"}},
-    "compare_docs": {"action_type": "agent_command", "payload": {"command": "compare_docs"}},
-    "timeline_extract": {"action_type": "agent_command", "payload": {"command": "timeline_build"}},
-    "extract_fields": {"action_type": "agent_command", "payload": {"command": "extract_fields"}},
-    "extract_details": {"action_type": "agent_command", "payload": {"command": "extract_details"}},
-    "fallback_search": {"action_type": "agent_command", "payload": {"command": "fallback_search"}},
+    "queue_view": {
+        "action_type": "agent_command",
+        "payload": {"command": "queue_view"},
+    },
+    "list_recent": {
+        "action_type": "agent_command",
+        "payload": {"command": "list_recent"},
+    },
+    "compare_docs": {
+        "action_type": "agent_command",
+        "payload": {"command": "compare_docs"},
+    },
+    "timeline_extract": {
+        "action_type": "agent_command",
+        "payload": {"command": "timeline_build"},
+    },
+    "extract_fields": {
+        "action_type": "agent_command",
+        "payload": {"command": "extract_fields"},
+    },
+    "extract_details": {
+        "action_type": "agent_command",
+        "payload": {"command": "extract_details"},
+    },
+    "fallback_search": {
+        "action_type": "agent_command",
+        "payload": {"command": "fallback_search"},
+    },
     "reprocess_doc": {
         "action_type": "mutate",
         "payload": {"command": "reprocess_doc"},
@@ -92,9 +116,49 @@ _ACTION_META: dict[str, dict[str, Any]] = {
 _DETAIL_TOPIC_MAP: dict[str, tuple[str, ...]] = {
     "insurance": ("保险", "保单", "policy", "insurance", "insurer", "premium"),
     "bill": ("账单", "bill", "invoice", "due", "缴费", "电费", "水费", "燃气"),
-    "home": ("房屋", "房产", "物业", "贷款", "mortgage", "维修", "maintenance", "maintain", "water tank", "rainwater tank", "产权"),
-    "appliances": ("家电", "洗衣机", "冰箱", "洗碗机", "空调", "热水器", "水箱", "appliance", "dishwasher", "air purifier", "water heater", "hot water"),
-    "pets": ("宠物", "疫苗", "兽医", "体检", "绝育", "pet", "vaccine", "vet", "birthday", "birth date", "dob", "生日", "猫", "狗"),
+    "home": (
+        "房屋",
+        "房产",
+        "物业",
+        "贷款",
+        "mortgage",
+        "维修",
+        "maintenance",
+        "maintain",
+        "water tank",
+        "rainwater tank",
+        "产权",
+    ),
+    "appliances": (
+        "家电",
+        "洗衣机",
+        "冰箱",
+        "洗碗机",
+        "空调",
+        "热水器",
+        "水箱",
+        "appliance",
+        "dishwasher",
+        "air purifier",
+        "water heater",
+        "hot water",
+    ),
+    "pets": (
+        "宠物",
+        "疫苗",
+        "兽医",
+        "体检",
+        "绝育",
+        "pet",
+        "vaccine",
+        "vet",
+        "birthday",
+        "birth date",
+        "dob",
+        "生日",
+        "猫",
+        "狗",
+    ),
     "warranty": ("保修", "warranty", "serial", "claim"),
     "contract": ("合同", "contract", "agreement", "条款", "obligation"),
 }
@@ -175,11 +239,29 @@ _DETAIL_SCHEMA: dict[str, list[tuple[str, str, str]]] = {
 }
 
 _EN_MONTH_MAP: dict[str, int] = {
-    "january": 1, "february": 2, "march": 3, "april": 4,
-    "may": 5, "june": 6, "july": 7, "august": 8,
-    "september": 9, "october": 10, "november": 11, "december": 12,
-    "jan": 1, "feb": 2, "mar": 3, "apr": 4,
-    "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
 }
 _EN_MONTH_RE = re.compile(
     r"\b(january|february|march|april|may|june|july|august|september|october|november|december"
@@ -304,25 +386,78 @@ _FACET_CONTACT = (
 )
 
 _DOMAIN_HINTS = {
-    "pets": ("宠物", "pet", "vaccine", "疫苗", "vet", "兽医", "绝育", "birthday", "birth date", "dob", "生日", "出生日期"),
-    "appliances": ("家电", "appliance", "洗衣机", "冰箱", "空调", "热水器", "洗碗机", "dishwasher", "warranty"),
-    "home": ("房屋", "房产", "物业", "贷款", "mortgage", "maintenance", "maintain", "维修", "产权", "建造年份", "water tank", "rainwater tank"),
+    "pets": (
+        "宠物",
+        "pet",
+        "vaccine",
+        "疫苗",
+        "vet",
+        "兽医",
+        "绝育",
+        "birthday",
+        "birth date",
+        "dob",
+        "生日",
+        "出生日期",
+    ),
+    "appliances": (
+        "家电",
+        "appliance",
+        "洗衣机",
+        "冰箱",
+        "空调",
+        "热水器",
+        "洗碗机",
+        "dishwasher",
+        "warranty",
+    ),
+    "home": (
+        "房屋",
+        "房产",
+        "物业",
+        "贷款",
+        "mortgage",
+        "maintenance",
+        "maintain",
+        "维修",
+        "产权",
+        "建造年份",
+        "water tank",
+        "rainwater tank",
+    ),
     "insurance": ("保险", "policy", "保单", "理赔", "claim", "premium"),
     "bills": ("账单", "bill", "invoice", "电费", "水费", "燃气", "internet"),
 }
 _DOMAIN_CATEGORY_WHITELISTS = {
     "pets": ("home/pets", "health/medical_records", "home/insurance/pet"),
     "appliances": ("home/manuals", "home/appliances", "tech/hardware"),
-    "home": ("home/property", "home/maintenance", "legal/property", "finance/bills/other"),
+    "home": (
+        "home/property",
+        "home/maintenance",
+        "legal/property",
+        "finance/bills/other",
+    ),
     "insurance": ("home/insurance", "health/insurance", "legal/insurance"),
     "bills": ("finance/bills",),
 }
 _SUBJECT_ANCHOR_HINTS: dict[str, tuple[str, ...]] = {
     "birthday_birthdate": ("birthday", "birth date", "dob", "生日", "出生日期"),
     "life_insurance": ("人寿", "life insurance", "beneficiary", "受益人"),
-    "vehicle_insurance": ("车险", "车辆保险", "motor insurance", "car insurance", "vehicle insurance"),
+    "vehicle_insurance": (
+        "车险",
+        "车辆保险",
+        "motor insurance",
+        "car insurance",
+        "vehicle insurance",
+    ),
     "pet_insurance": ("宠物保险", "pet insurance"),
-    "health_insurance": ("医保", "医疗险", "health insurance", "private health", "hospital cover"),
+    "health_insurance": (
+        "医保",
+        "医疗险",
+        "health insurance",
+        "private health",
+        "hospital cover",
+    ),
     "dishwasher": ("洗碗机", "dishwasher"),
     "air_purifier": ("空气净化器", "air purifier"),
     "air_conditioner": ("空调", "air conditioner", "aircon", "ac ", "daikin"),
@@ -408,10 +543,47 @@ _HISTORICAL_FACT_QUERY_HINTS = (
     "受益人",
 )
 
-_ANSWERABILITY_CONTACT_TOKENS = ("联系方式", "电话", "邮箱", "contact", "phone", "email")
-_ANSWERABILITY_AMOUNT_TOKENS = ("多少钱", "金额", "total", "sum", "费用", "花了", "cost", "price", "premium")
-_ANSWERABILITY_DATE_TOKENS = ("什么时候", "日期", "到期", "when", "date", "expiry", "due", "birthday", "birth date", "dob", "生日", "出生日期")
-_ANSWERABILITY_PRESENCE_TOKENS = ("有没有", "是否", "有无", "do we have", "did we", "have we")
+_ANSWERABILITY_CONTACT_TOKENS = (
+    "联系方式",
+    "电话",
+    "邮箱",
+    "contact",
+    "phone",
+    "email",
+)
+_ANSWERABILITY_AMOUNT_TOKENS = (
+    "多少钱",
+    "金额",
+    "total",
+    "sum",
+    "费用",
+    "花了",
+    "cost",
+    "price",
+    "premium",
+)
+_ANSWERABILITY_DATE_TOKENS = (
+    "什么时候",
+    "日期",
+    "到期",
+    "when",
+    "date",
+    "expiry",
+    "due",
+    "birthday",
+    "birth date",
+    "dob",
+    "生日",
+    "出生日期",
+)
+_ANSWERABILITY_PRESENCE_TOKENS = (
+    "有没有",
+    "是否",
+    "有无",
+    "do we have",
+    "did we",
+    "have we",
+)
 
 _SEARCH_FALLBACK_BOILERPLATE_PATTERNS = (
     r"\bbpay\b",
@@ -530,7 +702,9 @@ def _json_safe_value(value: Any) -> Any:
     return value
 
 
-def _doc_ids_from_scope(scope: dict[str, Any], *, client_context: dict[str, Any] | None = None) -> list[str]:
+def _doc_ids_from_scope(
+    scope: dict[str, Any], *, client_context: dict[str, Any] | None = None
+) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
 
@@ -582,7 +756,9 @@ def _is_followup_query(query: str) -> bool:
     return any(token in text for token in _FOLLOWUP_QUERY_HINTS)
 
 
-def _context_policy_for_query(query: str, *, client_context: dict[str, Any] | None = None) -> str:
+def _context_policy_for_query(
+    query: str, *, client_context: dict[str, Any] | None = None
+) -> str:
     mode = str(settings.agent_context_mode or "smart_followup").strip().lower()
     if mode in {"off", "disabled", "fresh_only"}:
         return "fresh_turn"
@@ -595,7 +771,9 @@ def _context_policy_for_query(query: str, *, client_context: dict[str, Any] | No
     return "followup_turn" if _is_followup_query(query) else "fresh_turn"
 
 
-def _normalize_conversation_messages(req: AgentExecuteRequest, *, context_policy: str) -> list[dict[str, str]]:
+def _normalize_conversation_messages(
+    req: AgentExecuteRequest, *, context_policy: str
+) -> list[dict[str, str]]:
     if context_policy != "followup_turn":
         return []
     if not isinstance(req.conversation, list):
@@ -646,7 +824,9 @@ def _extract_month_scope(query: str) -> tuple[int | None, int | None]:
         if _today.month == 1:
             return (_today.year - 1, 12)
         return (_today.year, _today.month - 1)
-    if any(t in text for t in ("这个月", "本月", "当月", "this month", "current month")):
+    if any(
+        t in text for t in ("这个月", "本月", "当月", "this month", "current month")
+    ):
         return (_today.year, _today.month)
 
     return (None, None)
@@ -680,7 +860,14 @@ def _detect_query_facet(query: str) -> QueryFacet:
     if _has_any_token(lowered, _FACET_NETWORK_BILL):
         facet.facet_keys.append("network_bill")
         facet.strict_categories = ["finance/bills/internet"]
-        facet.required_terms = ["internet", "network", "nbn", "宽带", "网络", "superloop"]
+        facet.required_terms = [
+            "internet",
+            "network",
+            "nbn",
+            "宽带",
+            "网络",
+            "superloop",
+        ]
         facet.strict_mode = True
         return facet
 
@@ -709,8 +896,22 @@ def _detect_query_facet(query: str) -> QueryFacet:
     has_contact = _has_any_token(lowered, _FACET_CONTACT)
     if has_property and has_contact:
         facet.facet_keys.append("property_contact")
-        facet.strict_categories = ["home/maintenance", "home/property", "legal/property", "finance/bills/other"]
-        facet.required_terms = ["contact", "phone", "email", "联系方式", "电话", "邮箱", "物业", "property"]
+        facet.strict_categories = [
+            "home/maintenance",
+            "home/property",
+            "legal/property",
+            "finance/bills/other",
+        ]
+        facet.required_terms = [
+            "contact",
+            "phone",
+            "email",
+            "联系方式",
+            "电话",
+            "邮箱",
+            "物业",
+            "property",
+        ]
         facet.strict_mode = True
         return facet
 
@@ -780,8 +981,22 @@ def _target_field_terms(query: str) -> list[str]:
     out: list[str] = []
     groups = (
         (("birthday", "birth date", "dob", "生日", "出生日期"), "birth_date"),
-        (("coverage", "covered", "what's covered", "保障范围", "覆盖范围", "exclusion", "除外"), "coverage_scope"),
-        (("how to maintain", "maintenance", "maintain", "维护", "保养"), "maintenance_howto"),
+        (
+            (
+                "coverage",
+                "covered",
+                "what's covered",
+                "保障范围",
+                "覆盖范围",
+                "exclusion",
+                "除外",
+            ),
+            "coverage_scope",
+        ),
+        (
+            ("how to maintain", "maintenance", "maintain", "维护", "保养"),
+            "maintenance_howto",
+        ),
         (("contact", "phone", "email", "联系方式", "电话", "邮箱"), "contact"),
     )
     for tokens, key in groups:
@@ -790,7 +1005,9 @@ def _target_field_terms(query: str) -> list[str]:
     return out[:4]
 
 
-def _target_field_coverage_ok(target_fields: list[str], chunks: list[dict[str, Any]]) -> bool:
+def _target_field_coverage_ok(
+    target_fields: list[str], chunks: list[dict[str, Any]]
+) -> bool:
     if not target_fields:
         return True
     texts = []
@@ -803,31 +1020,58 @@ def _target_field_coverage_ok(target_fields: list[str], chunks: list[dict[str, A
         return False
     for field in target_fields:  # noqa: F402
         if field == "birth_date":
-            if any(tok in blob for tok in ("birthday", "birth date", "dob", "生日", "出生")):
+            if any(
+                tok in blob for tok in ("birthday", "birth date", "dob", "生日", "出生")
+            ):
                 return True
         elif field == "coverage_scope":
-            if any(tok in blob for tok in ("coverage", "covered", "exclusion", "保障", "覆盖", "除外")):
+            if any(
+                tok in blob
+                for tok in ("coverage", "covered", "exclusion", "保障", "覆盖", "除外")
+            ):
                 return True
         elif field == "maintenance_howto":
-            if any(tok in blob for tok in ("maintain", "maintenance", "service", "filter", "clean", "维护", "保养", "清洁")):
+            if any(
+                tok in blob
+                for tok in (
+                    "maintain",
+                    "maintenance",
+                    "service",
+                    "filter",
+                    "clean",
+                    "维护",
+                    "保养",
+                    "清洁",
+                )
+            ):
                 return True
         elif field == "contact":
-            if ("@" in blob) or any(tok in blob for tok in ("contact", "phone", "email", "电话", "邮箱")):
+            if ("@" in blob) or any(
+                tok in blob for tok in ("contact", "phone", "email", "电话", "邮箱")
+            ):
                 return True
     return False
 
 
-def _infer_subject_entity(query: str, *, detail_topic: str = "", route: str = "") -> str:
+def _infer_subject_entity(
+    query: str, *, detail_topic: str = "", route: str = ""
+) -> str:
     lowered = str(query or "").lower()
     if any(tok in lowered for tok in ("pet insurance", "宠物保险")):
         return "pet_insurance"
-    if any(tok in lowered for tok in ("birthday", "birth date", "dob", "生日", "出生日期")):
+    if any(
+        tok in lowered for tok in ("birthday", "birth date", "dob", "生日", "出生日期")
+    ):
         return "pet_profile"
     if any(tok in lowered for tok in ("current bill", "current bills", "账单", "bill")):
-        if any(tok in lowered for tok in ("energy", "electricity", "gas", "电费", "燃气")):
+        if any(
+            tok in lowered for tok in ("energy", "electricity", "gas", "电费", "燃气")
+        ):
             return "utility_bills"
         return "bills"
-    if any(tok in lowered for tok in ("water tank", "rainwater tank", "水箱", "蓄水箱")):
+    if any(
+        tok in lowered for tok in ("water tank", "rainwater tank", "水箱", "蓄水箱")
+    ):
         return "home_maintenance"
     if any(tok in lowered for tok in ("insurance", "保单", "保险")):
         return "insurance"
@@ -851,21 +1095,53 @@ def _looks_planned_or_proposal_doc(text_blob: str) -> bool:
 def _required_evidence_fields(query: str, planner: PlannerDecision) -> list[str]:
     lowered = str(query or "").lower()
     out: list[str] = []
-    explicit = [str(x or "").strip() for x in list(getattr(planner, "required_evidence_fields", []) or []) if str(x or "").strip()]
+    explicit = [
+        str(x or "").strip()
+        for x in list(getattr(planner, "required_evidence_fields", []) or [])
+        if str(x or "").strip()
+    ]
     allowed = {"amount", "date", "contact", "explicit_presence_evidence"}
     explicit = [x for x in explicit if x in allowed]
     amount_needed = any(tok in lowered for tok in _ANSWERABILITY_AMOUNT_TOKENS)
     date_needed = any(tok in lowered for tok in _ANSWERABILITY_DATE_TOKENS)
     contact_needed = any(tok in lowered for tok in _ANSWERABILITY_CONTACT_TOKENS)
     presence_needed = any(tok in lowered for tok in _ANSWERABILITY_PRESENCE_TOKENS)
-    coverage_needed = any(tok in lowered for tok in ("coverage", "covered", "what's covered", "保障", "覆盖", "exclusion", "除外"))
+    coverage_needed = any(
+        tok in lowered
+        for tok in (
+            "coverage",
+            "covered",
+            "what's covered",
+            "保障",
+            "覆盖",
+            "exclusion",
+            "除外",
+        )
+    )
     # Use query-driven requirements first, and only lightly trust planner-provided
     # required fields to avoid over-refusal from broad defaults.
-    if amount_needed or ("amount" in explicit and any(tok in lowered for tok in ("账单", "bill", "费用", "保费", "price", "cost"))):
+    if amount_needed or (
+        "amount" in explicit
+        and any(
+            tok in lowered for tok in ("账单", "bill", "费用", "保费", "price", "cost")
+        )
+    ):
         out.append("amount")
-    if date_needed or ("date" in explicit and any(tok in lowered for tok in ("到期", "日期", "when", "date", "expiry", "period"))):
+    if date_needed or (
+        "date" in explicit
+        and any(
+            tok in lowered
+            for tok in ("到期", "日期", "when", "date", "expiry", "period")
+        )
+    ):
         out.append("date")
-    if contact_needed or ("contact" in explicit and any(tok in lowered for tok in ("联系方式", "电话", "邮箱", "contact", "phone", "email"))):
+    if contact_needed or (
+        "contact" in explicit
+        and any(
+            tok in lowered
+            for tok in ("联系方式", "电话", "邮箱", "contact", "phone", "email")
+        )
+    ):
         out.append("contact")
     if coverage_needed and "explicit_presence_evidence" not in out:
         out.append("explicit_presence_evidence")
@@ -879,23 +1155,48 @@ def _evidence_match(field: str, text: str) -> bool:
     if not lowered:
         return False
     if field == "amount":
-        return bool(re.search(r"(?:aud|澳币|\$)\s?\d+(?:\.\d{1,2})?", lowered)) or bool(re.search(r"\d+(?:\.\d{1,2})\s*(?:元|澳币|美元)", lowered))
+        return bool(re.search(r"(?:aud|澳币|\$)\s?\d+(?:\.\d{1,2})?", lowered)) or bool(
+            re.search(r"\d+(?:\.\d{1,2})\s*(?:元|澳币|美元)", lowered)
+        )
     if field == "date":
         _mo_lo = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*"
         return bool(
-            re.search(r"20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?", lowered)            # 2024-11-04
-            or re.search(r"\b\d{1,2}\s+" + _mo_lo + r"\s+20\d{2}\b", lowered)         # 2 December 2025
-            or re.search(_mo_lo + r"\s+\d{1,2},?\s+20\d{2}\b", lowered)                # December 2, 2025
-            or re.search(r"\b\d{1,2}[-/]\d{1,2}[-/]20\d{2}\b", lowered)               # 04-11-2024 or 04/11/2024
+            re.search(
+                r"20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?", lowered
+            )  # 2024-11-04
+            or re.search(
+                r"\b\d{1,2}\s+" + _mo_lo + r"\s+20\d{2}\b", lowered
+            )  # 2 December 2025
+            or re.search(
+                _mo_lo + r"\s+\d{1,2},?\s+20\d{2}\b", lowered
+            )  # December 2, 2025
+            or re.search(
+                r"\b\d{1,2}[-/]\d{1,2}[-/]20\d{2}\b", lowered
+            )  # 04-11-2024 or 04/11/2024
         )
     if field == "contact":
         return ("@" in lowered) or bool(re.search(r"\b\d{8,12}\b", lowered))
     if field == "explicit_presence_evidence":
-        return any(tok in lowered for tok in ("has", "have", "contains", "存在", "有", "无", "没有", "未见", "未找到"))
+        return any(
+            tok in lowered
+            for tok in (
+                "has",
+                "have",
+                "contains",
+                "存在",
+                "有",
+                "无",
+                "没有",
+                "未见",
+                "未找到",
+            )
+        )
     return False
 
 
-def _build_evidence_map(fields: list[str], chunks: list[dict[str, Any]]) -> dict[str, list[dict[str, str]]]:
+def _build_evidence_map(
+    fields: list[str], chunks: list[dict[str, Any]]
+) -> dict[str, list[dict[str, str]]]:
     out: dict[str, list[dict[str, str]]] = {}
     for field in fields:  # noqa: F402
         refs: list[dict[str, str]] = []
@@ -916,7 +1217,9 @@ def _build_evidence_map(fields: list[str], chunks: list[dict[str, Any]]) -> dict
     return out
 
 
-def _coverage_from_map(fields: list[str], evidence_map: dict[str, list[dict[str, str]]]) -> tuple[float, list[str]]:
+def _coverage_from_map(
+    fields: list[str], evidence_map: dict[str, list[dict[str, str]]]
+) -> tuple[float, list[str]]:
     if not fields:
         return (1.0, [])
     hit = 0
@@ -930,7 +1233,13 @@ def _coverage_from_map(fields: list[str], evidence_map: dict[str, list[dict[str,
     return (round(hit / max(1, len(fields)), 4), missing)
 
 
-def _infer_answerability(*, hit_count: int, coverage_ratio: float, refusal_candidate: bool, has_requirements: bool) -> str:
+def _infer_answerability(
+    *,
+    hit_count: int,
+    coverage_ratio: float,
+    refusal_candidate: bool,
+    has_requirements: bool,
+) -> str:
     if hit_count <= 0 and (refusal_candidate or has_requirements):
         return "none"
     if hit_count <= 0:
@@ -975,9 +1284,7 @@ def _presence_evidence_sufficient(query: str, chunks: list[dict[str, Any]]) -> b
     targets = [tok for tok in tokens if tok not in stop][:5]
     if not targets:
         return False
-    patterns = (
-        r"(有|没有|未|无|已|申请|购买|做过|完成|not found|has|have|did)",
-    )
+    patterns = (r"(有|没有|未|无|已|申请|购买|做过|完成|not found|has|have|did)",)
     for chunk in chunks[:12]:
         text = str(chunk.get("text") or "").lower()
         if not text:
@@ -990,9 +1297,20 @@ def _presence_evidence_sufficient(query: str, chunks: list[dict[str, Any]]) -> b
     return False
 
 
-def _resolve_detail_topic(query: str, planner_scope: dict[str, Any] | None = None) -> str:
+def _resolve_detail_topic(
+    query: str, planner_scope: dict[str, Any] | None = None
+) -> str:
     hint = str((planner_scope or {}).get("topic_hint") or "").strip().lower()
-    if hint in {"insurance", "bill", "warranty", "contract", "generic", "pets", "home", "appliances"}:
+    if hint in {
+        "insurance",
+        "bill",
+        "warranty",
+        "contract",
+        "generic",
+        "pets",
+        "home",
+        "appliances",
+    }:
         return hint
     lowered = str(query or "").lower()
     for topic, tokens in _DETAIL_TOPIC_MAP.items():
@@ -1006,22 +1324,51 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
     lowered = raw.lower()
     if not raw.strip():
         return ""
-    if field in {"due_date", "effective", "expiry", "start", "end", "date", "birth_date"}:
-        _BIRTH_KWS  = ("born", "birth", "dob", "生日", "出生", "birthday")
+    if field in {
+        "due_date",
+        "effective",
+        "expiry",
+        "start",
+        "end",
+        "date",
+        "birth_date",
+    }:
+        _BIRTH_KWS = ("born", "birth", "dob", "生日", "出生", "birthday")
         _BIRTH_ANTI = (
-            "vaccin", "inject", "接种", "疫苗", "immunis",
-            "desex", "steriliz", "castrat", "spay", "neuter",
-            "surgery", "procedure", "operation", "去势", "绝育", "手术",
+            "vaccin",
+            "inject",
+            "接种",
+            "疫苗",
+            "immunis",
+            "desex",
+            "steriliz",
+            "castrat",
+            "spay",
+            "neuter",
+            "surgery",
+            "procedure",
+            "operation",
+            "去势",
+            "绝育",
+            "手术",
         )
         _EXPIRY_KWS = ("expir", "renew", "until", "到期", "有效至", "截止", "due")
-        _EFFECT_KWS = ("effective", "from", "start", "commence", "生效", "起始", "begin")
+        _EFFECT_KWS = (
+            "effective",
+            "from",
+            "start",
+            "commence",
+            "生效",
+            "起始",
+            "begin",
+        )
 
         def _ctx_ok(m, field_name):
             if field_name not in {"birth_date", "effective", "expiry"}:
                 return True
             ctx_s = max(0, m.start() - 150)
             ctx_e = min(len(raw), m.end() + 150)
-            ctx   = raw[ctx_s:ctx_e].lower()
+            ctx = raw[ctx_s:ctx_e].lower()
             if field_name == "birth_date":
                 # Labels always PRECEDE their values; only check pre-context (≤35 chars)
                 pre_ctx = raw[max(0, m.start() - 35) : m.start()].lower()
@@ -1057,7 +1404,14 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
         for m in re.finditer(r"\b(\d{1,2})-(\d{1,2})-(20\d{2})\b", raw):
             if _ctx_ok(m, field):
                 return m.group(0)
-    if field in {"purchase_date", "warranty_end", "service_date", "maintenance_date", "vaccine_date", "next_due"}:
+    if field in {
+        "purchase_date",
+        "warranty_end",
+        "service_date",
+        "maintenance_date",
+        "vaccine_date",
+        "next_due",
+    }:
         m = re.search(r"(20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?)", raw)
         if m:
             return m.group(1)
@@ -1092,7 +1446,11 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
             amount = m.group(1)
             return f"AUD {amount}"
     if field == "monthly_payment":
-        m = re.search(r"(?:monthly|月供).{0,12}(?:aud|澳币|\$)?\s?(\d+(?:\.\d{1,2})?)", lowered, flags=re.I)
+        m = re.search(
+            r"(?:monthly|月供).{0,12}(?:aud|澳币|\$)?\s?(\d+(?:\.\d{1,2})?)",
+            lowered,
+            flags=re.I,
+        )
         if m:
             return f"AUD {m.group(1)}"
         m = re.search(r"(?:aud|澳币|\$)\s?(\d+(?:\.\d{1,2})?)", lowered, flags=re.I)
@@ -1112,18 +1470,30 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
     if field == "loan_bank":
         for token in ("cba", "commonwealth bank", "anz", "nab", "westpac", "bank"):
             if token in lowered:
-                return token.upper() if token in {"cba", "anz", "nab"} else token.title()
+                return (
+                    token.upper() if token in {"cba", "anz", "nab"} else token.title()
+                )
     if field in {"payment_status", "status"}:
         if any(token in lowered for token in ("paid", "已缴", "已支付")):
             return "Paid"
         if any(token in lowered for token in ("unpaid", "未缴", "待缴", "due")):
             return "Unpaid"
     if field in {"policy_type", "coverage_scope"}:
-        if "vehicle" in lowered or "car" in lowered or "motor" in lowered or "车" in lowered:
+        if (
+            "vehicle" in lowered
+            or "car" in lowered
+            or "motor" in lowered
+            or "车" in lowered
+        ):
             return "Vehicle"
         if "pet" in lowered or "宠物" in lowered:
             return "Pet"
-        if "health" in lowered or "hospital" in lowered or "医保" in lowered or "医疗" in lowered:
+        if (
+            "health" in lowered
+            or "hospital" in lowered
+            or "医保" in lowered
+            or "医疗" in lowered
+        ):
             return "Health"
     if field in {"brand"}:
         for token in ("daikin", "rheem", "tesla", "bosch", "lg", "samsung", "miele"):
@@ -1137,10 +1507,14 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
         m = re.search(r"(\d+(?:\.\d+)?)\s*(?:sqm|m2|㎡|平方米)", lowered)
         if m:
             return m.group(1) + " m2"
-    if field in {"maintenance_item"} and any(t in lowered for t in ("repair", "maintenance", "维修", "保养")):
+    if field in {"maintenance_item"} and any(
+        t in lowered for t in ("repair", "maintenance", "维修", "保养")
+    ):
         line = next((ln.strip() for ln in raw.splitlines() if ln.strip()), "")
         return line[:120]
-    if field in {"vaccine_type"} and any(t in lowered for t in ("vaccine", "vaccination", "疫苗")):
+    if field in {"vaccine_type"} and any(
+        t in lowered for t in ("vaccine", "vaccination", "疫苗")
+    ):
         line = next((ln.strip() for ln in raw.splitlines() if ln.strip()), "")
         return line[:120]
     if field in {"vet_name"}:
@@ -1161,14 +1535,44 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
             return line[:120]
     if field in {"bill_name", "policy_name", "title", "product", "model"}:
         _skip_prefixes = (
-            "[page ", "we have made the change", "if you have already paid",
-            "please find enclosed", "here is your updated", "motorcycle insurance",
+            "[page ",
+            "we have made the change",
+            "if you have already paid",
+            "please find enclosed",
+            "here is your updated",
+            "motorcycle insurance",
         )
         _sentence_starts = (
-            "safe ", "good ", "by ", "with ", "if ", "for ", "you ", "as ",
-            "our ", "we ", "your ", "this ", "the ", "a ", "an ", "to ",
-            "please ", "note ", "dear ", "thank ", "in ", "on ", "at ", "from ",
-            "whilst ", "while ", "when ", "since ", "because ", "however ",
+            "safe ",
+            "good ",
+            "by ",
+            "with ",
+            "if ",
+            "for ",
+            "you ",
+            "as ",
+            "our ",
+            "we ",
+            "your ",
+            "this ",
+            "the ",
+            "a ",
+            "an ",
+            "to ",
+            "please ",
+            "note ",
+            "dear ",
+            "thank ",
+            "in ",
+            "on ",
+            "at ",
+            "from ",
+            "whilst ",
+            "while ",
+            "when ",
+            "since ",
+            "because ",
+            "however ",
         )
         for ln in raw.splitlines():
             ln = ln.strip()
@@ -1184,7 +1588,10 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
             return ln[:120]
         return ""
     if field == "period":
-        m = re.search(r"(20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}).{0,20}(20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2})", raw)
+        m = re.search(
+            r"(20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}).{0,20}(20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2})",
+            raw,
+        )
         if m:
             return f"{m.group(1)} - {m.group(2)}"
         _mp = r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(20\d{2})"
@@ -1200,7 +1607,14 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
     if field == "bill_name":
         line = next((ln.strip() for ln in raw.splitlines() if ln.strip()), "")
         return line[:120]
-    if field in {"parties", "obligation", "penalty", "notice_period", "action", "contact"}:
+    if field in {
+        "parties",
+        "obligation",
+        "penalty",
+        "notice_period",
+        "action",
+        "contact",
+    }:
         # Keep short but useful snippet around keyword.
         keywords = {
             "parties": ["party", "parties", "甲方", "乙方"],
@@ -1221,7 +1635,9 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
     return ""
 
 
-def _detail_rows_from_chunks(*, topic: str, chunks: list[dict[str, Any]], ui_lang: str) -> tuple[list[DetailRow], list[str]]:
+def _detail_rows_from_chunks(
+    *, topic: str, chunks: list[dict[str, Any]], ui_lang: str
+) -> tuple[list[DetailRow], list[str]]:
     schema = _DETAIL_SCHEMA.get(topic, _DETAIL_SCHEMA["generic"])
     rows: list[DetailRow] = []
     missing: list[str] = []
@@ -1256,6 +1672,7 @@ def _detail_rows_from_chunks(*, topic: str, chunks: list[dict[str, Any]], ui_lan
         )
     return (rows, missing)
 
+
 def _dedupe_hits_by_chunk(hits: list[Any]) -> list[Any]:
     out: list[Any] = []
     seen: set[str] = set()
@@ -1268,7 +1685,9 @@ def _dedupe_hits_by_chunk(hits: list[Any]) -> list[Any]:
     return out
 
 
-def _build_related_docs(db: Session, doc_ids: list[str], *, cap: int = 6) -> list[AgentRelatedDoc]:
+def _build_related_docs(
+    db: Session, doc_ids: list[str], *, cap: int = 6
+) -> list[AgentRelatedDoc]:
     unique_ids: list[str] = []
     seen: set[str] = set()
     for raw in doc_ids:
@@ -1280,9 +1699,16 @@ def _build_related_docs(db: Session, doc_ids: list[str], *, cap: int = 6) -> lis
     if not unique_ids:
         return []
 
-    rows = db.execute(
-        select(Document).where(Document.id.in_(unique_ids), Document.status == DocumentStatus.COMPLETED.value)
-    ).scalars().all()
+    rows = (
+        db.execute(
+            select(Document).where(
+                Document.id.in_(unique_ids),
+                Document.status == DocumentStatus.COMPLETED.value,
+            )
+        )
+        .scalars()
+        .all()
+    )
     if not rows:
         return []
 
@@ -1352,7 +1778,11 @@ def _collect_evidence_backed_doc_ids(bundle: dict[str, Any]) -> list[str]:
     if out:
         return out
 
-    explicit = [str(x or "").strip() for x in (bundle.get("evidence_backed_doc_ids") or []) if str(x or "").strip()]
+    explicit = [
+        str(x or "").strip()
+        for x in (bundle.get("evidence_backed_doc_ids") or [])
+        if str(x or "").strip()
+    ]
     for doc_id in explicit:
         if doc_id not in seen:
             seen.add(doc_id)
@@ -1371,14 +1801,26 @@ def _collect_evidence_backed_doc_ids(bundle: dict[str, Any]) -> list[str]:
 def _apply_related_docs_selection(bundle: dict[str, Any]) -> tuple[str, int]:
     route = str(bundle.get("route") or "")
     related_docs = list(bundle.get("related_docs") or [])
-    if route not in {"detail_extract", "entity_fact_lookup", "period_aggregate", "bill_attention", "bill_monthly_total"}:
-        bundle["related_doc_selection_mode"] = str(bundle.get("related_doc_selection_mode") or "evidence_plus_candidates")
+    if route not in {
+        "detail_extract",
+        "entity_fact_lookup",
+        "period_aggregate",
+        "bill_attention",
+        "bill_monthly_total",
+    }:
+        bundle["related_doc_selection_mode"] = str(
+            bundle.get("related_doc_selection_mode") or "evidence_plus_candidates"
+        )
         return (str(bundle["related_doc_selection_mode"]), len(related_docs))
 
     evidence_doc_ids = _collect_evidence_backed_doc_ids(bundle)
     evidence_set = {doc_id for doc_id in evidence_doc_ids if doc_id}
     if evidence_set:
-        related_docs = [doc for doc in related_docs if str(getattr(doc, "doc_id", "") or "") in evidence_set]
+        related_docs = [
+            doc
+            for doc in related_docs
+            if str(getattr(doc, "doc_id", "") or "") in evidence_set
+        ]
     else:
         related_docs = []
     bundle["related_docs"] = related_docs
@@ -1387,13 +1829,18 @@ def _apply_related_docs_selection(bundle: dict[str, Any]) -> tuple[str, int]:
     return ("evidence_only", len(evidence_doc_ids))
 
 
-def _fill_chunks_from_doc_scope(db: Session, doc_ids: list[str], existing_chunk_ids: set[str], cap: int) -> list[dict[str, Any]]:
+def _fill_chunks_from_doc_scope(
+    db: Session, doc_ids: list[str], existing_chunk_ids: set[str], cap: int
+) -> list[dict[str, Any]]:
     if (not doc_ids) or cap <= 0:
         return []
     docs = (
         db.execute(
             select(Document)
-            .where(Document.id.in_(doc_ids), Document.status == DocumentStatus.COMPLETED.value)
+            .where(
+                Document.id.in_(doc_ids),
+                Document.status == DocumentStatus.COMPLETED.value,
+            )
             .order_by(Document.updated_at.desc())
         )
         .scalars()
@@ -1404,7 +1851,12 @@ def _fill_chunks_from_doc_scope(db: Session, doc_ids: list[str], existing_chunk_
         if not crud.source_path_available(doc.source_path):
             continue
         rows = (
-            db.execute(select(Chunk).where(Chunk.document_id == doc.id).order_by(Chunk.chunk_index.asc()).limit(3))
+            db.execute(
+                select(Chunk)
+                .where(Chunk.document_id == doc.id)
+                .order_by(Chunk.chunk_index.asc())
+                .limit(3)
+            )
             .scalars()
             .all()
         )
@@ -1476,7 +1928,11 @@ def _build_bill_attention_bundle(
 ) -> dict[str, Any]:
     allowed_ids = set(doc_ids)
     facet = _detect_query_facet(req.query)
-    strict_categories = {str(item or "").strip().lower() for item in facet.strict_categories if str(item or "").strip()}
+    strict_categories = {
+        str(item or "").strip().lower()
+        for item in facet.strict_categories
+        if str(item or "").strip()
+    }
     rows = list_recent_bill_facts(db, limit=30)
     pending: list[dict[str, Any]] = []
     paid: list[dict[str, Any]] = []
@@ -1489,7 +1945,10 @@ def _build_bill_attention_bundle(
             continue
         if category_path and str(doc.category_path or "") != category_path:
             continue
-        if strict_categories and str(doc.category_path or "").strip().lower() not in strict_categories:
+        if (
+            strict_categories
+            and str(doc.category_path or "").strip().lower() not in strict_categories
+        ):
             continue
         item = {
             "doc_id": doc.id,
@@ -1513,18 +1972,29 @@ def _build_bill_attention_bundle(
         pending,
         key=lambda item: (
             0 if str(item.get("payment_status") or "").lower() == "overdue" else 1,
-            _as_utc_datetime(item.get("due_date")) or dt.datetime.max.replace(tzinfo=dt.UTC),
+            _as_utc_datetime(item.get("due_date"))
+            or dt.datetime.max.replace(tzinfo=dt.UTC),
         ),
     )
-    paid = sorted(paid, key=lambda item: _as_utc_datetime(item.get("due_date")) or dt.datetime.max.replace(tzinfo=dt.UTC))
+    paid = sorted(
+        paid,
+        key=lambda item: _as_utc_datetime(item.get("due_date"))
+        or dt.datetime.max.replace(tzinfo=dt.UTC),
+    )
     selected = (pending + paid)[:10]
 
     context_chunks: list[dict[str, Any]] = []
     sources: list[ResultCardSource] = []
     for idx, item in enumerate(selected):
-        amount = _format_amount(item.get("amount_due"), str(item.get("currency") or "AUD"), ui_lang=req.ui_lang)
+        amount = _format_amount(
+            item.get("amount_due"),
+            str(item.get("currency") or "AUD"),
+            ui_lang=req.ui_lang,
+        )
         due_date = _format_due_date(item.get("due_date"), ui_lang=req.ui_lang)
-        status = _bill_status_label(str(item.get("payment_status") or ""), ui_lang=req.ui_lang)
+        status = _bill_status_label(
+            str(item.get("payment_status") or ""), ui_lang=req.ui_lang
+        )
         if req.ui_lang == "zh":
             text = f"账单：{item.get('title_zh') or item.get('title_en')}；金额：{amount or '未提取'}；截止：{due_date or '未提取'}；状态：{status}"
             label = str(item.get("title_zh") or item.get("title_en") or "账单")
@@ -1546,7 +2016,11 @@ def _build_bill_attention_bundle(
                 "text": text,
             }
         )
-        sources.append(ResultCardSource(doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label))
+        sources.append(
+            ResultCardSource(
+                doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label
+            )
+        )
 
     related_docs = _build_related_docs(db, all_doc_ids, cap=6)
     return {
@@ -1572,7 +2046,11 @@ def _build_bill_attention_bundle(
         "fact_route": "bill_attention",
         "fact_month": "",
         "related_doc_selection_mode": "evidence_only",
-        "evidence_backed_doc_ids": [str(item.get("doc_id") or "") for item in selected if str(item.get("doc_id") or "").strip()],
+        "evidence_backed_doc_ids": [
+            str(item.get("doc_id") or "")
+            for item in selected
+            if str(item.get("doc_id") or "").strip()
+        ],
     }
 
 
@@ -1659,7 +2137,9 @@ def _is_monthly_eligible_bill_fact(fact: Any, doc: Any) -> tuple[bool, str]:
     return (True, "")
 
 
-def _infer_latest_year_for_month(rows: list[tuple[Any, Any]], target_month: int | None) -> int | None:
+def _infer_latest_year_for_month(
+    rows: list[tuple[Any, Any]], target_month: int | None
+) -> int | None:
     if target_month is None:
         return None
     years: list[int] = []
@@ -1689,13 +2169,17 @@ def _build_bill_monthly_total_bundle(
         db,
         limit=60,
         target_month=target_month if target_month is not None else None,
-        target_year=target_year if target_month is not None and target_year is not None else None,
+        target_year=target_year
+        if target_month is not None and target_year is not None
+        else None,
     )
     explicit_selected_doc_ids = []
     if isinstance(req.client_context, dict):
         selected = req.client_context.get("selected_doc_ids")
         if isinstance(selected, list):
-            explicit_selected_doc_ids = [str(item or "").strip() for item in selected if str(item or "").strip()]
+            explicit_selected_doc_ids = [
+                str(item or "").strip() for item in selected if str(item or "").strip()
+            ]
     allowed_doc_ids = set(explicit_selected_doc_ids)
 
     if target_month is not None and target_year is None:
@@ -1777,9 +2261,15 @@ def _build_bill_monthly_total_bundle(
     sources: list[ResultCardSource] = []
     selected = (pending + paid)[:12]
     for idx, item in enumerate(selected):
-        amount = _format_amount(item.get("amount_due"), str(item.get("currency") or "AUD"), ui_lang=req.ui_lang)
+        amount = _format_amount(
+            item.get("amount_due"),
+            str(item.get("currency") or "AUD"),
+            ui_lang=req.ui_lang,
+        )
         due_date = _format_due_date(item.get("due_date"), ui_lang=req.ui_lang)
-        status_label = _bill_status_label(str(item.get("payment_status") or ""), ui_lang=req.ui_lang)
+        status_label = _bill_status_label(
+            str(item.get("payment_status") or ""), ui_lang=req.ui_lang
+        )
         label = str(item.get("title_zh") or item.get("title_en") or "账单")
         text = (
             f"账单：{label}；金额：{amount or '未提取'}；截止：{due_date or '未提取'}；状态：{status_label}"
@@ -1798,7 +2288,11 @@ def _build_bill_monthly_total_bundle(
                 "text": text,
             }
         )
-        sources.append(ResultCardSource(doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label))
+        sources.append(
+            ResultCardSource(
+                doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label
+            )
+        )
 
     related_docs = _build_related_docs(db, related_doc_ids, cap=6)
     month_txt = _month_label(year=target_year, month=target_month)
@@ -1842,8 +2336,18 @@ def _build_bill_monthly_total_bundle(
 
 def _build_queue_bundle(db: Session, req: AgentExecuteRequest) -> dict[str, Any]:
     totals = crud.get_queue_totals(db)
-    jobs = db.execute(select(IngestionJob).order_by(IngestionJob.created_at.desc()).limit(6)).scalars().all()
-    docs = db.execute(select(Document).order_by(Document.updated_at.desc()).limit(10)).scalars().all()
+    jobs = (
+        db.execute(
+            select(IngestionJob).order_by(IngestionJob.created_at.desc()).limit(6)
+        )
+        .scalars()
+        .all()
+    )
+    docs = (
+        db.execute(select(Document).order_by(Document.updated_at.desc()).limit(10))
+        .scalars()
+        .all()
+    )
     docs = [item for item in docs if crud.source_path_available(item.source_path)]
 
     context_chunks: list[dict[str, Any]] = [
@@ -1880,7 +2384,11 @@ def _build_queue_bundle(db: Session, req: AgentExecuteRequest) -> dict[str, Any]
 
     related_docs = _build_related_docs(db, [doc.id for doc in docs], cap=4)
     sources: list[ResultCardSource] = [
-        ResultCardSource(doc_id=item.doc_id, chunk_id=f"doc-ref-{idx+1}", label=item.title_zh or item.title_en or item.file_name)
+        ResultCardSource(
+            doc_id=item.doc_id,
+            chunk_id=f"doc-ref-{idx + 1}",
+            label=item.title_zh or item.title_en or item.file_name,
+        )
         for idx, item in enumerate(related_docs)
     ]
     return {
@@ -1913,7 +2421,9 @@ def _extract_tag_keys_from_query(query: str) -> list[str]:
     return out[:12]
 
 
-def _build_reprocess_bundle(db: Session, req: AgentExecuteRequest, *, doc_ids: list[str]) -> dict[str, Any]:
+def _build_reprocess_bundle(
+    db: Session, req: AgentExecuteRequest, *, doc_ids: list[str]
+) -> dict[str, Any]:
     target_ids = doc_ids[:3]
     if not target_ids:
         return {
@@ -1974,7 +2484,9 @@ def _build_reprocess_bundle(db: Session, req: AgentExecuteRequest, *, doc_ids: l
             )
             continue
         job = crud.create_ingestion_job(db, [str(doc.source_path)])
-        mode = enqueue_ingestion_job(job.id, force_reprocess=True, reprocess_doc_id=doc.id)
+        mode = enqueue_ingestion_job(
+            job.id, force_reprocess=True, reprocess_doc_id=doc.id
+        )
         context_chunks.append(
             {
                 "doc_id": doc.id,
@@ -1989,7 +2501,11 @@ def _build_reprocess_bundle(db: Session, req: AgentExecuteRequest, *, doc_ids: l
 
     related_docs = _build_related_docs(db, related_doc_ids, cap=4)
     sources = [
-        ResultCardSource(doc_id=item.doc_id, chunk_id=f"reprocess-ref-{idx+1}", label=item.title_zh or item.title_en or item.file_name)
+        ResultCardSource(
+            doc_id=item.doc_id,
+            chunk_id=f"reprocess-ref-{idx + 1}",
+            label=item.title_zh or item.title_en or item.file_name,
+        )
         for idx, item in enumerate(related_docs)
     ]
     return {
@@ -2009,7 +2525,9 @@ def _build_reprocess_bundle(db: Session, req: AgentExecuteRequest, *, doc_ids: l
     }
 
 
-def _build_tag_update_bundle(db: Session, req: AgentExecuteRequest, *, doc_ids: list[str]) -> dict[str, Any]:
+def _build_tag_update_bundle(
+    db: Session, req: AgentExecuteRequest, *, doc_ids: list[str]
+) -> dict[str, Any]:
     target_ids = doc_ids[:3]
     tag_keys = _extract_tag_keys_from_query(req.query)
     context_chunks: list[dict[str, Any]] = []
@@ -2034,7 +2552,9 @@ def _build_tag_update_bundle(db: Session, req: AgentExecuteRequest, *, doc_ids: 
                 }
             )
             continue
-        _rows, invalid = crud.patch_document_tags(db, document_id=doc.id, add=tag_keys, remove=[])
+        _rows, invalid = crud.patch_document_tags(
+            db, document_id=doc.id, add=tag_keys, remove=[]
+        )
         if invalid:
             context_chunks.append(
                 {
@@ -2065,7 +2585,11 @@ def _build_tag_update_bundle(db: Session, req: AgentExecuteRequest, *, doc_ids: 
         db.commit()
     related_docs = _build_related_docs(db, related_doc_ids, cap=4)
     sources = [
-        ResultCardSource(doc_id=item.doc_id, chunk_id=f"tag-ref-{idx+1}", label=item.title_zh or item.title_en or item.file_name)
+        ResultCardSource(
+            doc_id=item.doc_id,
+            chunk_id=f"tag-ref-{idx + 1}",
+            label=item.title_zh or item.title_en or item.file_name,
+        )
         for idx, item in enumerate(related_docs)
     ]
     if not context_chunks:
@@ -2106,55 +2630,144 @@ def _build_detail_extract_bundle(
     category_path: str | None,
 ) -> dict[str, Any]:
     lowered_query = str(req.query or "").lower()
-    topic = _resolve_detail_topic(req.query, planner.doc_scope if isinstance(planner.doc_scope, dict) else {})
+    topic = _resolve_detail_topic(
+        req.query, planner.doc_scope if isinstance(planner.doc_scope, dict) else {}
+    )
     selected_ids = [str(x or "").strip() for x in doc_ids if str(x or "").strip()]
     if selected_ids:
         related_docs = _build_related_docs(db, selected_ids, cap=10)
     else:
-        seed_bundle = _build_search_bundle(db, req, planner, doc_ids=[], category_path=category_path)
+        seed_bundle = _build_search_bundle(
+            db, req, planner, doc_ids=[], category_path=category_path
+        )
         related_docs = seed_bundle.get("related_docs") or []
 
     _active_prefixes: tuple[str, ...] = ()
     scoped_docs = related_docs
     if topic == "insurance":
-        insurance_prefixes: tuple[str, ...] = ("home/insurance", "health/insurance", "legal/insurance")
+        insurance_prefixes: tuple[str, ...] = (
+            "home/insurance",
+            "health/insurance",
+            "legal/insurance",
+        )
         if any(tok in lowered_query for tok in ("pet insurance", "宠物保险")):
             insurance_prefixes = ("home/insurance/pet",)
-        elif any(tok in lowered_query for tok in (
-            "car insurance", "vehicle insurance", "motor insurance", "车险", "车辆保险",
-            # common car brands (CN + EN) — named vehicle implies car insurance context
-            "tesla", "特斯拉", "toyota", "丰田", "honda", "本田", "bmw", "宝马",
-            "mercedes", "奔驰", "audi", "奥迪", "ford", "福特", "hyundai", "现代",
-            "mazda", "马自达", "subaru", "斯巴鲁", "volkswagen", "vw", "大众",
-            "nissan", "日产", "kia", "起亚", "lexus", "雷克萨斯",
-        )):
+        elif any(
+            tok in lowered_query
+            for tok in (
+                "car insurance",
+                "vehicle insurance",
+                "motor insurance",
+                "车险",
+                "车辆保险",
+                # common car brands (CN + EN) — named vehicle implies car insurance context
+                "tesla",
+                "特斯拉",
+                "toyota",
+                "丰田",
+                "honda",
+                "本田",
+                "bmw",
+                "宝马",
+                "mercedes",
+                "奔驰",
+                "audi",
+                "奥迪",
+                "ford",
+                "福特",
+                "hyundai",
+                "现代",
+                "mazda",
+                "马自达",
+                "subaru",
+                "斯巴鲁",
+                "volkswagen",
+                "vw",
+                "大众",
+                "nissan",
+                "日产",
+                "kia",
+                "起亚",
+                "lexus",
+                "雷克萨斯",
+            )
+        ):
             insurance_prefixes = ("home/insurance/vehicle",)
-        elif any(tok in lowered_query for tok in ("health insurance", "private health", "hospital cover", "医保", "医疗险")):
+        elif any(
+            tok in lowered_query
+            for tok in (
+                "health insurance",
+                "private health",
+                "hospital cover",
+                "医保",
+                "医疗险",
+            )
+        ):
             insurance_prefixes = ("health/insurance",)
         _active_prefixes = insurance_prefixes
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(insurance_prefixes)]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(insurance_prefixes)
+        ]
     elif topic == "bill":
         _active_prefixes = ("finance/bills",)
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith("finance/bills")]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith("finance/bills")
+        ]
     elif topic == "home":
         _active_prefixes = ("home/property", "home/maintenance", "legal/property")
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(_active_prefixes)]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(_active_prefixes)
+        ]
     elif topic == "appliances":
         _active_prefixes = ("home/manuals", "home/appliances", "tech/hardware")
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(_active_prefixes)]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(_active_prefixes)
+        ]
     elif topic == "pets":
-        pet_prefixes: tuple[str, ...] = ("home/pets", "health/medical_records", "home/insurance/pet")
-        if any(tok in lowered_query for tok in ("birthday", "birth date", "dob", "生日", "出生日期")):
+        pet_prefixes: tuple[str, ...] = (
+            "home/pets",
+            "health/medical_records",
+            "home/insurance/pet",
+        )
+        if any(
+            tok in lowered_query
+            for tok in ("birthday", "birth date", "dob", "生日", "出生日期")
+        ):
             # Broaden to health/insurance — desexing/medical certs may be filed there
             pet_prefixes = ("home/pets", "health/medical_records", "health/insurance")
         _active_prefixes = pet_prefixes
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(pet_prefixes)]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(pet_prefixes)
+        ]
     elif topic == "warranty":
-        _active_prefixes = ("home/manuals", "home/appliances", "tech/hardware", "home/maintenance")
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(_active_prefixes)]
+        _active_prefixes = (
+            "home/manuals",
+            "home/appliances",
+            "tech/hardware",
+            "home/maintenance",
+        )
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(_active_prefixes)
+        ]
     elif topic == "contract":
         _active_prefixes = ("legal/contracts", "legal/property")
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(_active_prefixes)]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(_active_prefixes)
+        ]
     if (not scoped_docs) and topic == "generic":
         scoped_docs = related_docs[:6]
     elif not scoped_docs and _active_prefixes:
@@ -2162,12 +2775,18 @@ def _build_detail_extract_bundle(
         _fb_ids: list[str] = []
         _seen_fb: set[str] = set()
         for _prefix in _active_prefixes:
-            _fb_rows = db.execute(
-                select(Document.id).where(
-                    Document.category_path.startswith(_prefix),
-                    Document.status == DocumentStatus.COMPLETED.value,
-                ).limit(8)
-            ).scalars().all()
+            _fb_rows = (
+                db.execute(
+                    select(Document.id)
+                    .where(
+                        Document.category_path.startswith(_prefix),
+                        Document.status == DocumentStatus.COMPLETED.value,
+                    )
+                    .limit(8)
+                )
+                .scalars()
+                .all()
+            )
             for _row in _fb_rows:
                 _k = str(_row)
                 if _k not in _seen_fb:
@@ -2186,7 +2805,12 @@ def _build_detail_extract_bundle(
         if len(context_chunks) >= 10:
             break
         rows = (
-            db.execute(select(Chunk).where(Chunk.document_id == doc.doc_id).order_by(Chunk.chunk_index.asc()).limit(4))
+            db.execute(
+                select(Chunk)
+                .where(Chunk.document_id == doc.doc_id)
+                .order_by(Chunk.chunk_index.asc())
+                .limit(4)
+            )
             .scalars()
             .all()
         )
@@ -2213,14 +2837,35 @@ def _build_detail_extract_bundle(
             )
         )
 
-    _howto_tokens = ("方法", "如何", "怎么", "步骤", "怎样", "how to", "how do", "how can", "what steps", "维护方法", "使用方法", "操作方法")
+    _howto_tokens = (
+        "方法",
+        "如何",
+        "怎么",
+        "步骤",
+        "怎样",
+        "how to",
+        "how do",
+        "how can",
+        "what steps",
+        "维护方法",
+        "使用方法",
+        "操作方法",
+    )
     _is_howto = any(tok in lowered_query for tok in _howto_tokens)
     if _is_howto and topic in {"generic", "home", "appliances"}:
         detail_rows, missing_fields = [], []
     else:
-        detail_rows, missing_fields = _detail_rows_from_chunks(topic=topic, chunks=context_chunks, ui_lang=req.ui_lang)
-    fields_filled = sum(1 for row in detail_rows if str(row.value_zh or row.value_en).strip())
-    detail_sections = [DetailSection(section_name=f"{topic}_details", rows=detail_rows)] if detail_rows else []
+        detail_rows, missing_fields = _detail_rows_from_chunks(
+            topic=topic, chunks=context_chunks, ui_lang=req.ui_lang
+        )
+    fields_filled = sum(
+        1 for row in detail_rows if str(row.value_zh or row.value_en).strip()
+    )
+    detail_sections = (
+        [DetailSection(section_name=f"{topic}_details", rows=detail_rows)]
+        if detail_rows
+        else []
+    )
     evidence_doc_ids: list[str] = []
     seen_evidence_docs: set[str] = set()
     for row in detail_rows:
@@ -2231,7 +2876,9 @@ def _build_detail_extract_bundle(
             seen_evidence_docs.add(doc_id)
             evidence_doc_ids.append(doc_id)
     if evidence_doc_ids:
-        scoped_docs = [doc for doc in scoped_docs if str(doc.doc_id or "") in seen_evidence_docs]
+        scoped_docs = [
+            doc for doc in scoped_docs if str(doc.doc_id or "") in seen_evidence_docs
+        ]
     return {
         "route": "detail_extract",
         "context_chunks": context_chunks[:12],
@@ -2256,7 +2903,9 @@ def _build_detail_extract_bundle(
             docs_matched=int(docs_matched),
             fields_filled=int(fields_filled),
         ),
-        "related_doc_selection_mode": "evidence_only" if evidence_doc_ids else "evidence_plus_candidates",
+        "related_doc_selection_mode": "evidence_only"
+        if evidence_doc_ids
+        else "evidence_plus_candidates",
         "evidence_backed_doc_ids": evidence_doc_ids,
     }
 
@@ -2271,7 +2920,9 @@ def _build_entity_fact_lookup_bundle(
 ) -> dict[str, Any]:
     # Reuse generic detail extraction templates, but expose route as entity_fact_lookup
     # so routing/eval can audit structured usage.
-    out = _build_detail_extract_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
+    out = _build_detail_extract_bundle(
+        db, req, planner, doc_ids=doc_ids, category_path=category_path
+    )
     out["route"] = "entity_fact_lookup"
     out["route_reason"] = "entity_fact_structured"
     out["fact_route"] = "none"
@@ -2318,7 +2969,11 @@ def _build_period_aggregate_bundle(
     # Prefer structured bill facts for period aggregate questions.
     months = _extract_period_months(req.query)
     facet = _detect_query_facet(req.query)
-    strict_categories = {str(item or "").strip().lower() for item in facet.strict_categories if str(item or "").strip()}
+    strict_categories = {
+        str(item or "").strip().lower()
+        for item in facet.strict_categories
+        if str(item or "").strip()
+    }
     now = dt.datetime.now(dt.UTC)
     window_start = now - dt.timedelta(days=31 * max(1, months))
     rows = list_recent_bill_facts(db, limit=max(60, months * 12), since=window_start)
@@ -2331,7 +2986,10 @@ def _build_period_aggregate_bundle(
             continue
         if category_path and str(doc.category_path or "") != category_path:
             continue
-        if strict_categories and str(doc.category_path or "").strip().lower() not in strict_categories:
+        if (
+            strict_categories
+            and str(doc.category_path or "").strip().lower() not in strict_categories
+        ):
             continue
         if not crud.source_path_available(doc.source_path):
             continue
@@ -2369,9 +3027,15 @@ def _build_period_aggregate_bundle(
     context_chunks: list[dict[str, Any]] = []
     sources: list[ResultCardSource] = []
     for idx, item in enumerate(items[:12], start=1):
-        amount_txt = _format_amount(item.get("amount_due"), str(item.get("currency") or "AUD"), ui_lang=req.ui_lang)
+        amount_txt = _format_amount(
+            item.get("amount_due"),
+            str(item.get("currency") or "AUD"),
+            ui_lang=req.ui_lang,
+        )
         due_txt = _format_due_date(item.get("due_date"), ui_lang=req.ui_lang)
-        status_txt = _bill_status_label(str(item.get("payment_status") or ""), ui_lang=req.ui_lang)
+        status_txt = _bill_status_label(
+            str(item.get("payment_status") or ""), ui_lang=req.ui_lang
+        )
         label = str(item.get("title_zh") or item.get("title_en") or "账单")
         text = (
             f"周期聚合账单：{label}；金额：{amount_txt or '未提取'}；日期：{due_txt or '未提取'}；状态：{status_txt}"
@@ -2390,7 +3054,11 @@ def _build_period_aggregate_bundle(
                 "text": text,
             }
         )
-        sources.append(ResultCardSource(doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label))
+        sources.append(
+            ResultCardSource(
+                doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label
+            )
+        )
 
     related_docs = _build_related_docs(db, related_doc_ids, cap=6)
     if not items:
@@ -2493,7 +3161,11 @@ def _build_period_aggregate_bundle(
         "facet_mode": "strict_topic" if facet.strict_mode else "none",
         "facet_keys": list(facet.facet_keys),
         "related_doc_selection_mode": "evidence_only",
-        "evidence_backed_doc_ids": [str(item.get("doc_id") or "") for item in items if str(item.get("doc_id") or "").strip()],
+        "evidence_backed_doc_ids": [
+            str(item.get("doc_id") or "")
+            for item in items
+            if str(item.get("doc_id") or "").strip()
+        ],
     }
 
 
@@ -2506,22 +3178,40 @@ def _build_search_bundle(
     category_path: str | None,
 ) -> dict[str, Any]:
     facet = _detect_query_facet(req.query)
-    domain_whitelist = tuple(path.lower() for path in _domain_category_whitelist(req.query, facet))
+    domain_whitelist = tuple(
+        path.lower() for path in _domain_category_whitelist(req.query, facet)
+    )
     query_required_terms = _query_required_terms(req.query)
     historical_fact_query = _is_historical_fact_query(req.query)
-    strict_categories = {str(item or "").strip().lower() for item in facet.strict_categories if str(item or "").strip()}
-    required_terms = [str(item or "").strip().lower() for item in facet.required_terms if str(item or "").strip()]
+    strict_categories = {
+        str(item or "").strip().lower()
+        for item in facet.strict_categories
+        if str(item or "").strip()
+    }
+    required_terms = [
+        str(item or "").strip().lower()
+        for item in facet.required_terms
+        if str(item or "").strip()
+    ]
 
     effective_category_path = category_path
-    if (not effective_category_path) and facet.strict_mode and len(strict_categories) == 1:
+    if (
+        (not effective_category_path)
+        and facet.strict_mode
+        and len(strict_categories) == 1
+    ):
         effective_category_path = next(iter(strict_categories))
 
     search_req = SearchRequest(
         query=req.query,
         top_k=12,
         score_threshold=0.0,
-        ui_lang=planner.ui_lang if planner.ui_lang in {"zh", "en"} else ("zh" if req.ui_lang == "zh" else "en"),
-        query_lang=planner.query_lang if planner.query_lang in {"zh", "en"} else req.query_lang,
+        ui_lang=planner.ui_lang
+        if planner.ui_lang in {"zh", "en"}
+        else ("zh" if req.ui_lang == "zh" else "en"),
+        query_lang=planner.query_lang
+        if planner.query_lang in {"zh", "en"}
+        else req.query_lang,
         category_path=effective_category_path,
         include_missing=False,
     )
@@ -2531,13 +3221,29 @@ def _build_search_bundle(
         allowed_doc_ids = set(doc_ids)
         hits = [hit for hit in hits if str(hit.doc_id) in allowed_doc_ids]
 
-    candidate_doc_ids = [str(hit.doc_id or "").strip() for hit in hits if str(hit.doc_id or "").strip()]
-    candidate_docs = db.execute(select(Document).where(Document.id.in_(set(candidate_doc_ids)))).scalars().all()
+    candidate_doc_ids = [
+        str(hit.doc_id or "").strip() for hit in hits if str(hit.doc_id or "").strip()
+    ]
+    candidate_docs = (
+        db.execute(select(Document).where(Document.id.in_(set(candidate_doc_ids))))
+        .scalars()
+        .all()
+    )
     doc_map = {str(item.id): item for item in candidate_docs}
 
     top_hits = hits[:10]
-    hit_chunk_ids = [str(hit.chunk_id or "").strip() for hit in top_hits if str(hit.chunk_id or "").strip()]
-    chunk_rows = db.execute(select(Chunk).where(Chunk.id.in_(set(hit_chunk_ids)))).scalars().all() if hit_chunk_ids else []
+    hit_chunk_ids = [
+        str(hit.chunk_id or "").strip()
+        for hit in top_hits
+        if str(hit.chunk_id or "").strip()
+    ]
+    chunk_rows = (
+        db.execute(select(Chunk).where(Chunk.id.in_(set(hit_chunk_ids))))
+        .scalars()
+        .all()
+        if hit_chunk_ids
+        else []
+    )
     chunk_map = {str(chunk.id): chunk for chunk in chunk_rows}
 
     context_chunks: list[dict[str, Any]] = []
@@ -2567,11 +3273,15 @@ def _build_search_bundle(
                     str(getattr(doc, "file_name", "") or ""),
                     str(getattr(doc, "summary_zh", "") or ""),
                     str(getattr(doc, "summary_en", "") or ""),
-                    " ".join(str(item or "") for item in (getattr(hit, "tags", []) or [])),
+                    " ".join(
+                        str(item or "") for item in (getattr(hit, "tags", []) or [])
+                    ),
                     str(chunk.content or ""),
                 ]
             ).lower()
-            if required_terms and (not any(term in text_blob for term in required_terms)):
+            if required_terms and (
+                not any(term in text_blob for term in required_terms)
+            ):
                 continue
             if historical_fact_query and _looks_planned_or_proposal_doc(text_blob):
                 continue
@@ -2579,7 +3289,9 @@ def _build_search_bundle(
             text_blob = ""
             if domain_whitelist or query_required_terms:
                 hit_category = str(hit.category_path or "").strip().lower()
-                if domain_whitelist and (not any(hit_category.startswith(path) for path in domain_whitelist)):
+                if domain_whitelist and (
+                    not any(hit_category.startswith(path) for path in domain_whitelist)
+                ):
                     continue
                 doc = doc_map.get(doc_id)
                 text_blob = " ".join(
@@ -2593,9 +3305,15 @@ def _build_search_bundle(
                         str(chunk.content or ""),
                     ]
                 ).lower()
-            if query_required_terms and (not any(term in text_blob for term in query_required_terms)):
+            if query_required_terms and (
+                not any(term in text_blob for term in query_required_terms)
+            ):
                 continue
-            if historical_fact_query and text_blob and _looks_planned_or_proposal_doc(text_blob):
+            if (
+                historical_fact_query
+                and text_blob
+                and _looks_planned_or_proposal_doc(text_blob)
+            ):
                 continue
 
         seen_chunk_ids.add(chunk.id)
@@ -2681,7 +3399,9 @@ def _build_search_bundle(
 
     if (not facet.strict_mode) and len(context_chunks) < 3:
         need = max(0, 3 - len(context_chunks))
-        context_chunks.extend(_fill_chunks_from_doc_scope(db, doc_ids, seen_chunk_ids, need))
+        context_chunks.extend(
+            _fill_chunks_from_doc_scope(db, doc_ids, seen_chunk_ids, need)
+        )
     context_chunks = context_chunks[:10]
 
     sources: list[ResultCardSource] = []
@@ -2717,7 +3437,13 @@ def _build_search_bundle(
         "sources": sources,
         "related_docs": related_docs,
         "hit_count": len(context_chunks),
-        "doc_count": len({str(item.get('doc_id') or '') for item in context_chunks if str(item.get('doc_id') or '')}),
+        "doc_count": len(
+            {
+                str(item.get("doc_id") or "")
+                for item in context_chunks
+                if str(item.get("doc_id") or "")
+            }
+        ),
         "query_en": str(search_res.query_en or ""),
         "bilingual_search": bool(search_res.bilingual),
         "qdrant_used": bool(search_res.qdrant_used),
@@ -2732,9 +3458,16 @@ def _build_search_bundle(
     }
 
 
-def _execute_plan(db: Session, req: AgentExecuteRequest, planner: PlannerDecision) -> dict[str, Any]:
+def _execute_plan(
+    db: Session, req: AgentExecuteRequest, planner: PlannerDecision
+) -> dict[str, Any]:
     scope = planner.doc_scope if isinstance(planner.doc_scope, dict) else {}
-    doc_ids = _doc_ids_from_scope(scope, client_context=(req.client_context if isinstance(req.client_context, dict) else {}))
+    doc_ids = _doc_ids_from_scope(
+        scope,
+        client_context=(
+            req.client_context if isinstance(req.client_context, dict) else {}
+        ),
+    )
     category_path = _category_from_scope(scope)
 
     if planner.intent in {"queue_view"}:
@@ -2756,41 +3489,68 @@ def _execute_plan(db: Session, req: AgentExecuteRequest, planner: PlannerDecisio
         out["route_reason"] = "planner_tag_update"
         return out
     if planner.intent == "detail_extract":
-        out = _build_detail_extract_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
+        out = _build_detail_extract_bundle(
+            db, req, planner, doc_ids=doc_ids, category_path=category_path
+        )
         out["fact_route"] = "none"
         out["fact_month"] = ""
         out["route_reason"] = "planner_detail_extract"
         return out
     if planner.intent == "entity_fact_lookup":
-        out = _build_entity_fact_lookup_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
+        out = _build_entity_fact_lookup_bundle(
+            db, req, planner, doc_ids=doc_ids, category_path=category_path
+        )
         return out
     if planner.intent == "period_aggregate":
-        out = _build_period_aggregate_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
+        out = _build_period_aggregate_bundle(
+            db, req, planner, doc_ids=doc_ids, category_path=category_path
+        )
         return out
     # V2 router sets planner.intent="bill_monthly_total" directly; legacy path uses query detection.
     # V2 intent path requires a specific month in the query — prevents "last water bill" (no month)
     # from being routed to the monthly bundle.
-    _v2_has_month = planner.intent == "bill_monthly_total" and _extract_month_scope(req.query)[1] is not None
+    _v2_has_month = (
+        planner.intent == "bill_monthly_total"
+        and _extract_month_scope(req.query)[1] is not None
+    )
     if _v2_has_month or _is_bill_monthly_total_query(req.query):
-        month_bundle = _build_bill_monthly_total_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
+        month_bundle = _build_bill_monthly_total_bundle(
+            db, req, planner, doc_ids=doc_ids, category_path=category_path
+        )
         if int(month_bundle.get("hit_count") or 0) > 0:
-            route_reason = "v2_bill_monthly_intent" if planner.intent == "bill_monthly_total" else "monthly_total_structured_match"
+            route_reason = (
+                "v2_bill_monthly_intent"
+                if planner.intent == "bill_monthly_total"
+                else "monthly_total_structured_match"
+            )
             month_bundle["route_reason"] = route_reason
             return month_bundle
         month_bundle["fallback_reason"] = "bill_monthly_empty"
         month_bundle["fact_route"] = "bill_monthly_total"
-        month_bundle["fact_month"] = str((month_bundle.get("bill_monthly") or {}).get("month") or "")
-        month_bundle["route_reason"] = "v2_bill_monthly_intent_empty" if planner.intent == "bill_monthly_total" else "monthly_total_structured_empty"
+        month_bundle["fact_month"] = str(
+            (month_bundle.get("bill_monthly") or {}).get("month") or ""
+        )
+        month_bundle["route_reason"] = (
+            "v2_bill_monthly_intent_empty"
+            if planner.intent == "bill_monthly_total"
+            else "monthly_total_structured_empty"
+        )
         return month_bundle
     if planner.intent == "list_recent" and _is_bill_attention_query(req.query):
         try:
-            bundle = _build_bill_attention_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
+            bundle = _build_bill_attention_bundle(
+                db, req, planner, doc_ids=doc_ids, category_path=category_path
+            )
         except Exception as exc:
             logger.warning(
                 "bill_facts_unavailable",
-                extra=sanitize_log_context({"error_code": "bill_facts_unavailable", "detail": str(exc)}),
+                extra=sanitize_log_context(
+                    {"error_code": "bill_facts_unavailable", "detail": str(exc)}
+                ),
             )
-            fallback = _build_search_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
+            fallback = _build_search_bundle(
+                db, req, planner, doc_ids=doc_ids, category_path=category_path
+            )
             fallback["fallback_reason"] = "bill_facts_unavailable"
             fallback["fact_route"] = "bill_attention"
             fallback["fact_month"] = ""
@@ -2798,20 +3558,26 @@ def _execute_plan(db: Session, req: AgentExecuteRequest, planner: PlannerDecisio
         if bundle.get("hit_count", 0):
             bundle["route_reason"] = "bill_attention_structured_match"
             return bundle
-        fallback = _build_search_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
+        fallback = _build_search_bundle(
+            db, req, planner, doc_ids=doc_ids, category_path=category_path
+        )
         fallback["fallback_reason"] = "bill_facts_empty"
         fallback["fact_route"] = "bill_attention"
         fallback["fact_month"] = ""
         fallback["route_reason"] = "bill_attention_structured_empty_fallback"
         return fallback
-    out = _build_search_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
+    out = _build_search_bundle(
+        db, req, planner, doc_ids=doc_ids, category_path=category_path
+    )
     out["fact_route"] = "none"
     out["fact_month"] = ""
     out["route_reason"] = "planner_search_bundle"
     return out
 
 
-def _build_action(key: str, *, default_label_en: str, default_label_zh: str) -> ResultCardAction:
+def _build_action(
+    key: str, *, default_label_en: str, default_label_zh: str
+) -> ResultCardAction:
     meta = _ACTION_META.get(key, {})
     return ResultCardAction(
         key=key,
@@ -2838,8 +3604,12 @@ def _default_actions(planner: PlannerDecision) -> list[ResultCardAction]:
 
     out: list[ResultCardAction] = []
     for key in chosen[:4]:
-        label_en, label_zh = _ACTION_LABELS.get(key, (key.replace("_", " ").title(), key))
-        out.append(_build_action(key, default_label_en=label_en, default_label_zh=label_zh))
+        label_en, label_zh = _ACTION_LABELS.get(
+            key, (key.replace("_", " ").title(), key)
+        )
+        out.append(
+            _build_action(key, default_label_en=label_en, default_label_zh=label_zh)
+        )
     return out
 
 
@@ -2902,8 +3672,8 @@ def _synth_prompt(
                 "You are a Synthesizer model for a private family knowledge vault. Return ONLY valid JSON.\n\n"
                 "EVIDENCE POLICY:\n"
                 "- Use ONLY the data provided. Never invent amounts, dates, names, or policy numbers.\n"
-                + insufficient_rule +
-                "SOURCE DISCIPLINE:\n"
+                + insufficient_rule
+                + "SOURCE DISCIPLINE:\n"
                 "- Multiple chunks may come from different documents. Each chunk has title_en, title_zh and category_path.\n"
                 "- First identify which document title/category best matches the query subject.\n"
                 "- Extract each fact (date, amount, name, ID) ONLY from the matching document. "
@@ -2913,12 +3683,12 @@ def _synth_prompt(
                 "do NOT report it — list the field in missing_fields instead.\n"
                 "- Higher score = more relevant; treat the top-scored chunk's document as the primary source.\n"
                 "\nOUTPUT RULES:\n"
-                + lang_rule +
-                "- key_points: 2-4 bilingual bullet points with concrete facts.\n"
+                + lang_rule
+                + "- key_points: 2-4 bilingual bullet points with concrete facts.\n"
                 "- NEVER copy raw boilerplate text (BPAY codes, usage details, plan features) into short_summary.\n"
                 "- Do not mention 'chunks', 'pipeline', 'model', or internal system words.\n\n"
-                + route_rules +
-                "\nOutput schema (JSON only, no markdown):\n"
+                + route_rules
+                + "\nOutput schema (JSON only, no markdown):\n"
                 '{"title":"...","short_summary":{"en":"...","zh":"..."},"key_points":[{"en":"...","zh":"..."}],'
                 '"detail_sections":[{"section_name":"...","rows":[{"field":"...","label_en":"...","label_zh":"...","value_en":"...","value_zh":"...","evidence_refs":[{"doc_id":"...","chunk_id":"...","evidence_text":"..."}]}]}],'
                 '"missing_fields":["..."],"coverage_stats":{"docs_scanned":0,"docs_matched":0,"fields_filled":0},"actions":[]}'
@@ -2941,16 +3711,28 @@ def _synth_prompt(
                         "doc_count": int(bundle.get("doc_count") or 0),
                         "bilingual_search": bool(bundle.get("bilingual_search")),
                     },
-                    "bill_attention": _json_safe_value(bundle.get("bill_attention") or {}),
+                    "bill_attention": _json_safe_value(
+                        bundle.get("bill_attention") or {}
+                    ),
                     "bill_monthly": _json_safe_value(bundle.get("bill_monthly") or {}),
                     "detail_topic": str(bundle.get("detail_topic") or ""),
-                    "detail_sections": _json_safe_value(_cap_detail_sections(bundle.get("detail_sections") or [])),
-                    "missing_fields": _json_safe_value(bundle.get("missing_fields") or []),
-                    "coverage_stats": _json_safe_value(bundle.get("coverage_stats") or {}),
+                    "detail_sections": _json_safe_value(
+                        _cap_detail_sections(bundle.get("detail_sections") or [])
+                    ),
+                    "missing_fields": _json_safe_value(
+                        bundle.get("missing_fields") or []
+                    ),
+                    "coverage_stats": _json_safe_value(
+                        bundle.get("coverage_stats") or {}
+                    ),
                     "answerability": str(bundle.get("answerability") or "sufficient"),
-                    "required_evidence_fields": _json_safe_value(bundle.get("required_evidence_fields") or []),
+                    "required_evidence_fields": _json_safe_value(
+                        bundle.get("required_evidence_fields") or []
+                    ),
                     "coverage_ratio": float(bundle.get("coverage_ratio") or 1.0),
-                    "field_coverage_ratio": float(bundle.get("field_coverage_ratio") or 1.0),
+                    "field_coverage_ratio": float(
+                        bundle.get("field_coverage_ratio") or 1.0
+                    ),
                     "conversation": conversation,
                     "chunks": context_payload,
                 },
@@ -2988,7 +3770,9 @@ def _synthesize_with_model(
         logger.warning("agent_synth_failed", extra=sanitize_log_context(payload))
 
     try:
-        resp = requests.post(url, json=payload, timeout=int(settings.agent_synth_timeout_sec))
+        resp = requests.post(
+            url, json=payload, timeout=int(settings.agent_synth_timeout_sec)
+        )
         resp.raise_for_status()
         body = resp.json() if hasattr(resp, "json") else {}
         text = str((body.get("message") or {}).get("content") or "")
@@ -3033,14 +3817,22 @@ def _synthesize_with_model(
                 continue
             label_en = str(item.get("label_en") or "").strip()
             label_zh = str(item.get("label_zh") or "").strip()
-            default_en, default_zh = _ACTION_LABELS.get(key, (key.replace("_", " ").title(), key))
+            default_en, default_zh = _ACTION_LABELS.get(
+                key, (key.replace("_", " ").title(), key)
+            )
             actions.append(
                 ResultCardAction(
                     key=key,
                     label_en=label_en or default_en,
                     label_zh=label_zh or default_zh,
-                    action_type=str(item.get("action_type") or _ACTION_META.get(key, {}).get("action_type") or "suggestion"),
-                    payload=item.get("payload") if isinstance(item.get("payload"), dict) else _ACTION_META.get(key, {}).get("payload", {}),
+                    action_type=str(
+                        item.get("action_type")
+                        or _ACTION_META.get(key, {}).get("action_type")
+                        or "suggestion"
+                    ),
+                    payload=item.get("payload")
+                    if isinstance(item.get("payload"), dict)
+                    else _ACTION_META.get(key, {}).get("payload", {}),
                     requires_confirm=bool(item.get("requires_confirm", False)),
                     confirm_text_en=str(item.get("confirm_text_en") or ""),
                     confirm_text_zh=str(item.get("confirm_text_zh") or ""),
@@ -3055,7 +3847,9 @@ def _synthesize_with_model(
             for section in parsed_sections[:4]:
                 if not isinstance(section, dict):
                     continue
-                section_name = str(section.get("section_name") or "").strip() or "details"
+                section_name = (
+                    str(section.get("section_name") or "").strip() or "details"
+                )
                 rows: list[DetailRow] = []
                 for row in (section.get("rows") or [])[:30]:
                     if not isinstance(row, dict):
@@ -3082,18 +3876,44 @@ def _synthesize_with_model(
                         )
                     )
                 if rows:
-                    detail_sections.append(DetailSection(section_name=section_name, rows=rows))
+                    detail_sections.append(
+                        DetailSection(section_name=section_name, rows=rows)
+                    )
         if not detail_sections:
             detail_sections = list(bundle.get("detail_sections") or [])
-        missing_fields = [str(item or "") for item in (parsed.get("missing_fields") or []) if str(item or "").strip()]
+        missing_fields = [
+            str(item or "")
+            for item in (parsed.get("missing_fields") or [])
+            if str(item or "").strip()
+        ]
         if not missing_fields:
-            missing_fields = [str(item or "") for item in (bundle.get("missing_fields") or []) if str(item or "").strip()]
-        coverage_raw = parsed.get("coverage_stats") if isinstance(parsed.get("coverage_stats"), dict) else {}
+            missing_fields = [
+                str(item or "")
+                for item in (bundle.get("missing_fields") or [])
+                if str(item or "").strip()
+            ]
+        coverage_raw = (
+            parsed.get("coverage_stats")
+            if isinstance(parsed.get("coverage_stats"), dict)
+            else {}
+        )
         bundle_cov = bundle.get("coverage_stats")
         coverage_stats = DetailCoverageStats(
-            docs_scanned=int(coverage_raw.get("docs_scanned") or getattr(bundle_cov, "docs_scanned", 0) or 0),
-            docs_matched=int(coverage_raw.get("docs_matched") or getattr(bundle_cov, "docs_matched", 0) or 0),
-            fields_filled=int(coverage_raw.get("fields_filled") or getattr(bundle_cov, "fields_filled", 0) or 0),
+            docs_scanned=int(
+                coverage_raw.get("docs_scanned")
+                or getattr(bundle_cov, "docs_scanned", 0)
+                or 0
+            ),
+            docs_matched=int(
+                coverage_raw.get("docs_matched")
+                or getattr(bundle_cov, "docs_matched", 0)
+                or 0
+            ),
+            fields_filled=int(
+                coverage_raw.get("fields_filled")
+                or getattr(bundle_cov, "fields_filled", 0)
+                or 0
+            ),
         )
 
         return (
@@ -3123,7 +3943,9 @@ def _synthesize_with_model(
         return (None, "synth_parse_error")
 
 
-def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bundle: dict[str, Any]) -> ResultCard:
+def _synthesize_fallback(
+    req: AgentExecuteRequest, planner: PlannerDecision, bundle: dict[str, Any]
+) -> ResultCard:
     route = str(bundle.get("route") or "")
     context_chunks = bundle.get("context_chunks") or []
     doc_count = int(bundle.get("doc_count") or 0)
@@ -3134,7 +3956,11 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
         month = str(monthly.get("month") or "")
         total_amount = monthly.get("total_amount")
         currency = str(monthly.get("currency") or "AUD")
-        total_text = _format_amount(total_amount, currency, ui_lang=req.ui_lang) if total_amount is not None else "金额未提取"
+        total_text = (
+            _format_amount(total_amount, currency, ui_lang=req.ui_lang)
+            if total_amount is not None
+            else "金额未提取"
+        )
 
         if (not pending) and (not paid):
             if req.ui_lang == "zh":
@@ -3166,14 +3992,24 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
         lines_pending = []
         for item in pending[:6]:
             title = str(item.get("title_zh") or item.get("title_en") or "账单")
-            amount = _format_amount(item.get("amount_due"), str(item.get("currency") or "AUD"), ui_lang=req.ui_lang)
+            amount = _format_amount(
+                item.get("amount_due"),
+                str(item.get("currency") or "AUD"),
+                ui_lang=req.ui_lang,
+            )
             due_date = _format_due_date(item.get("due_date"), ui_lang=req.ui_lang)
-            lines_pending.append(f"- {title}：{amount or '金额未提取'}；截止{due_date or '未提取'}")
+            lines_pending.append(
+                f"- {title}：{amount or '金额未提取'}；截止{due_date or '未提取'}"
+            )
 
         lines_paid = []
         for item in paid[:6]:
             title = str(item.get("title_zh") or item.get("title_en") or "账单")
-            amount = _format_amount(item.get("amount_due"), str(item.get("currency") or "AUD"), ui_lang=req.ui_lang)
+            amount = _format_amount(
+                item.get("amount_due"),
+                str(item.get("currency") or "AUD"),
+                ui_lang=req.ui_lang,
+            )
             lines_paid.append(f"- {title}：{amount or '金额未提取'}")
 
         if req.ui_lang == "zh":
@@ -3202,9 +4038,15 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
             title="Monthly Bill Summary",
             short_summary=BilingualText(en=short_en, zh=short_zh),
             key_points=[
-                BilingualText(en=f"Total amount: {total_text}", zh=f"总金额：{total_text}"),
-                BilingualText(en=f"Pending bills: {len(pending)}", zh=f"待缴账单：{len(pending)}"),
-                BilingualText(en=f"Paid bills: {len(paid)}", zh=f"已缴账单：{len(paid)}"),
+                BilingualText(
+                    en=f"Total amount: {total_text}", zh=f"总金额：{total_text}"
+                ),
+                BilingualText(
+                    en=f"Pending bills: {len(pending)}", zh=f"待缴账单：{len(pending)}"
+                ),
+                BilingualText(
+                    en=f"Paid bills: {len(paid)}", zh=f"已缴账单：{len(paid)}"
+                ),
             ],
             sources=bundle.get("sources") or [],
             actions=_default_actions(planner),
@@ -3217,14 +4059,26 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
         lines_pending = []
         for item in pending[:4]:
             title = str(item.get("title_zh") or item.get("title_en") or "账单")
-            amount = _format_amount(item.get("amount_due"), str(item.get("currency") or "AUD"), ui_lang=req.ui_lang)
+            amount = _format_amount(
+                item.get("amount_due"),
+                str(item.get("currency") or "AUD"),
+                ui_lang=req.ui_lang,
+            )
             due_date = _format_due_date(item.get("due_date"), ui_lang=req.ui_lang)
-            status = _bill_status_label(str(item.get("payment_status") or ""), ui_lang=req.ui_lang)
-            lines_pending.append(f"- {title}：{amount or '金额未提取'}；截止{due_date or '未提取'}；{status}")
+            status = _bill_status_label(
+                str(item.get("payment_status") or ""), ui_lang=req.ui_lang
+            )
+            lines_pending.append(
+                f"- {title}：{amount or '金额未提取'}；截止{due_date or '未提取'}；{status}"
+            )
         lines_paid = []
         for item in paid[:4]:
             title = str(item.get("title_zh") or item.get("title_en") or "账单")
-            amount = _format_amount(item.get("amount_due"), str(item.get("currency") or "AUD"), ui_lang=req.ui_lang)
+            amount = _format_amount(
+                item.get("amount_due"),
+                str(item.get("currency") or "AUD"),
+                ui_lang=req.ui_lang,
+            )
             lines_paid.append(f"- {title}：{amount or '金额未提取'}")
         short_zh = "\n".join(
             [
@@ -3241,9 +4095,13 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
         )
         short_en = "Recent bills were grouped into unpaid and paid sections with priority recommendations."
         key_points = [
-            BilingualText(en=f"Pending bills: {len(pending)}", zh=f"待缴账单：{len(pending)}"),
+            BilingualText(
+                en=f"Pending bills: {len(pending)}", zh=f"待缴账单：{len(pending)}"
+            ),
             BilingualText(en=f"Paid bills: {len(paid)}", zh=f"已缴账单：{len(paid)}"),
-            BilingualText(en=f"Documents involved: {doc_count}", zh=f"涉及文档数：{doc_count}"),
+            BilingualText(
+                en=f"Documents involved: {doc_count}", zh=f"涉及文档数：{doc_count}"
+            ),
         ]
         return ResultCard(
             title="Bill Attention Summary",
@@ -3255,7 +4113,11 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
 
     if route == "detail_extract":
         detail_sections = list(bundle.get("detail_sections") or [])
-        missing_fields = [str(item or "") for item in (bundle.get("missing_fields") or []) if str(item or "").strip()]
+        missing_fields = [
+            str(item or "")
+            for item in (bundle.get("missing_fields") or [])
+            if str(item or "").strip()
+        ]
         coverage_stats = bundle.get("coverage_stats") or DetailCoverageStats()
         topic = str(bundle.get("detail_topic") or "generic")
         total_rows = 0
@@ -3280,9 +4142,18 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
                 short_en = f"Structured {topic} detail extraction completed with {total_rows} rows."
                 short_zh = f"已完成{topic}细节提取，字段条目 {total_rows} 项。"
         key_points = [
-            BilingualText(en=f"Docs scanned: {int(getattr(coverage_stats, 'docs_scanned', 0) or 0)}", zh=f"扫描文档：{int(getattr(coverage_stats, 'docs_scanned', 0) or 0)}"),
-            BilingualText(en=f"Docs matched: {int(getattr(coverage_stats, 'docs_matched', 0) or 0)}", zh=f"命中文档：{int(getattr(coverage_stats, 'docs_matched', 0) or 0)}"),
-            BilingualText(en=f"Fields filled: {int(getattr(coverage_stats, 'fields_filled', 0) or 0)}", zh=f"字段填充：{int(getattr(coverage_stats, 'fields_filled', 0) or 0)}"),
+            BilingualText(
+                en=f"Docs scanned: {int(getattr(coverage_stats, 'docs_scanned', 0) or 0)}",
+                zh=f"扫描文档：{int(getattr(coverage_stats, 'docs_scanned', 0) or 0)}",
+            ),
+            BilingualText(
+                en=f"Docs matched: {int(getattr(coverage_stats, 'docs_matched', 0) or 0)}",
+                zh=f"命中文档：{int(getattr(coverage_stats, 'docs_matched', 0) or 0)}",
+            ),
+            BilingualText(
+                en=f"Fields filled: {int(getattr(coverage_stats, 'fields_filled', 0) or 0)}",
+                zh=f"字段填充：{int(getattr(coverage_stats, 'fields_filled', 0) or 0)}",
+            ),
         ]
         if missing_fields:
             key_points.append(
@@ -3299,7 +4170,9 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
             actions=_default_actions(planner),
             detail_sections=detail_sections,
             missing_fields=missing_fields,
-            coverage_stats=coverage_stats if isinstance(coverage_stats, DetailCoverageStats) else DetailCoverageStats(),
+            coverage_stats=coverage_stats
+            if isinstance(coverage_stats, DetailCoverageStats)
+            else DetailCoverageStats(),
         )
 
     detail_sections_any = list(bundle.get("detail_sections") or [])
@@ -3309,23 +4182,41 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
     if route == "entity_fact_lookup" and not detail_sections_any:
         _zh_mode = req.ui_lang == "zh"
         _topic = str(bundle.get("detail_topic") or "")
-        _EFL_ZH = {"insurance": "保险证据详情", "pets": "宠物记录详情", "home": "房产信息详情",
-                   "appliances": "家电设备详情", "warranty": "保修信息详情", "bill": "账单证据详情",
-                   "contract": "合同详情", "generic": "文档证据详情"}
-        _EFL_EN = {"insurance": "Insurance Evidence", "pets": "Pet Records", "home": "Property Details",
-                   "appliances": "Appliance Details", "warranty": "Warranty Details", "bill": "Bill Evidence",
-                   "contract": "Contract Details", "generic": "Document Evidence"}
-        _fb_title = (_EFL_ZH if _zh_mode else _EFL_EN).get(_topic, "Knowledge Search Result")
+        _EFL_ZH = {
+            "insurance": "保险证据详情",
+            "pets": "宠物记录详情",
+            "home": "房产信息详情",
+            "appliances": "家电设备详情",
+            "warranty": "保修信息详情",
+            "bill": "账单证据详情",
+            "contract": "合同详情",
+            "generic": "文档证据详情",
+        }
+        _EFL_EN = {
+            "insurance": "Insurance Evidence",
+            "pets": "Pet Records",
+            "home": "Property Details",
+            "appliances": "Appliance Details",
+            "warranty": "Warranty Details",
+            "bill": "Bill Evidence",
+            "contract": "Contract Details",
+            "generic": "Document Evidence",
+        }
+        _fb_title = (_EFL_ZH if _zh_mode else _EFL_EN).get(
+            _topic, "Knowledge Search Result"
+        )
         return ResultCard(
             title=_fb_title,
             short_summary=BilingualText(
                 en="Not enough evidence was found in the knowledge base to answer this question.",
                 zh="资料中没有足够信息回答此问题，请尝试更具体的问题或补充相关文档。",
             ),
-            key_points=[BilingualText(
-                en="Please try a more specific question or add relevant documents.",
-                zh="请尝试更具体的问题或补充相关文档。",
-            )],
+            key_points=[
+                BilingualText(
+                    en="Please try a more specific question or add relevant documents.",
+                    zh="请尝试更具体的问题或补充相关文档。",
+                )
+            ],
             sources=bundle.get("sources") or [],
             actions=_default_actions(planner),
             detail_sections=[],
@@ -3334,26 +4225,68 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
             insufficient_evidence=True,
         )
     if answerability != "none" and (detail_sections_any or slot_results_any):
-        missing_fields = [str(x or "") for x in (bundle.get("missing_fields") or bundle.get("coverage_missing_fields") or []) if str(x or "").strip()]
+        missing_fields = [
+            str(x or "")
+            for x in (
+                bundle.get("missing_fields")
+                or bundle.get("coverage_missing_fields")
+                or []
+            )
+            if str(x or "").strip()
+        ]
         coverage_stats = bundle.get("coverage_stats")
         if not isinstance(coverage_stats, DetailCoverageStats):
             coverage_stats = DetailCoverageStats(
-                docs_scanned=int(getattr(coverage_stats, "docs_scanned", 0) or 0) if coverage_stats else 0,
-                docs_matched=int(getattr(coverage_stats, "docs_matched", 0) or 0) if coverage_stats else 0,
-                fields_filled=int(getattr(coverage_stats, "fields_filled", 0) or 0) if coverage_stats else 0,
+                docs_scanned=int(getattr(coverage_stats, "docs_scanned", 0) or 0)
+                if coverage_stats
+                else 0,
+                docs_matched=int(getattr(coverage_stats, "docs_matched", 0) or 0)
+                if coverage_stats
+                else 0,
+                fields_filled=int(getattr(coverage_stats, "fields_filled", 0) or 0)
+                if coverage_stats
+                else 0,
             )
         points: list[BilingualText] = []
         added = 0
         for section in detail_sections_any[:3]:
-            rows = list(getattr(section, "rows", []) or (section.get("rows") if isinstance(section, dict) else []) or [])
+            rows = list(
+                getattr(section, "rows", [])
+                or (section.get("rows") if isinstance(section, dict) else [])
+                or []
+            )
             for row in rows[:3]:
-                label_zh = str(getattr(row, "label_zh", "") or (row.get("label_zh") if isinstance(row, dict) else "") or getattr(row, "field", "") or (row.get("field") if isinstance(row, dict) else "") or "字段")
-                label_en = str(getattr(row, "label_en", "") or (row.get("label_en") if isinstance(row, dict) else "") or label_zh)
-                value_zh = str(getattr(row, "value_zh", "") or (row.get("value_zh") if isinstance(row, dict) else "") or getattr(row, "value_en", "") or (row.get("value_en") if isinstance(row, dict) else "") or "")
-                value_en = str(getattr(row, "value_en", "") or (row.get("value_en") if isinstance(row, dict) else "") or value_zh)
+                label_zh = str(
+                    getattr(row, "label_zh", "")
+                    or (row.get("label_zh") if isinstance(row, dict) else "")
+                    or getattr(row, "field", "")
+                    or (row.get("field") if isinstance(row, dict) else "")
+                    or "字段"
+                )
+                label_en = str(
+                    getattr(row, "label_en", "")
+                    or (row.get("label_en") if isinstance(row, dict) else "")
+                    or label_zh
+                )
+                value_zh = str(
+                    getattr(row, "value_zh", "")
+                    or (row.get("value_zh") if isinstance(row, dict) else "")
+                    or getattr(row, "value_en", "")
+                    or (row.get("value_en") if isinstance(row, dict) else "")
+                    or ""
+                )
+                value_en = str(
+                    getattr(row, "value_en", "")
+                    or (row.get("value_en") if isinstance(row, dict) else "")
+                    or value_zh
+                )
                 if not value_zh.strip():
                     continue
-                points.append(BilingualText(en=f"{label_en}: {value_en}", zh=f"{label_zh}：{value_zh}"))
+                points.append(
+                    BilingualText(
+                        en=f"{label_en}: {value_en}", zh=f"{label_zh}：{value_zh}"
+                    )
+                )
                 added += 1
                 if added >= 4:
                     break
@@ -3361,15 +4294,25 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
                 break
         if added == 0:
             for row in slot_results_any[:4]:
-                if str(row.get("status") or "") not in {"found", "derived"} or not str(row.get("value") or "").strip():
+                if (
+                    str(row.get("status") or "") not in {"found", "derived"}
+                    or not str(row.get("value") or "").strip()
+                ):
                     continue
                 label_zh = str(row.get("label_zh") or row.get("slot") or "字段")
                 label_en = str(row.get("label_en") or row.get("slot") or label_zh)
                 value = str(row.get("value") or "")
-                points.append(BilingualText(en=f"{label_en}: {value}", zh=f"{label_zh}：{value}"))
+                points.append(
+                    BilingualText(en=f"{label_en}: {value}", zh=f"{label_zh}：{value}")
+                )
                 added += 1
         if missing_fields:
-            points.append(BilingualText(en=f"Missing evidence: {', '.join(missing_fields[:4])}", zh=f"尚缺证据：{', '.join(missing_fields[:4])}"))
+            points.append(
+                BilingualText(
+                    en=f"Missing evidence: {', '.join(missing_fields[:4])}",
+                    zh=f"尚缺证据：{', '.join(missing_fields[:4])}",
+                )
+            )
         if answerability in {"partial", "insufficient"}:
             short_en = "I can confirm part of the answer from the available documents, but the evidence is incomplete."
             short_zh = "根据现有资料，已确认部分信息；但证据仍不完整。"
@@ -3379,30 +4322,71 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
         _zh_mode = req.ui_lang == "zh"
         if route == "entity_fact_lookup":
             _topic = str(bundle.get("detail_topic") or "")
-            _EFL_ZH = {"insurance": "保险证据详情", "pets": "宠物记录详情", "home": "房产信息详情",
-                       "appliances": "家电设备详情", "warranty": "保修信息详情", "bill": "账单证据详情",
-                       "contract": "合同详情", "generic": "文档证据详情"}
-            _EFL_EN = {"insurance": "Insurance Evidence", "pets": "Pet Records", "home": "Property Details",
-                       "appliances": "Appliance Details", "warranty": "Warranty Details", "bill": "Bill Evidence",
-                       "contract": "Contract Details", "generic": "Document Evidence"}
-            _fb_title = (_EFL_ZH if _zh_mode else _EFL_EN).get(_topic, "Knowledge Search Result")
+            _EFL_ZH = {
+                "insurance": "保险证据详情",
+                "pets": "宠物记录详情",
+                "home": "房产信息详情",
+                "appliances": "家电设备详情",
+                "warranty": "保修信息详情",
+                "bill": "账单证据详情",
+                "contract": "合同详情",
+                "generic": "文档证据详情",
+            }
+            _EFL_EN = {
+                "insurance": "Insurance Evidence",
+                "pets": "Pet Records",
+                "home": "Property Details",
+                "appliances": "Appliance Details",
+                "warranty": "Warranty Details",
+                "bill": "Bill Evidence",
+                "contract": "Contract Details",
+                "generic": "Document Evidence",
+            }
+            _fb_title = (_EFL_ZH if _zh_mode else _EFL_EN).get(
+                _topic, "Knowledge Search Result"
+            )
             # Rebuild points from ALL rows (not capped at first 3) so every filled field is reachable
             _efl_filled_zh: list[str] = []
             _efl_filled_en: list[str] = []
             for _sec in detail_sections_any[:3]:
-                _sec_rows = list(getattr(_sec, "rows", None) or (_sec.get("rows") if isinstance(_sec, dict) else None) or [])
+                _sec_rows = list(
+                    getattr(_sec, "rows", None)
+                    or (_sec.get("rows") if isinstance(_sec, dict) else None)
+                    or []
+                )
                 for _row in _sec_rows:  # all rows, no cap
-                    _vz = str(getattr(_row, "value_zh", None) or (_row.get("value_zh") if isinstance(_row, dict) else None) or getattr(_row, "value_en", None) or (_row.get("value_en") if isinstance(_row, dict) else None) or "")
-                    _ve = str(getattr(_row, "value_en", None) or (_row.get("value_en") if isinstance(_row, dict) else None) or _vz)
-                    _lz = str(getattr(_row, "label_zh", None) or (_row.get("label_zh") if isinstance(_row, dict) else None) or "字段")
-                    _le = str(getattr(_row, "label_en", None) or (_row.get("label_en") if isinstance(_row, dict) else None) or _lz)
+                    _vz = str(
+                        getattr(_row, "value_zh", None)
+                        or (_row.get("value_zh") if isinstance(_row, dict) else None)
+                        or getattr(_row, "value_en", None)
+                        or (_row.get("value_en") if isinstance(_row, dict) else None)
+                        or ""
+                    )
+                    _ve = str(
+                        getattr(_row, "value_en", None)
+                        or (_row.get("value_en") if isinstance(_row, dict) else None)
+                        or _vz
+                    )
+                    _lz = str(
+                        getattr(_row, "label_zh", None)
+                        or (_row.get("label_zh") if isinstance(_row, dict) else None)
+                        or "字段"
+                    )
+                    _le = str(
+                        getattr(_row, "label_en", None)
+                        or (_row.get("label_en") if isinstance(_row, dict) else None)
+                        or _lz
+                    )
                     if _vz.strip():
                         _efl_filled_zh.append(f"{_lz}：{_vz}")
                         _efl_filled_en.append(f"{_le}: {_ve}")
             if _efl_filled_zh:
                 short_zh = "；".join(_efl_filled_zh[:4]) + "。"
                 short_en = "; ".join(_efl_filled_en[:4]) + "."
-                points = [BilingualText(zh=z, en=e) for z, e in zip(_efl_filled_zh, _efl_filled_en)]
+                points = [
+                    BilingualText(zh=z, en=e)
+                    for z, e in zip(_efl_filled_zh, _efl_filled_en)
+                ]
             else:
                 # No evidence found — early return as refusal so answer_mode can be set correctly
                 return ResultCard(
@@ -3411,10 +4395,12 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
                         en="Not enough evidence was found in the knowledge base to answer this question.",
                         zh="资料中没有足够信息回答此问题，请尝试更具体的问题或补充相关文档。",
                     ),
-                    key_points=[BilingualText(
-                        en="Please try a more specific question or add relevant documents.",
-                        zh="请尝试更具体的问题或补充相关文档。",
-                    )],
+                    key_points=[
+                        BilingualText(
+                            en="Please try a more specific question or add relevant documents.",
+                            zh="请尝试更具体的问题或补充相关文档。",
+                        )
+                    ],
                     sources=bundle.get("sources") or [],
                     actions=_default_actions(planner),
                     detail_sections=[],
@@ -3425,16 +4411,25 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
         elif route == "period_aggregate":
             _pa = bundle.get("period_aggregate") or {}
             _months = int(_pa.get("months") or 3)
-            _fb_title = f"过去{_months}个月账单统计" if _zh_mode else f"Bill Summary: Past {_months} Months"
+            _fb_title = (
+                f"过去{_months}个月账单统计"
+                if _zh_mode
+                else f"Bill Summary: Past {_months} Months"
+            )
         else:
             _fb_title = "Knowledge Search Result"
         return ResultCard(
             title=_fb_title,
             short_summary=BilingualText(en=short_en, zh=short_zh),
-            key_points=points[:6] or [BilingualText(en="Relevant evidence was found.", zh="已找到相关证据。")],
+            key_points=points[:6]
+            or [
+                BilingualText(en="Relevant evidence was found.", zh="已找到相关证据。")
+            ],
             sources=bundle.get("sources") or [],
             actions=_default_actions(planner),
-            detail_sections=detail_sections_any if isinstance(detail_sections_any, list) else [],
+            detail_sections=detail_sections_any
+            if isinstance(detail_sections_any, list)
+            else [],
             missing_fields=missing_fields,
             coverage_stats=coverage_stats,
             insufficient_evidence=False,
@@ -3461,15 +4456,28 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
             actions=_default_actions(planner),
         )
 
-    preview_zh_lines = [_clean_search_fallback_snippet(item.get("text"), cap=72) for item in context_chunks[:2]]
-    preview_en_lines = [_clean_search_fallback_snippet(item.get("text"), cap=96) for item in context_chunks[:2]]
-    preview_zh = "；".join(line for line in preview_zh_lines if line) or "已命中相关文档片段。"
-    preview_en = "; ".join(line for line in preview_en_lines if line) or "Relevant document snippets were found."
+    preview_zh_lines = [
+        _clean_search_fallback_snippet(item.get("text"), cap=72)
+        for item in context_chunks[:2]
+    ]
+    preview_en_lines = [
+        _clean_search_fallback_snippet(item.get("text"), cap=96)
+        for item in context_chunks[:2]
+    ]
+    preview_zh = (
+        "；".join(line for line in preview_zh_lines if line) or "已命中相关文档片段。"
+    )
+    preview_en = (
+        "; ".join(line for line in preview_en_lines if line)
+        or "Relevant document snippets were found."
+    )
 
     key_points = []
     for item in context_chunks[:3]:
         title_zh = str(item.get("title_zh") or item.get("title_en") or "相关文档")
-        title_en = str(item.get("title_en") or item.get("title_zh") or "Related document")
+        title_en = str(
+            item.get("title_en") or item.get("title_zh") or "Related document"
+        )
         key_points.append(
             BilingualText(
                 en=f"{title_en}: {_clean_search_fallback_snippet(item.get('text'), cap=80)}",
@@ -3478,7 +4486,11 @@ def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bun
         )
 
     answerability = str(bundle.get("answerability") or "sufficient")
-    coverage_missing_fields = [str(x or "") for x in (bundle.get("coverage_missing_fields") or []) if str(x or "").strip()]
+    coverage_missing_fields = [
+        str(x or "")
+        for x in (bundle.get("coverage_missing_fields") or [])
+        if str(x or "").strip()
+    ]
     if req.ui_lang == "en" and answerability != "sufficient":
         short_en = "I found potentially related documents, but I do not have enough evidence to answer this question directly."
         if coverage_missing_fields:
@@ -3526,7 +4538,9 @@ _SUB_INTENT_TO_PLANNER_INTENT: dict[str, str] = {
 }
 
 
-def _router_to_planner(router: RouterDecision, req: AgentExecuteRequest) -> PlannerDecision:
+def _router_to_planner(
+    router: RouterDecision, req: AgentExecuteRequest
+) -> PlannerDecision:
     """Convert RouterDecision → PlannerDecision for bundle builder compatibility."""
     intent = _SUB_INTENT_TO_PLANNER_INTENT.get(router.sub_intent, router.sub_intent)
     return PlannerDecision(
@@ -3567,7 +4581,9 @@ def _build_chitchat_card(req: AgentExecuteRequest) -> ResultCard:
         actions=[],
         detail_sections=[],
         missing_fields=[],
-        coverage_stats=DetailCoverageStats(docs_scanned=0, docs_matched=0, fields_filled=0),
+        coverage_stats=DetailCoverageStats(
+            docs_scanned=0, docs_matched=0, fields_filled=0
+        ),
         evidence_summary=[],
         insufficient_evidence=False,
     )
@@ -3610,8 +4626,13 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
         card = _build_chitchat_card(req)
         logger.info(
             "agent_v2_chitchat",
-            extra=sanitize_log_context({"trace_id": trace_id, "route": "chitchat",
-                                        "route_reason": router.route_reason}),
+            extra=sanitize_log_context(
+                {
+                    "trace_id": trace_id,
+                    "route": "chitchat",
+                    "route_reason": router.route_reason,
+                }
+            ),
         )
         return AgentExecuteResponse(
             planner=planner,
@@ -3629,21 +4650,35 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
 
     # ── 3. Lookup: swap in rewritten query for retrieval ─────────────
     retrieval_req = req
-    if router is not None and router.route == "lookup" and (router.rewritten_query or "").strip():
+    if (
+        router is not None
+        and router.route == "lookup"
+        and (router.rewritten_query or "").strip()
+    ):
         retrieval_req = req.model_copy(update={"query": router.rewritten_query})
 
     # ── 4–7. Bundle, coverage, synthesis, response (same as legacy) ──
     context_policy = _context_policy_for_query(
         req.query,
-        client_context=(req.client_context if isinstance(req.client_context, dict) else {}),
+        client_context=(
+            req.client_context if isinstance(req.client_context, dict) else {}
+        ),
     )
-    synth_conversation = _normalize_conversation_messages(req, context_policy=context_policy)
+    synth_conversation = _normalize_conversation_messages(
+        req, context_policy=context_policy
+    )
     executor_started = time.perf_counter()
     bundle = _execute_plan(db, retrieval_req, planner)
     executor_latency_ms = int((time.perf_counter() - executor_started) * 1000)
     # Structured-only routes (bill_monthly_total, queue, tag, reprocess, entity_fact_lookup) never reach
     # synthesis, so the full coverage-analysis pass is unnecessary.
-    _STRUCTURED_ONLY_ROUTES = {"bill_monthly_total", "queue_view", "tag_update_exec", "reprocess_exec", "entity_fact_lookup"}
+    _STRUCTURED_ONLY_ROUTES = {
+        "bill_monthly_total",
+        "queue_view",
+        "tag_update_exec",
+        "reprocess_exec",
+        "entity_fact_lookup",
+    }
     _early_route = str(bundle.get("route") or "")
     _is_structured_route = _early_route in _STRUCTURED_ONLY_ROUTES
     if _is_structured_route:
@@ -3661,7 +4696,13 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
         answerability = "sufficient"
     else:
         required_fields = _required_evidence_fields(req.query, planner)
-        query_required_terms = [str(x or "").strip() for x in (bundle.get("query_required_terms") or _query_required_terms(req.query)) if str(x or "").strip()]
+        query_required_terms = [
+            str(x or "").strip()
+            for x in (
+                bundle.get("query_required_terms") or _query_required_terms(req.query)
+            )
+            if str(x or "").strip()
+        ]
         query_required_terms = query_required_terms[:8]
         context_chunks = list(bundle.get("context_chunks") or [])
         subject_anchor_terms = _subject_anchor_terms(req.query)
@@ -3671,14 +4712,22 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
         if router is not None and (router.rewritten_query or "").strip():
             _extra_anchors = _subject_anchor_terms(router.rewritten_query)
             _seen_anchors = set(subject_anchor_terms)
-            subject_anchor_terms = subject_anchor_terms + [t for t in _extra_anchors if t not in _seen_anchors]
+            subject_anchor_terms = subject_anchor_terms + [
+                t for t in _extra_anchors if t not in _seen_anchors
+            ]
             subject_anchor_terms = subject_anchor_terms[:12]
         target_field_terms = _target_field_terms(req.query)
         evidence_map = _build_evidence_map(required_fields, context_chunks)
-        field_coverage_ratio, coverage_missing_fields = _coverage_from_map(required_fields, evidence_map)
+        field_coverage_ratio, coverage_missing_fields = _coverage_from_map(
+            required_fields, evidence_map
+        )
         subject_coverage_ok = _subject_coverage_ok(subject_anchor_terms, context_chunks)
-        target_field_coverage_ok = _target_field_coverage_ok(target_field_terms, context_chunks)
-        refusal_candidate = bool(getattr(planner, "refusal_candidate", False)) or ("explicit_presence_evidence" in required_fields)
+        target_field_coverage_ok = _target_field_coverage_ok(
+            target_field_terms, context_chunks
+        )
+        refusal_candidate = bool(getattr(planner, "refusal_candidate", False)) or (
+            "explicit_presence_evidence" in required_fields
+        )
         answerability = _infer_answerability(
             hit_count=int(bundle.get("hit_count") or 0),
             coverage_ratio=float(field_coverage_ratio),
@@ -3687,7 +4736,11 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
         )
         if (not subject_coverage_ok) and int(bundle.get("hit_count") or 0) > 0:
             answerability = "none" if refusal_candidate else "insufficient"
-        if (not target_field_coverage_ok) and int(bundle.get("hit_count") or 0) > 0 and target_field_terms:
+        if (
+            (not target_field_coverage_ok)
+            and int(bundle.get("hit_count") or 0) > 0
+            and target_field_terms
+        ):
             answerability = "none" if refusal_candidate else "insufficient"
             if "target_field" not in coverage_missing_fields:
                 coverage_missing_fields.append("target_field")
@@ -3702,7 +4755,11 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
     bundle["query_required_terms"] = query_required_terms
     bundle["target_field_terms"] = target_field_terms
     bundle["evidence_map"] = evidence_map
-    effective_coverage_ratio = field_coverage_ratio if (subject_coverage_ok and target_field_coverage_ok) else 0.0
+    effective_coverage_ratio = (
+        field_coverage_ratio
+        if (subject_coverage_ok and target_field_coverage_ok)
+        else 0.0
+    )
     bundle["coverage_ratio"] = float(effective_coverage_ratio)
     bundle["field_coverage_ratio"] = float(field_coverage_ratio)
     bundle["coverage_missing_fields"] = coverage_missing_fields
@@ -3711,8 +4768,14 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
     bundle["target_field_coverage_ok"] = bool(target_field_coverage_ok)
     bundle["answerability"] = answerability
     bundle["refusal_candidate"] = refusal_candidate
-    related_doc_selection_mode, evidence_backed_doc_count = _apply_related_docs_selection(bundle)
-    subject_entity = _infer_subject_entity(req.query, detail_topic=str(bundle.get("detail_topic") or ""), route=str(bundle.get("route") or ""))
+    related_doc_selection_mode, evidence_backed_doc_count = (
+        _apply_related_docs_selection(bundle)
+    )
+    subject_entity = _infer_subject_entity(
+        req.query,
+        detail_topic=str(bundle.get("detail_topic") or ""),
+        route=str(bundle.get("route") or ""),
+    )
     logger.info(
         "agent_v2_executor_route",
         extra=sanitize_log_context(
@@ -3728,314 +4791,54 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
                 "vector_hit_count": int(bundle.get("vector_hit_count") or 0),
                 "answerability": answerability,
                 "coverage_ratio": float(bundle.get("coverage_ratio") or 0.0),
-                "route_reason": str(bundle.get("route_reason") or getattr(planner, "route_reason", "")),
+                "route_reason": str(
+                    bundle.get("route_reason") or getattr(planner, "route_reason", "")
+                ),
             }
         ),
     )
     route_name = str(bundle.get("route") or "")
     force_structured = route_name in {"bill_monthly_total", "entity_fact_lookup"}
-    detail_zero_hit = route_name == "detail_extract" and int(bundle.get("hit_count") or 0) <= 0
+    detail_zero_hit = (
+        route_name == "detail_extract" and int(bundle.get("hit_count") or 0) <= 0
+    )
     qualifier_gated = bool(query_required_terms) and answerability != "sufficient"
     subject_gated = (not subject_coverage_ok) and bool(subject_anchor_terms)
     target_field_gated = (not target_field_coverage_ok) and bool(target_field_terms)
     # V2 open-ended search: don't hard-gate on field-term coverage; synthesizer handles it.
-    if router is not None and router.sub_intent in {"search_semantic", "entity_fact_lookup"}:
+    if router is not None and router.sub_intent in {
+        "search_semantic",
+        "entity_fact_lookup",
+    }:
         target_field_gated = False
-    force_refusal = (answerability == "none" or (refusal_candidate and answerability != "sufficient")) and route_name in {
-        "search_bundle", "entity_fact_lookup", "period_aggregate", "detail_extract",
-    }
-    if qualifier_gated and route_name in {"search_bundle", "entity_fact_lookup", "period_aggregate", "detail_extract"}:
-        force_refusal = True
-    if subject_gated and route_name in {"search_bundle", "entity_fact_lookup", "period_aggregate", "detail_extract"}:
-        force_refusal = True
-    if target_field_gated and route_name in {"search_bundle", "entity_fact_lookup", "period_aggregate", "detail_extract"}:
-        force_refusal = True
-    if detail_zero_hit:
-        force_refusal = True
-    if force_refusal and (subject_gated or target_field_gated):
-        bundle["related_docs"] = []
-        related_doc_selection_mode = "evidence_only"
-        evidence_backed_doc_count = 0
-    if force_structured:
-        card = None
-        synth_error_code = "structured_route"
-    elif force_refusal:
-        card = None
-        synth_error_code = "insufficient_evidence"
-    else:
-        synth_started = time.perf_counter()
-        card, synth_error_code = _synthesize_with_model(
-            req, planner, bundle, trace_id=trace_id, conversation=synth_conversation,
-        )
-        synth_latency_ms = int((time.perf_counter() - synth_started) * 1000)
-    synth_fallback_used = False
-    if card is None:
-        synth_fallback_used = True
-        card = _synthesize_fallback(req, planner, bundle)
-    # Structured-route fallback returned no evidence → treat as refusal
-    if synth_fallback_used and card is not None and card.insufficient_evidence:
-        force_refusal = True
-        synth_error_code = "insufficient_evidence"
-    answer_mode = "search_summary"
-    if force_refusal:
-        answer_mode = "refusal"
-        synth_fallback_used = True
-        if not synth_error_code:
-            synth_error_code = "insufficient_evidence"
-        card = ResultCard(
-            title="Insufficient Evidence",
-            short_summary=BilingualText(
-                en="Not enough evidence was found in the knowledge base to answer this question safely.",
-                zh="资料中没有相关信息，且缺少足够证据，暂时无法确认。",
-            ),
-            key_points=[
-                BilingualText(en="Please provide more specific documents or keywords.", zh="请补充更具体的文档或关键词后重试。"),
-                BilingualText(
-                    en=f"Missing evidence fields: {', '.join(coverage_missing_fields) if coverage_missing_fields else 'n/a'}",
-                    zh=f"缺失证据字段：{', '.join(coverage_missing_fields) if coverage_missing_fields else '无'}",
-                ),
-            ],
-            sources=bundle.get("sources") or [],
-            actions=_default_actions(planner),
-            evidence_summary=[f"{field}:0" for field in coverage_missing_fields[:8]],
-            insufficient_evidence=True,
-        )
-    else:
-        if route_name in {"detail_extract", "entity_fact_lookup", "period_aggregate", "bill_attention", "bill_monthly_total"}:
-            answer_mode = "structured" if answerability == "sufficient" else "partial_structured"
-        else:
-            answer_mode = "search_summary"
-        card.insufficient_evidence = False
-        card.evidence_summary = [f"{field}:{len(evidence_map.get(field) or [])}" for field in required_fields[:8]]
-        if (answerability == "none" or refusal_candidate) and _contains_specific_claim(
-            f"{card.short_summary.zh}\n{card.short_summary.en}\n" + "\n".join(item.zh for item in card.key_points[:5])
-        ):
-            synth_fallback_used = True
-            synth_error_code = "refusal_policy_violation"
-            card = ResultCard(
-                title="Insufficient Evidence",
-                short_summary=BilingualText(
-                    en="Not enough evidence was found in the knowledge base to answer this question safely.",
-                    zh="资料中没有相关信息，且缺少足够证据，暂时无法确认。",
-                ),
-                key_points=[
-                    BilingualText(en="Please provide more specific documents or keywords.", zh="请补充更具体的文档或关键词后重试。"),
-                    BilingualText(
-                        en=f"Missing evidence fields: {', '.join(coverage_missing_fields) if coverage_missing_fields else 'n/a'}",
-                        zh=f"缺失证据字段：{', '.join(coverage_missing_fields) if coverage_missing_fields else '无'}",
-                    ),
-                ],
-                sources=bundle.get("sources") or [],
-                actions=_default_actions(planner),
-                evidence_summary=[f"{field}:0" for field in coverage_missing_fields[:8]],
-                insufficient_evidence=True,
-            )
-    total_latency_ms = int((time.perf_counter() - total_started) * 1000)
-    logger.info(
-        "agent_v2_timing",
-        extra=sanitize_log_context(
-            {
-                "trace_id": trace_id,
-                "route": str(bundle.get("route") or ""),
-                "planner_latency_ms": int(planner_latency_ms),
-                "executor_latency_ms": int(executor_latency_ms),
-                "synth_latency_ms": int(synth_latency_ms),
-                "total_latency_ms": int(total_latency_ms),
-                "synth_fallback_used": bool(synth_fallback_used),
-                "synth_error_code": str(synth_error_code or ""),
-                "answer_mode": answer_mode,
-            }
-        ),
-    )
-    if req.ui_lang == "en":
-        locale_response_mode = "en_native" if str(card.short_summary.en or "").strip() else "bilingual_fallback"
-    else:
-        locale_response_mode = "zh_native" if str(card.short_summary.zh or "").strip() else "bilingual_fallback"
-    return AgentExecuteResponse(
-        planner=planner,
-        card=card,
-        related_docs=bundle.get("related_docs") or [],
-        trace_id=trace_id,
-        executor_stats=AgentExecutorStats(
-            hit_count=int(bundle.get("hit_count") or 0),
-            doc_count=int(bundle.get("doc_count") or 0),
-            used_chunk_count=len(bundle.get("context_chunks") or []),
-            route=str(bundle.get("route") or ""),
-            bilingual_search=bool(bundle.get("bilingual_search")),
-            qdrant_used=bool(bundle.get("qdrant_used")),
-            retrieval_mode=str(bundle.get("retrieval_mode") or "none"),
-            vector_hit_count=int(bundle.get("vector_hit_count") or 0),
-            lexical_hit_count=int(bundle.get("lexical_hit_count") or 0),
-            fallback_reason=str(bundle.get("fallback_reason") or ""),
-            facet_mode=str(bundle.get("facet_mode") or "none"),
-            facet_keys=[str(item) for item in (bundle.get("facet_keys") or []) if str(item or "").strip()],
-            context_policy=context_policy,
-            fact_route=str(bundle.get("fact_route") or "none"),
-            fact_month=str(bundle.get("fact_month") or ""),
-            synth_fallback_used=bool(synth_fallback_used),
-            synth_error_code=str(synth_error_code or ""),
-            detail_topic=str(bundle.get("detail_topic") or ""),
-            detail_mode=str(bundle.get("detail_mode") or ("fallback" if synth_fallback_used else "structured")),
-            detail_rows_count=int(bundle.get("detail_rows_count") or 0),
-            answerability=answerability,
-            coverage_ratio=float(bundle.get("coverage_ratio") or 0.0),
-            field_coverage_ratio=float(field_coverage_ratio),
-            coverage_missing_fields=coverage_missing_fields,
-            query_required_terms=query_required_terms,
-            subject_anchor_terms=subject_anchor_terms,
-            subject_coverage_ok=bool(subject_coverage_ok),
-            target_field_terms=target_field_terms,
-            target_field_coverage_ok=bool(target_field_coverage_ok),
-            infra_guard_applied=bool(qualifier_gated or subject_gated or target_field_gated),
-            locale_response_mode=locale_response_mode,
-            answer_mode=answer_mode,
-            evidence_backed_doc_count=int(evidence_backed_doc_count),
-            related_doc_selection_mode=related_doc_selection_mode,
-            subject_entity=subject_entity,
-            route_reason=str(bundle.get("route_reason") or getattr(planner, "route_reason", "")),
-            planner_latency_ms=planner_latency_ms,
-            executor_latency_ms=executor_latency_ms,
-            synth_latency_ms=synth_latency_ms,
-        ),
-    )
-
-
-def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteResponse:
-    total_started = time.perf_counter()
-    planner_latency_ms = 0
-    executor_latency_ms = 0
-    synth_latency_ms = 0
-    planner: PlannerDecision
-    planner_started = time.perf_counter()
-    if req.planner is None:
-        planner = plan_from_request(
-            PlannerRequest(
-                query=req.query,
-                ui_lang=req.ui_lang,
-                query_lang=req.query_lang,
-                doc_scope=req.doc_scope,
-            )
-        )
-    else:
-        planner = req.planner
-        if (not planner.doc_scope) and isinstance(req.doc_scope, dict) and req.doc_scope:
-            planner = PlannerDecision(
-                intent=planner.intent,
-                confidence=planner.confidence,
-                doc_scope=req.doc_scope,
-                actions=planner.actions,
-                fallback=planner.fallback,
-                ui_lang=planner.ui_lang,
-                query_lang=planner.query_lang,
-            )
-    planner_latency_ms = int((time.perf_counter() - planner_started) * 1000)
-
-    trace_id = f"agt-{uuid.uuid4().hex[:12]}"
-    context_policy = _context_policy_for_query(
-        req.query,
-        client_context=(req.client_context if isinstance(req.client_context, dict) else {}),
-    )
-    synth_conversation = _normalize_conversation_messages(req, context_policy=context_policy)
-    executor_started = time.perf_counter()
-    bundle = _execute_plan(db, req, planner)
-    executor_latency_ms = int((time.perf_counter() - executor_started) * 1000)
-    required_fields = _required_evidence_fields(req.query, planner)
-    query_required_terms = [str(x or "").strip() for x in (bundle.get("query_required_terms") or _query_required_terms(req.query)) if str(x or "").strip()]
-    query_required_terms = query_required_terms[:8]
-    context_chunks = list(bundle.get("context_chunks") or [])
-    subject_anchor_terms = _subject_anchor_terms(req.query)
-    target_field_terms = _target_field_terms(req.query)
-    evidence_map = _build_evidence_map(required_fields, context_chunks)
-    field_coverage_ratio, coverage_missing_fields = _coverage_from_map(required_fields, evidence_map)
-    subject_coverage_ok = _subject_coverage_ok(subject_anchor_terms, context_chunks)
-    target_field_coverage_ok = _target_field_coverage_ok(target_field_terms, context_chunks)
-    refusal_candidate = bool(getattr(planner, "refusal_candidate", False)) or ("explicit_presence_evidence" in required_fields)
-    answerability = _infer_answerability(
-        hit_count=int(bundle.get("hit_count") or 0),
-        coverage_ratio=float(field_coverage_ratio),
-        refusal_candidate=refusal_candidate,
-        has_requirements=bool(required_fields),
-    )
-    if (not subject_coverage_ok) and int(bundle.get("hit_count") or 0) > 0:
-        answerability = "none" if refusal_candidate else "insufficient"
-    if (not target_field_coverage_ok) and int(bundle.get("hit_count") or 0) > 0 and target_field_terms:
-        answerability = "none" if refusal_candidate else "insufficient"
-        if "target_field" not in coverage_missing_fields:
-            coverage_missing_fields.append("target_field")
-    if refusal_candidate and "explicit_presence_evidence" in required_fields:
-        presence_ok = _presence_evidence_sufficient(req.query, context_chunks)
-        if not presence_ok:
-            answerability = "none"
-            if "explicit_presence_evidence" not in coverage_missing_fields:
-                coverage_missing_fields.append("explicit_presence_evidence")
-            field_coverage_ratio = 0.0
-    bundle["required_evidence_fields"] = required_fields
-    bundle["query_required_terms"] = query_required_terms
-    bundle["target_field_terms"] = target_field_terms
-    bundle["evidence_map"] = evidence_map
-    effective_coverage_ratio = field_coverage_ratio if (subject_coverage_ok and target_field_coverage_ok) else 0.0
-    bundle["coverage_ratio"] = float(effective_coverage_ratio)
-    bundle["field_coverage_ratio"] = float(field_coverage_ratio)
-    bundle["coverage_missing_fields"] = coverage_missing_fields
-    bundle["subject_anchor_terms"] = subject_anchor_terms
-    bundle["subject_coverage_ok"] = bool(subject_coverage_ok)
-    bundle["target_field_coverage_ok"] = bool(target_field_coverage_ok)
-    bundle["answerability"] = answerability
-    bundle["refusal_candidate"] = refusal_candidate
-    related_doc_selection_mode, evidence_backed_doc_count = _apply_related_docs_selection(bundle)
-    subject_entity = _infer_subject_entity(req.query, detail_topic=str(bundle.get("detail_topic") or ""), route=str(bundle.get("route") or ""))
-    logger.info(
-        "agent_executor_route",
-        extra=sanitize_log_context(
-            {
-                "trace_id": trace_id,
-                "route": str(bundle.get("route") or ""),
-                "facet_mode": str(bundle.get("facet_mode") or "none"),
-                "facet_keys": [str(item) for item in (bundle.get("facet_keys") or []) if str(item or "").strip()],
-                "qdrant_used": bool(bundle.get("qdrant_used")),
-                "retrieval_mode": str(bundle.get("retrieval_mode") or ""),
-                "vector_hit_count": int(bundle.get("vector_hit_count") or 0),
-                "lexical_hit_count": int(bundle.get("lexical_hit_count") or 0),
-                "fallback_reason": str(bundle.get("fallback_reason") or ""),
-                "context_policy": context_policy,
-                "fact_route": str(bundle.get("fact_route") or "none"),
-                "fact_month": str(bundle.get("fact_month") or ""),
-                "detail_topic": str(bundle.get("detail_topic") or ""),
-                "detail_mode": str(bundle.get("detail_mode") or ""),
-                "detail_rows_count": int(bundle.get("detail_rows_count") or 0),
-                "answerability": answerability,
-                "coverage_ratio": float(bundle.get("coverage_ratio") or 0.0),
-                "field_coverage_ratio": float(field_coverage_ratio),
-                "coverage_missing_fields": coverage_missing_fields,
-                "query_required_terms": query_required_terms,
-                "subject_anchor_terms": subject_anchor_terms,
-                "subject_coverage_ok": bool(subject_coverage_ok),
-                "target_field_terms": target_field_terms,
-                "target_field_coverage_ok": bool(target_field_coverage_ok),
-                "related_doc_selection_mode": related_doc_selection_mode,
-                "evidence_backed_doc_count": int(evidence_backed_doc_count),
-                "subject_entity": subject_entity,
-                "route_reason": str(bundle.get("route_reason") or getattr(planner, "route_reason", "")),
-            }
-        ),
-    )
-    route_name = str(bundle.get("route") or "")
-    force_structured = route_name in {"bill_monthly_total", "entity_fact_lookup"}
-    detail_zero_hit = route_name == "detail_extract" and int(bundle.get("hit_count") or 0) <= 0
-    qualifier_gated = bool(query_required_terms) and answerability != "sufficient"
-    subject_gated = (not subject_coverage_ok) and bool(subject_anchor_terms)
-    target_field_gated = (not target_field_coverage_ok) and bool(target_field_terms)
-    force_refusal = (answerability == "none" or (refusal_candidate and answerability != "sufficient")) and route_name in {
+    force_refusal = (
+        answerability == "none" or (refusal_candidate and answerability != "sufficient")
+    ) and route_name in {
         "search_bundle",
         "entity_fact_lookup",
         "period_aggregate",
         "detail_extract",
     }
-    if qualifier_gated and route_name in {"search_bundle", "entity_fact_lookup", "period_aggregate", "detail_extract"}:
+    if qualifier_gated and route_name in {
+        "search_bundle",
+        "entity_fact_lookup",
+        "period_aggregate",
+        "detail_extract",
+    }:
         force_refusal = True
-    if subject_gated and route_name in {"search_bundle", "entity_fact_lookup", "period_aggregate", "detail_extract"}:
+    if subject_gated and route_name in {
+        "search_bundle",
+        "entity_fact_lookup",
+        "period_aggregate",
+        "detail_extract",
+    }:
         force_refusal = True
-    if target_field_gated and route_name in {"search_bundle", "entity_fact_lookup", "period_aggregate", "detail_extract"}:
+    if target_field_gated and route_name in {
+        "search_bundle",
+        "entity_fact_lookup",
+        "period_aggregate",
+        "detail_extract",
+    }:
         force_refusal = True
     if detail_zero_hit:
         force_refusal = True
@@ -4095,14 +4898,26 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
             insufficient_evidence=True,
         )
     else:
-        if route_name in {"detail_extract", "entity_fact_lookup", "period_aggregate", "bill_attention", "bill_monthly_total"}:
-            answer_mode = "structured" if answerability == "sufficient" else "partial_structured"
+        if route_name in {
+            "detail_extract",
+            "entity_fact_lookup",
+            "period_aggregate",
+            "bill_attention",
+            "bill_monthly_total",
+        }:
+            answer_mode = (
+                "structured" if answerability == "sufficient" else "partial_structured"
+            )
         else:
             answer_mode = "search_summary"
         card.insufficient_evidence = False
-        card.evidence_summary = [f"{field}:{len(evidence_map.get(field) or [])}" for field in required_fields[:8]]
+        card.evidence_summary = [
+            f"{field}:{len(evidence_map.get(field) or [])}"
+            for field in required_fields[:8]
+        ]
         if (answerability == "none" or refusal_candidate) and _contains_specific_claim(
-            f"{card.short_summary.zh}\n{card.short_summary.en}\n" + "\n".join(item.zh for item in card.key_points[:5])
+            f"{card.short_summary.zh}\n{card.short_summary.en}\n"
+            + "\n".join(item.zh for item in card.key_points[:5])
         ):
             synth_fallback_used = True
             synth_error_code = "refusal_policy_violation"
@@ -4124,7 +4939,398 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
                 ],
                 sources=bundle.get("sources") or [],
                 actions=_default_actions(planner),
-                evidence_summary=[f"{field}:0" for field in coverage_missing_fields[:8]],
+                evidence_summary=[
+                    f"{field}:0" for field in coverage_missing_fields[:8]
+                ],
+                insufficient_evidence=True,
+            )
+    total_latency_ms = int((time.perf_counter() - total_started) * 1000)
+    logger.info(
+        "agent_v2_timing",
+        extra=sanitize_log_context(
+            {
+                "trace_id": trace_id,
+                "route": str(bundle.get("route") or ""),
+                "planner_latency_ms": int(planner_latency_ms),
+                "executor_latency_ms": int(executor_latency_ms),
+                "synth_latency_ms": int(synth_latency_ms),
+                "total_latency_ms": int(total_latency_ms),
+                "synth_fallback_used": bool(synth_fallback_used),
+                "synth_error_code": str(synth_error_code or ""),
+                "answer_mode": answer_mode,
+            }
+        ),
+    )
+    if req.ui_lang == "en":
+        locale_response_mode = (
+            "en_native"
+            if str(card.short_summary.en or "").strip()
+            else "bilingual_fallback"
+        )
+    else:
+        locale_response_mode = (
+            "zh_native"
+            if str(card.short_summary.zh or "").strip()
+            else "bilingual_fallback"
+        )
+    return AgentExecuteResponse(
+        planner=planner,
+        card=card,
+        related_docs=bundle.get("related_docs") or [],
+        trace_id=trace_id,
+        executor_stats=AgentExecutorStats(
+            hit_count=int(bundle.get("hit_count") or 0),
+            doc_count=int(bundle.get("doc_count") or 0),
+            used_chunk_count=len(bundle.get("context_chunks") or []),
+            route=str(bundle.get("route") or ""),
+            bilingual_search=bool(bundle.get("bilingual_search")),
+            qdrant_used=bool(bundle.get("qdrant_used")),
+            retrieval_mode=str(bundle.get("retrieval_mode") or "none"),
+            vector_hit_count=int(bundle.get("vector_hit_count") or 0),
+            lexical_hit_count=int(bundle.get("lexical_hit_count") or 0),
+            fallback_reason=str(bundle.get("fallback_reason") or ""),
+            facet_mode=str(bundle.get("facet_mode") or "none"),
+            facet_keys=[
+                str(item)
+                for item in (bundle.get("facet_keys") or [])
+                if str(item or "").strip()
+            ],
+            context_policy=context_policy,
+            fact_route=str(bundle.get("fact_route") or "none"),
+            fact_month=str(bundle.get("fact_month") or ""),
+            synth_fallback_used=bool(synth_fallback_used),
+            synth_error_code=str(synth_error_code or ""),
+            detail_topic=str(bundle.get("detail_topic") or ""),
+            detail_mode=str(
+                bundle.get("detail_mode")
+                or ("fallback" if synth_fallback_used else "structured")
+            ),
+            detail_rows_count=int(bundle.get("detail_rows_count") or 0),
+            answerability=answerability,
+            coverage_ratio=float(bundle.get("coverage_ratio") or 0.0),
+            field_coverage_ratio=float(field_coverage_ratio),
+            coverage_missing_fields=coverage_missing_fields,
+            query_required_terms=query_required_terms,
+            subject_anchor_terms=subject_anchor_terms,
+            subject_coverage_ok=bool(subject_coverage_ok),
+            target_field_terms=target_field_terms,
+            target_field_coverage_ok=bool(target_field_coverage_ok),
+            infra_guard_applied=bool(
+                qualifier_gated or subject_gated or target_field_gated
+            ),
+            locale_response_mode=locale_response_mode,
+            answer_mode=answer_mode,
+            evidence_backed_doc_count=int(evidence_backed_doc_count),
+            related_doc_selection_mode=related_doc_selection_mode,
+            subject_entity=subject_entity,
+            route_reason=str(
+                bundle.get("route_reason") or getattr(planner, "route_reason", "")
+            ),
+            planner_latency_ms=planner_latency_ms,
+            executor_latency_ms=executor_latency_ms,
+            synth_latency_ms=synth_latency_ms,
+        ),
+    )
+
+
+def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteResponse:
+    total_started = time.perf_counter()
+    planner_latency_ms = 0
+    executor_latency_ms = 0
+    synth_latency_ms = 0
+    planner: PlannerDecision
+    planner_started = time.perf_counter()
+    if req.planner is None:
+        planner = plan_from_request(
+            PlannerRequest(
+                query=req.query,
+                ui_lang=req.ui_lang,
+                query_lang=req.query_lang,
+                doc_scope=req.doc_scope,
+            )
+        )
+    else:
+        planner = req.planner
+        if (
+            (not planner.doc_scope)
+            and isinstance(req.doc_scope, dict)
+            and req.doc_scope
+        ):
+            planner = PlannerDecision(
+                intent=planner.intent,
+                confidence=planner.confidence,
+                doc_scope=req.doc_scope,
+                actions=planner.actions,
+                fallback=planner.fallback,
+                ui_lang=planner.ui_lang,
+                query_lang=planner.query_lang,
+            )
+    planner_latency_ms = int((time.perf_counter() - planner_started) * 1000)
+
+    trace_id = f"agt-{uuid.uuid4().hex[:12]}"
+    context_policy = _context_policy_for_query(
+        req.query,
+        client_context=(
+            req.client_context if isinstance(req.client_context, dict) else {}
+        ),
+    )
+    synth_conversation = _normalize_conversation_messages(
+        req, context_policy=context_policy
+    )
+    executor_started = time.perf_counter()
+    bundle = _execute_plan(db, req, planner)
+    executor_latency_ms = int((time.perf_counter() - executor_started) * 1000)
+    required_fields = _required_evidence_fields(req.query, planner)
+    query_required_terms = [
+        str(x or "").strip()
+        for x in (
+            bundle.get("query_required_terms") or _query_required_terms(req.query)
+        )
+        if str(x or "").strip()
+    ]
+    query_required_terms = query_required_terms[:8]
+    context_chunks = list(bundle.get("context_chunks") or [])
+    subject_anchor_terms = _subject_anchor_terms(req.query)
+    target_field_terms = _target_field_terms(req.query)
+    evidence_map = _build_evidence_map(required_fields, context_chunks)
+    field_coverage_ratio, coverage_missing_fields = _coverage_from_map(
+        required_fields, evidence_map
+    )
+    subject_coverage_ok = _subject_coverage_ok(subject_anchor_terms, context_chunks)
+    target_field_coverage_ok = _target_field_coverage_ok(
+        target_field_terms, context_chunks
+    )
+    refusal_candidate = bool(getattr(planner, "refusal_candidate", False)) or (
+        "explicit_presence_evidence" in required_fields
+    )
+    answerability = _infer_answerability(
+        hit_count=int(bundle.get("hit_count") or 0),
+        coverage_ratio=float(field_coverage_ratio),
+        refusal_candidate=refusal_candidate,
+        has_requirements=bool(required_fields),
+    )
+    if (not subject_coverage_ok) and int(bundle.get("hit_count") or 0) > 0:
+        answerability = "none" if refusal_candidate else "insufficient"
+    if (
+        (not target_field_coverage_ok)
+        and int(bundle.get("hit_count") or 0) > 0
+        and target_field_terms
+    ):
+        answerability = "none" if refusal_candidate else "insufficient"
+        if "target_field" not in coverage_missing_fields:
+            coverage_missing_fields.append("target_field")
+    if refusal_candidate and "explicit_presence_evidence" in required_fields:
+        presence_ok = _presence_evidence_sufficient(req.query, context_chunks)
+        if not presence_ok:
+            answerability = "none"
+            if "explicit_presence_evidence" not in coverage_missing_fields:
+                coverage_missing_fields.append("explicit_presence_evidence")
+            field_coverage_ratio = 0.0
+    bundle["required_evidence_fields"] = required_fields
+    bundle["query_required_terms"] = query_required_terms
+    bundle["target_field_terms"] = target_field_terms
+    bundle["evidence_map"] = evidence_map
+    effective_coverage_ratio = (
+        field_coverage_ratio
+        if (subject_coverage_ok and target_field_coverage_ok)
+        else 0.0
+    )
+    bundle["coverage_ratio"] = float(effective_coverage_ratio)
+    bundle["field_coverage_ratio"] = float(field_coverage_ratio)
+    bundle["coverage_missing_fields"] = coverage_missing_fields
+    bundle["subject_anchor_terms"] = subject_anchor_terms
+    bundle["subject_coverage_ok"] = bool(subject_coverage_ok)
+    bundle["target_field_coverage_ok"] = bool(target_field_coverage_ok)
+    bundle["answerability"] = answerability
+    bundle["refusal_candidate"] = refusal_candidate
+    related_doc_selection_mode, evidence_backed_doc_count = (
+        _apply_related_docs_selection(bundle)
+    )
+    subject_entity = _infer_subject_entity(
+        req.query,
+        detail_topic=str(bundle.get("detail_topic") or ""),
+        route=str(bundle.get("route") or ""),
+    )
+    logger.info(
+        "agent_executor_route",
+        extra=sanitize_log_context(
+            {
+                "trace_id": trace_id,
+                "route": str(bundle.get("route") or ""),
+                "facet_mode": str(bundle.get("facet_mode") or "none"),
+                "facet_keys": [
+                    str(item)
+                    for item in (bundle.get("facet_keys") or [])
+                    if str(item or "").strip()
+                ],
+                "qdrant_used": bool(bundle.get("qdrant_used")),
+                "retrieval_mode": str(bundle.get("retrieval_mode") or ""),
+                "vector_hit_count": int(bundle.get("vector_hit_count") or 0),
+                "lexical_hit_count": int(bundle.get("lexical_hit_count") or 0),
+                "fallback_reason": str(bundle.get("fallback_reason") or ""),
+                "context_policy": context_policy,
+                "fact_route": str(bundle.get("fact_route") or "none"),
+                "fact_month": str(bundle.get("fact_month") or ""),
+                "detail_topic": str(bundle.get("detail_topic") or ""),
+                "detail_mode": str(bundle.get("detail_mode") or ""),
+                "detail_rows_count": int(bundle.get("detail_rows_count") or 0),
+                "answerability": answerability,
+                "coverage_ratio": float(bundle.get("coverage_ratio") or 0.0),
+                "field_coverage_ratio": float(field_coverage_ratio),
+                "coverage_missing_fields": coverage_missing_fields,
+                "query_required_terms": query_required_terms,
+                "subject_anchor_terms": subject_anchor_terms,
+                "subject_coverage_ok": bool(subject_coverage_ok),
+                "target_field_terms": target_field_terms,
+                "target_field_coverage_ok": bool(target_field_coverage_ok),
+                "related_doc_selection_mode": related_doc_selection_mode,
+                "evidence_backed_doc_count": int(evidence_backed_doc_count),
+                "subject_entity": subject_entity,
+                "route_reason": str(
+                    bundle.get("route_reason") or getattr(planner, "route_reason", "")
+                ),
+            }
+        ),
+    )
+    route_name = str(bundle.get("route") or "")
+    force_structured = route_name in {"bill_monthly_total", "entity_fact_lookup"}
+    detail_zero_hit = (
+        route_name == "detail_extract" and int(bundle.get("hit_count") or 0) <= 0
+    )
+    qualifier_gated = bool(query_required_terms) and answerability != "sufficient"
+    subject_gated = (not subject_coverage_ok) and bool(subject_anchor_terms)
+    target_field_gated = (not target_field_coverage_ok) and bool(target_field_terms)
+    force_refusal = (
+        answerability == "none" or (refusal_candidate and answerability != "sufficient")
+    ) and route_name in {
+        "search_bundle",
+        "entity_fact_lookup",
+        "period_aggregate",
+        "detail_extract",
+    }
+    if qualifier_gated and route_name in {
+        "search_bundle",
+        "entity_fact_lookup",
+        "period_aggregate",
+        "detail_extract",
+    }:
+        force_refusal = True
+    if subject_gated and route_name in {
+        "search_bundle",
+        "entity_fact_lookup",
+        "period_aggregate",
+        "detail_extract",
+    }:
+        force_refusal = True
+    if target_field_gated and route_name in {
+        "search_bundle",
+        "entity_fact_lookup",
+        "period_aggregate",
+        "detail_extract",
+    }:
+        force_refusal = True
+    if detail_zero_hit:
+        force_refusal = True
+    if force_refusal and (subject_gated or target_field_gated):
+        bundle["related_docs"] = []
+        related_doc_selection_mode = "evidence_only"
+        evidence_backed_doc_count = 0
+    if force_structured:
+        card = None
+        synth_error_code = "structured_route"
+    elif force_refusal:
+        card = None
+        synth_error_code = "insufficient_evidence"
+    else:
+        synth_started = time.perf_counter()
+        card, synth_error_code = _synthesize_with_model(
+            req,
+            planner,
+            bundle,
+            trace_id=trace_id,
+            conversation=synth_conversation,
+        )
+        synth_latency_ms = int((time.perf_counter() - synth_started) * 1000)
+    synth_fallback_used = False
+    if card is None:
+        synth_fallback_used = True
+        card = _synthesize_fallback(req, planner, bundle)
+    # Structured-route fallback returned no evidence → treat as refusal
+    if synth_fallback_used and card is not None and card.insufficient_evidence:
+        force_refusal = True
+        synth_error_code = "insufficient_evidence"
+    answer_mode = "search_summary"
+    if force_refusal:
+        answer_mode = "refusal"
+        synth_fallback_used = True
+        if not synth_error_code:
+            synth_error_code = "insufficient_evidence"
+        card = ResultCard(
+            title="Insufficient Evidence",
+            short_summary=BilingualText(
+                en="Not enough evidence was found in the knowledge base to answer this question safely.",
+                zh="资料中没有相关信息，且缺少足够证据，暂时无法确认。",
+            ),
+            key_points=[
+                BilingualText(
+                    en="Please provide more specific documents or keywords.",
+                    zh="请补充更具体的文档或关键词后重试。",
+                ),
+                BilingualText(
+                    en=f"Missing evidence fields: {', '.join(coverage_missing_fields) if coverage_missing_fields else 'n/a'}",
+                    zh=f"缺失证据字段：{', '.join(coverage_missing_fields) if coverage_missing_fields else '无'}",
+                ),
+            ],
+            sources=bundle.get("sources") or [],
+            actions=_default_actions(planner),
+            evidence_summary=[f"{field}:0" for field in coverage_missing_fields[:8]],
+            insufficient_evidence=True,
+        )
+    else:
+        if route_name in {
+            "detail_extract",
+            "entity_fact_lookup",
+            "period_aggregate",
+            "bill_attention",
+            "bill_monthly_total",
+        }:
+            answer_mode = (
+                "structured" if answerability == "sufficient" else "partial_structured"
+            )
+        else:
+            answer_mode = "search_summary"
+        card.insufficient_evidence = False
+        card.evidence_summary = [
+            f"{field}:{len(evidence_map.get(field) or [])}"
+            for field in required_fields[:8]
+        ]
+        if (answerability == "none" or refusal_candidate) and _contains_specific_claim(
+            f"{card.short_summary.zh}\n{card.short_summary.en}\n"
+            + "\n".join(item.zh for item in card.key_points[:5])
+        ):
+            synth_fallback_used = True
+            synth_error_code = "refusal_policy_violation"
+            card = ResultCard(
+                title="Insufficient Evidence",
+                short_summary=BilingualText(
+                    en="Not enough evidence was found in the knowledge base to answer this question safely.",
+                    zh="资料中没有相关信息，且缺少足够证据，暂时无法确认。",
+                ),
+                key_points=[
+                    BilingualText(
+                        en="Please provide more specific documents or keywords.",
+                        zh="请补充更具体的文档或关键词后重试。",
+                    ),
+                    BilingualText(
+                        en=f"Missing evidence fields: {', '.join(coverage_missing_fields) if coverage_missing_fields else 'n/a'}",
+                        zh=f"缺失证据字段：{', '.join(coverage_missing_fields) if coverage_missing_fields else '无'}",
+                    ),
+                ],
+                sources=bundle.get("sources") or [],
+                actions=_default_actions(planner),
+                evidence_summary=[
+                    f"{field}:0" for field in coverage_missing_fields[:8]
+                ],
                 insufficient_evidence=True,
             )
 
@@ -4147,9 +5353,17 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
     )
 
     if req.ui_lang == "en":
-        locale_response_mode = "en_native" if str(card.short_summary.en or "").strip() else "bilingual_fallback"
+        locale_response_mode = (
+            "en_native"
+            if str(card.short_summary.en or "").strip()
+            else "bilingual_fallback"
+        )
     else:
-        locale_response_mode = "zh_native" if str(card.short_summary.zh or "").strip() else "bilingual_fallback"
+        locale_response_mode = (
+            "zh_native"
+            if str(card.short_summary.zh or "").strip()
+            else "bilingual_fallback"
+        )
 
     return AgentExecuteResponse(
         planner=planner,
@@ -4168,14 +5382,21 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
             lexical_hit_count=int(bundle.get("lexical_hit_count") or 0),
             fallback_reason=str(bundle.get("fallback_reason") or ""),
             facet_mode=str(bundle.get("facet_mode") or "none"),
-            facet_keys=[str(item) for item in (bundle.get("facet_keys") or []) if str(item or "").strip()],
+            facet_keys=[
+                str(item)
+                for item in (bundle.get("facet_keys") or [])
+                if str(item or "").strip()
+            ],
             context_policy=context_policy,
             fact_route=str(bundle.get("fact_route") or "none"),
             fact_month=str(bundle.get("fact_month") or ""),
             synth_fallback_used=bool(synth_fallback_used),
             synth_error_code=str(synth_error_code or ""),
             detail_topic=str(bundle.get("detail_topic") or ""),
-            detail_mode=str(bundle.get("detail_mode") or ("fallback" if synth_fallback_used else "structured")),
+            detail_mode=str(
+                bundle.get("detail_mode")
+                or ("fallback" if synth_fallback_used else "structured")
+            ),
             detail_rows_count=int(bundle.get("detail_rows_count") or 0),
             answerability=answerability,
             coverage_ratio=float(bundle.get("coverage_ratio") or 0.0),
@@ -4186,13 +5407,17 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
             subject_coverage_ok=bool(subject_coverage_ok),
             target_field_terms=target_field_terms,
             target_field_coverage_ok=bool(target_field_coverage_ok),
-            infra_guard_applied=bool(qualifier_gated or subject_gated or target_field_gated),
+            infra_guard_applied=bool(
+                qualifier_gated or subject_gated or target_field_gated
+            ),
             locale_response_mode=locale_response_mode,
             answer_mode=answer_mode,
             evidence_backed_doc_count=int(evidence_backed_doc_count),
             related_doc_selection_mode=related_doc_selection_mode,
             subject_entity=subject_entity,
-            route_reason=str(bundle.get("route_reason") or getattr(planner, "route_reason", "")),
+            route_reason=str(
+                bundle.get("route_reason") or getattr(planner, "route_reason", "")
+            ),
         ),
     )
 
@@ -4213,10 +5438,20 @@ def execute_agent(db: Session, req: AgentExecuteRequest) -> AgentExecuteResponse
                         "agent_graph_shadow_compare",
                         extra=sanitize_log_context(
                             {
-                                "legacy_route": str(getattr(resp.executor_stats, "route", "") or ""),
-                                "graph_route": str(getattr(shadow.executor_stats, "route", "") or ""),
-                                "legacy_answer_mode": str(getattr(resp.executor_stats, "answer_mode", "") or ""),
-                                "graph_answer_mode": str(getattr(shadow.executor_stats, "answer_mode", "") or ""),
+                                "legacy_route": str(
+                                    getattr(resp.executor_stats, "route", "") or ""
+                                ),
+                                "graph_route": str(
+                                    getattr(shadow.executor_stats, "route", "") or ""
+                                ),
+                                "legacy_answer_mode": str(
+                                    getattr(resp.executor_stats, "answer_mode", "")
+                                    or ""
+                                ),
+                                "graph_answer_mode": str(
+                                    getattr(shadow.executor_stats, "answer_mode", "")
+                                    or ""
+                                ),
                             }
                         ),
                     )

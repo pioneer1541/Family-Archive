@@ -51,6 +51,7 @@ def get_logger(name: str) -> logging.Logger:
     global _LOGGING_CONFIGURED
     settings = get_settings()
     if not _LOGGING_CONFIGURED:
+
         class SafeExtraFormatter(logging.Formatter):
             def format(self, record: logging.LogRecord) -> str:
                 message = super().format(record)
@@ -67,7 +68,9 @@ def get_logger(name: str) -> logging.Logger:
                 return f"{message} {extras_text}"
 
         handler = logging.StreamHandler()
-        handler.setFormatter(SafeExtraFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+        handler.setFormatter(
+            SafeExtraFormatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+        )
         logging.basicConfig(
             level=getattr(logging, settings.log_level.upper(), logging.INFO),
             handlers=[handler],

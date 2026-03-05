@@ -41,6 +41,7 @@ _ADMIN_PASSWORD_KEY = "admin_password_hash"
 # Password helpers
 # ---------------------------------------------------------------------------
 
+
 def hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
@@ -56,6 +57,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 # Setup state
 # ---------------------------------------------------------------------------
 
+
 def is_setup_complete(db: Session) -> bool:
     """Return True if an admin password has been set."""
     row = db.get(AppSetting, _ADMIN_PASSWORD_KEY)
@@ -67,7 +69,9 @@ def set_admin_password(plain: str, db: Session) -> None:
     hashed = hash_password(plain)
     row = db.get(AppSetting, _ADMIN_PASSWORD_KEY)
     if row is None:
-        row = AppSetting(key=_ADMIN_PASSWORD_KEY, value=hashed, updated_at=datetime.now(UTC))
+        row = AppSetting(
+            key=_ADMIN_PASSWORD_KEY, value=hashed, updated_at=datetime.now(UTC)
+        )
         db.add(row)
     else:
         row.value = hashed
@@ -87,9 +91,14 @@ def verify_admin_password(plain: str, db: Session) -> bool:
 # JWT helpers
 # ---------------------------------------------------------------------------
 
+
 def create_access_token(expires_delta: Optional[timedelta] = None) -> str:
-    expire = datetime.now(UTC) + (expires_delta or timedelta(hours=_ACCESS_TOKEN_EXPIRE_HOURS))
-    return jwt.encode({"sub": "admin", "exp": expire}, _SECRET_KEY, algorithm=_ALGORITHM)
+    expire = datetime.now(UTC) + (
+        expires_delta or timedelta(hours=_ACCESS_TOKEN_EXPIRE_HOURS)
+    )
+    return jwt.encode(
+        {"sub": "admin", "exp": expire}, _SECRET_KEY, algorithm=_ALGORITHM
+    )
 
 
 def decode_access_token(token: str) -> Optional[str]:

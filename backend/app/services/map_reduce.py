@@ -9,7 +9,12 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.logging_utils import get_logger, sanitize_log_context
 from app.models import Chunk, Document, DocumentStatus
-from app.schemas import BilingualText, MapReduceSummaryResponse, MapReduceSummarySection, ResultCardSource
+from app.schemas import (
+    BilingualText,
+    MapReduceSummaryResponse,
+    MapReduceSummarySection,
+    ResultCardSource,
+)
 from app.services.llm_summary import (
     detect_summary_quality_flags,
     summarize_final_with_model,
@@ -23,10 +28,14 @@ logger = get_logger(__name__)
 
 _LONGDOC_SIGNAL_PATTERNS = [
     re.compile(r"\$\s?\d"),
-    re.compile(r"\b(?:aud|amount|total|due|invoice|bill|kwh|usage)\b", flags=re.IGNORECASE),
+    re.compile(
+        r"\b(?:aud|amount|total|due|invoice|bill|kwh|usage)\b", flags=re.IGNORECASE
+    ),
     re.compile(r"\b20\d{2}[/-](?:0?[1-9]|1[0-2])(?:[/-](?:0?[1-9]|[12]\d|3[01]))?\b"),
     re.compile(r"20\d{2}\s*年\s*(?:0?[1-9]|1[0-2])\s*月"),
-    re.compile(r"\b(?:must|required|obligation|risk|deadline|action)\b", flags=re.IGNORECASE),
+    re.compile(
+        r"\b(?:must|required|obligation|risk|deadline|action)\b", flags=re.IGNORECASE
+    ),
     re.compile(r"(?:到期|截止|义务|风险|建议|行动项)"),
 ]
 
@@ -39,7 +48,15 @@ def _compact_text(text: str, limit: int = 220) -> str:
 
 
 def _normalize_token(token: str) -> str:
-    return "".join(ch for ch in str(token or "") if ch.isalnum() or ("\u4e00" <= ch <= "\u9fff")).strip().lower()
+    return (
+        "".join(
+            ch
+            for ch in str(token or "")
+            if ch.isalnum() or ("\u4e00" <= ch <= "\u9fff")
+        )
+        .strip()
+        .lower()
+    )
 
 
 def _extract_keywords(text: str, *, top_n: int = 6) -> list[str]:
@@ -82,8 +99,12 @@ def _fallback_section_summary(
     return (en, zh)
 
 
-def _build_semantic_chunks(page_chunks: list[str], *, min_tokens: int = 200, max_tokens: int = 500) -> list[str]:
-    merged = "\n\n".join(str(x or "").strip() for x in page_chunks if str(x or "").strip())
+def _build_semantic_chunks(
+    page_chunks: list[str], *, min_tokens: int = 200, max_tokens: int = 500
+) -> list[str]:
+    merged = "\n\n".join(
+        str(x or "").strip() for x in page_chunks if str(x or "").strip()
+    )
     if not merged:
         return []
 
@@ -148,13 +169,17 @@ def _select_page_indices(page_chunks: list[str], *, hard_limit: int) -> list[int
 
 
 def _rows_to_page_chunks(rows: list[Chunk]) -> list[str]:
-    merged = "\n".join(str(r.content or "") for r in rows if str(r.content or "").strip())
+    merged = "\n".join(
+        str(r.content or "") for r in rows if str(r.content or "").strip()
+    )
     if not merged:
         return []
     return chunk_text(merged, target_tokens=420, overlap_tokens=40)
 
 
-def _build_sources(doc: Document, rows: list[Chunk], *, ui_lang: str, cap: int = 10) -> list[ResultCardSource]:
+def _build_sources(
+    doc: Document, rows: list[Chunk], *, ui_lang: str, cap: int = 10
+) -> list[ResultCardSource]:
     if not rows:
         return []
     label = (doc.title_zh if ui_lang == "zh" else doc.title_en) or doc.file_name
@@ -175,7 +200,9 @@ def _build_sources(doc: Document, rows: list[Chunk], *, ui_lang: str, cap: int =
     return out
 
 
-def build_map_reduce_summary(db: Session, doc_id: str, ui_lang: str = "zh", chunk_group_size: int = 6) -> MapReduceSummaryResponse:
+def build_map_reduce_summary(
+    db: Session, doc_id: str, ui_lang: str = "zh", chunk_group_size: int = 6
+) -> MapReduceSummaryResponse:
     t0 = time.time()
     doc = db.get(Document, doc_id)
     if doc is None:
@@ -183,7 +210,15 @@ def build_map_reduce_summary(db: Session, doc_id: str, ui_lang: str = "zh", chun
     if doc.status != DocumentStatus.COMPLETED.value:
         raise ValueError("document_not_ready")
 
-    rows = db.execute(select(Chunk).where(Chunk.document_id == doc_id).order_by(Chunk.chunk_index.asc())).scalars().all()
+    rows = (
+        db.execute(
+            select(Chunk)
+            .where(Chunk.document_id == doc_id)
+            .order_by(Chunk.chunk_index.asc())
+        )
+        .scalars()
+        .all()
+    )
     if not rows:
         raise ValueError("document_has_no_chunks")
 
@@ -236,7 +271,8 @@ def build_map_reduce_summary(db: Session, doc_id: str, ui_lang: str = "zh", chun
         if idx % _CHECKPOINT_INTERVAL == 0 or idx == total_pages:
             try:
                 doc.mapreduce_page_summaries_json = json.dumps(
-                    {"en": page_summaries_en, "zh": page_summaries_zh}, ensure_ascii=False
+                    {"en": page_summaries_en, "zh": page_summaries_zh},
+                    ensure_ascii=False,
                 )
                 doc.mapreduce_job_status = f"pages_{idx}/{total_pages}"
                 db.commit()
@@ -280,7 +316,8 @@ def build_map_reduce_summary(db: Session, doc_id: str, ui_lang: str = "zh", chun
         # Checkpoint after each section
         try:
             doc.mapreduce_section_summaries_json = json.dumps(
-                {"en": section_summaries_en, "zh": section_summaries_zh}, ensure_ascii=False
+                {"en": section_summaries_en, "zh": section_summaries_zh},
+                ensure_ascii=False,
             )
             doc.mapreduce_job_status = f"sections_{len(section_summaries_en)}/{(total_pages + section_size - 1) // section_size}"
             db.commit()
@@ -295,9 +332,13 @@ def build_map_reduce_summary(db: Session, doc_id: str, ui_lang: str = "zh", chun
         )
 
     # Semantic chunks: 200-500 tokens.
-    semantic_chunks = _build_semantic_chunks(page_chunks, min_tokens=200, max_tokens=500)
+    semantic_chunks = _build_semantic_chunks(
+        page_chunks, min_tokens=200, max_tokens=500
+    )
     if not semantic_chunks:
-        semantic_chunks = _build_semantic_chunks(_rows_to_page_chunks(rows), min_tokens=200, max_tokens=500)
+        semantic_chunks = _build_semantic_chunks(
+            _rows_to_page_chunks(rows), min_tokens=200, max_tokens=500
+        )
 
     final_section_cap = max(4, int(settings.longdoc_final_section_max or 18))
     final_semantic_cap = max(2, int(settings.longdoc_final_semantic_max or 6))
@@ -343,7 +384,10 @@ def build_map_reduce_summary(db: Session, doc_id: str, ui_lang: str = "zh", chun
 
     if final_fallback_used:
         quality_state = "llm_failed"
-    elif any(flag in {"empty_summary", "contains_process_terms", "missing_entity_signals"} for flag in dedup_quality_flags):
+    elif any(
+        flag in {"empty_summary", "contains_process_terms", "missing_entity_signals"}
+        for flag in dedup_quality_flags
+    ):
         quality_state = "needs_regen"
     else:
         quality_state = "ok"
@@ -366,7 +410,9 @@ def build_map_reduce_summary(db: Session, doc_id: str, ui_lang: str = "zh", chun
         used_chunks=semantic_count,
         latency_ms=latency_ms,
         quality_state=quality_state,
-        fallback_used=bool(page_fallback_used or section_fallback_used or final_fallback_used),
+        fallback_used=bool(
+            page_fallback_used or section_fallback_used or final_fallback_used
+        ),
         quality_flags=dedup_quality_flags,
         longdoc_mode=longdoc_mode,
         pages_total=pages_total,

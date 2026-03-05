@@ -36,7 +36,9 @@ def apply_legacy_category_guard(path: str | None) -> tuple[str, bool]:
 
 
 def _status_totals(db: Session) -> dict[str, int]:
-    rows = db.execute(select(Document.status, func.count()).group_by(Document.status)).all()
+    rows = db.execute(
+        select(Document.status, func.count()).group_by(Document.status)
+    ).all()
     out: dict[str, int] = {}
     for status, count in rows:
         key = str(status or "").strip().lower() or "unknown"
@@ -45,14 +47,11 @@ def _status_totals(db: Session) -> dict[str, int]:
 
 
 def _legacy_counts_by_status(db: Session) -> dict[str, int]:
-    rows = (
-        db.execute(
-            select(Document.status, func.count())
-            .where(func.lower(Document.category_path).in_(LEGACY_CATEGORY_PATHS))
-            .group_by(Document.status)
-        )
-        .all()
-    )
+    rows = db.execute(
+        select(Document.status, func.count())
+        .where(func.lower(Document.category_path).in_(LEGACY_CATEGORY_PATHS))
+        .group_by(Document.status)
+    ).all()
     out: dict[str, int] = {}
     for status, count in rows:
         key = str(status or "").strip().lower() or "unknown"
@@ -66,11 +65,21 @@ def build_category_debt_snapshot(db: Session, *, top_limit: int = 20) -> dict[st
 
     total_all = int(db.scalar(select(func.count()).select_from(Document)) or 0)
     total_completed = int(
-        db.scalar(select(func.count()).select_from(Document).where(Document.status == DocumentStatus.COMPLETED.value)) or 0
+        db.scalar(
+            select(func.count())
+            .select_from(Document)
+            .where(Document.status == DocumentStatus.COMPLETED.value)
+        )
+        or 0
     )
 
     legacy_all = int(
-        db.scalar(select(func.count()).select_from(Document).where(func.lower(Document.category_path).in_(LEGACY_CATEGORY_PATHS))) or 0
+        db.scalar(
+            select(func.count())
+            .select_from(Document)
+            .where(func.lower(Document.category_path).in_(LEGACY_CATEGORY_PATHS))
+        )
+        or 0
     )
     legacy_completed = int(
         db.scalar(
@@ -91,17 +100,22 @@ def build_category_debt_snapshot(db: Session, *, top_limit: int = 20) -> dict[st
         if total <= 0:
             ratio_by_status[key] = 0.0
             continue
-        ratio_by_status[key] = round(float(legacy_by_status.get(key, 0)) / float(total), 6)
-
-    top_rows = (
-        db.execute(
-            select(Document.id, Document.file_name, Document.status, Document.category_path, Document.updated_at)
-            .where(func.lower(Document.category_path).in_(LEGACY_CATEGORY_PATHS))
-            .order_by(Document.updated_at.desc())
-            .limit(safe_top)
+        ratio_by_status[key] = round(
+            float(legacy_by_status.get(key, 0)) / float(total), 6
         )
-        .all()
-    )
+
+    top_rows = db.execute(
+        select(
+            Document.id,
+            Document.file_name,
+            Document.status,
+            Document.category_path,
+            Document.updated_at,
+        )
+        .where(func.lower(Document.category_path).in_(LEGACY_CATEGORY_PATHS))
+        .order_by(Document.updated_at.desc())
+        .limit(safe_top)
+    ).all()
     top_files: list[dict[str, Any]] = []
     for doc_id, file_name, status, category_path, updated_at in top_rows:
         safe_name = str(file_name or "")
@@ -122,13 +136,17 @@ def build_category_debt_snapshot(db: Session, *, top_limit: int = 20) -> dict[st
             "status_filter": DocumentStatus.COMPLETED.value,
             "total_docs": total_completed,
             "legacy_docs": legacy_completed,
-            "legacy_ratio": round(float(legacy_completed) / float(total_completed), 6) if total_completed > 0 else 0.0,
+            "legacy_ratio": round(float(legacy_completed) / float(total_completed), 6)
+            if total_completed > 0
+            else 0.0,
         },
         "scope_audit": {
             "status_filter": "all",
             "total_docs": total_all,
             "legacy_docs": legacy_all,
-            "legacy_ratio": round(float(legacy_all) / float(total_all), 6) if total_all > 0 else 0.0,
+            "legacy_ratio": round(float(legacy_all) / float(total_all), 6)
+            if total_all > 0
+            else 0.0,
         },
         "legacy_counts_by_status": legacy_by_status,
         "legacy_ratio_by_status": ratio_by_status,
@@ -174,10 +192,18 @@ def compute_debt_trend(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
         points.append(
             {
                 "snapshot_at": str(row.get("snapshot_at") or ""),
-                "prod_legacy_docs": int(((row.get("scope_prod") or {}).get("legacy_docs") or 0)),
-                "prod_total_docs": int(((row.get("scope_prod") or {}).get("total_docs") or 0)),
-                "audit_legacy_docs": int(((row.get("scope_audit") or {}).get("legacy_docs") or 0)),
-                "audit_total_docs": int(((row.get("scope_audit") or {}).get("total_docs") or 0)),
+                "prod_legacy_docs": int(
+                    ((row.get("scope_prod") or {}).get("legacy_docs") or 0)
+                ),
+                "prod_total_docs": int(
+                    ((row.get("scope_prod") or {}).get("total_docs") or 0)
+                ),
+                "audit_legacy_docs": int(
+                    ((row.get("scope_audit") or {}).get("legacy_docs") or 0)
+                ),
+                "audit_total_docs": int(
+                    ((row.get("scope_audit") or {}).get("total_docs") or 0)
+                ),
             }
         )
 
@@ -186,7 +212,9 @@ def compute_debt_trend(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
         prev = points[-8]["audit_legacy_docs"]
         week_change = int(curr) - int(prev)
     elif len(points) >= 2:
-        week_change = int(points[-1]["audit_legacy_docs"]) - int(points[0]["audit_legacy_docs"])
+        week_change = int(points[-1]["audit_legacy_docs"]) - int(
+            points[0]["audit_legacy_docs"]
+        )
     else:
         week_change = 0
 
