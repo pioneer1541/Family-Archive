@@ -10,8 +10,8 @@ LLM 配置迁移脚本
 """
 
 import argparse
-import sys
 import os
+import sys
 
 # 添加项目路径（从 backend 目录运行）
 if os.path.exists("app"):
@@ -23,6 +23,7 @@ else:
 
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
+
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine
 from app.llm_models.llm_provider import LLMProvider, ProviderType
@@ -148,11 +149,7 @@ def add_cloud_provider_presets(db: Session, dry_run: bool = False):
             continue
 
         # 检查是否已存在
-        existing = (
-            db.query(LLMProvider)
-            .filter(LLMProvider.provider_type == preset["provider_type"])
-            .first()
-        )
+        existing = db.query(LLMProvider).filter(LLMProvider.provider_type == preset["provider_type"]).first()
 
         if existing:
             print(f"  {preset['name']}: 已存在 (ID: {existing.id})")
@@ -236,9 +233,7 @@ def run_migration(dry_run: bool = False):
 
 def main():
     parser = argparse.ArgumentParser(description="Family Vault LLM 配置迁移工具")
-    parser.add_argument(
-        "--dry-run", action="store_true", help="仅预览，不实际写入数据库"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="仅预览，不实际写入数据库")
 
     args = parser.parse_args()
 

@@ -5,8 +5,9 @@ API Key 加密工具
 
 import os
 from pathlib import Path
-from cryptography.fernet import Fernet
 from typing import Optional
+
+from cryptography.fernet import Fernet
 
 
 class APIKeyEncryptor:

@@ -24,9 +24,7 @@ def process_ingestion_job_task(
     reprocess_doc_id: str | None = None,
 ):
     try:
-        return process_ingestion_job(
-            job_id, force_reprocess=force_reprocess, reprocess_doc_id=reprocess_doc_id
-        )
+        return process_ingestion_job(job_id, force_reprocess=force_reprocess, reprocess_doc_id=reprocess_doc_id)
     except Exception as exc:
         max_retries = max(0, int(settings.ingestion_retry_max_retries))
         current_retry = int(getattr(self.request, "retries", 0))
@@ -77,9 +75,7 @@ def execute_sync_run_task(
             extra=sanitize_log_context(
                 {
                     "run_id": str(run_id or ""),
-                    "error_code": compact_error_code(
-                        f"sync_run_failed:{type(exc).__name__}"
-                    ),
+                    "error_code": compact_error_code(f"sync_run_failed:{type(exc).__name__}"),
                     "exc_type": type(exc).__name__,
                 }
             ),
@@ -90,9 +86,7 @@ def execute_sync_run_task(
 
 
 @celery_app.task(bind=True, name="fkv.map_reduce.process")
-def run_map_reduce_task(
-    self, doc_id: str, ui_lang: str = "zh", chunk_group_size: int = 6
-):
+def run_map_reduce_task(self, doc_id: str, ui_lang: str = "zh", chunk_group_size: int = 6):
     """Async Celery task for long-document map-reduce summarisation.
 
     Persists intermediate page/section checkpoints to the DB so that if the
@@ -101,9 +95,7 @@ def run_map_reduce_task(
     """
     db = SessionLocal()
     try:
-        result = build_map_reduce_summary(
-            db, doc_id=doc_id, ui_lang=ui_lang, chunk_group_size=chunk_group_size
-        )
+        result = build_map_reduce_summary(db, doc_id=doc_id, ui_lang=ui_lang, chunk_group_size=chunk_group_size)
         return {
             "doc_id": doc_id,
             "status": "completed",
@@ -114,17 +106,13 @@ def run_map_reduce_task(
     except ValueError as exc:
         logger.warning(
             "map_reduce_task_value_error",
-            extra=sanitize_log_context(
-                {"doc_id": str(doc_id or ""), "error": str(exc)}
-            ),
+            extra=sanitize_log_context({"doc_id": str(doc_id or ""), "error": str(exc)}),
         )
         return {"doc_id": doc_id, "status": "failed", "error": str(exc)}
     except Exception as exc:
         logger.warning(
             "map_reduce_task_failed",
-            extra=sanitize_log_context(
-                {"doc_id": str(doc_id or ""), "exc_type": type(exc).__name__}
-            ),
+            extra=sanitize_log_context({"doc_id": str(doc_id or ""), "exc_type": type(exc).__name__}),
         )
         raise
     finally:

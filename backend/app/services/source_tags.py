@@ -125,11 +125,7 @@ def infer_source_type(path: str) -> str:
     p = _real(path)
     if not p:
         return "file"
-    mail_subdir = (
-        str(getattr(settings, "mail_attachment_subdir", "email_attachments") or "")
-        .strip()
-        .strip("/\\")
-    )
+    mail_subdir = str(getattr(settings, "mail_attachment_subdir", "email_attachments") or "").strip().strip("/\\")
     if mail_subdir:
         marker = f"{os.sep}{mail_subdir}{os.sep}"
         # 兼容 NAS 挂载目录下的邮件附件子目录识别。
@@ -154,9 +150,7 @@ def category_labels_for_path(path: str | None) -> tuple[str, str]:
     return _CATEGORY_LABELS.get(normalized, _CATEGORY_LABELS[DEFAULT_CATEGORY_PATH])
 
 
-def infer_category(
-    path: str, text: str, *, subject: str = "", from_addr: str = ""
-) -> tuple[str, str, str]:
+def infer_category(path: str, text: str, *, subject: str = "", from_addr: str = "") -> tuple[str, str, str]:
     # Category classification is model-driven after summary generation.
     # This function remains as a compatibility fallback and intentionally returns stable default.
     en, zh = category_labels_for_path(DEFAULT_CATEGORY_PATH)

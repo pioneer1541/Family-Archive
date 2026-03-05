@@ -68,9 +68,7 @@ def get_logger(name: str) -> logging.Logger:
                 return f"{message} {extras_text}"
 
         handler = logging.StreamHandler()
-        handler.setFormatter(
-            SafeExtraFormatter("%(asctime)s %(levelname)s %(name)s %(message)s")
-        )
+        handler.setFormatter(SafeExtraFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
         logging.basicConfig(
             level=getattr(logging, settings.log_level.upper(), logging.INFO),
             handlers=[handler],

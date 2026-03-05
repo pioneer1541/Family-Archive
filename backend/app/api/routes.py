@@ -206,17 +206,13 @@ def _inline_supported_for_document(doc: Document) -> bool:
 
 @router.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    return HealthResponse(
-        service=settings.app_name, version=settings.version, status="ok"
-    )
+    return HealthResponse(service=settings.app_name, version=settings.version, status="ok")
 
 
 @router.get("/system/prompts", response_model=SystemPromptsResponse)
 def get_system_prompts() -> SystemPromptsResponse:
     snap = prompt_snapshot()
-    return SystemPromptsResponse(
-        version=str(snap["version"]), hash=str(snap["hash"]), items=dict(snap["items"])
-    )
+    return SystemPromptsResponse(version=str(snap["version"]), hash=str(snap["hash"]), items=dict(snap["items"]))
 
 
 @router.get("/governance/category-debt", response_model=GovernanceCategoryDebtResponse)
@@ -240,9 +236,7 @@ def governance_category_debt_trend(
     if not snapshots:
         snapshots = [build_category_debt_snapshot(db, top_limit=10)]
     trend = compute_debt_trend(snapshots)
-    points = [
-        GovernanceCategoryDebtTrendPoint(**item) for item in trend.get("points", [])
-    ]
+    points = [GovernanceCategoryDebtTrendPoint(**item) for item in trend.get("points", [])]
     return GovernanceCategoryDebtTrendResponse(
         days=int(days),
         snapshot_count=len(points),
@@ -281,9 +275,7 @@ def start_sync(
                 recursive=bool(req.recursive),
                 mail_max_results=req.mail_max_results,
             )
-            dispatch_status = (
-                "running" if str(run.status or "") == "running" else "queued"
-            )
+            dispatch_status = "running" if str(run.status or "") == "running" else "queued"
     else:
         run = start_sync_run(
             db,
@@ -294,12 +286,7 @@ def start_sync(
         dispatch_status = "running" if str(run.status or "") == "running" else "queued"
     nas_summary, mail_summary = get_sync_source_summary(run)
     last_run = (
-        db.execute(
-            select(SyncRun)
-            .where(SyncRun.id != run.id)
-            .order_by(SyncRun.started_at.desc())
-            .limit(1)
-        )
+        db.execute(select(SyncRun).where(SyncRun.id != run.id).order_by(SyncRun.started_at.desc()).limit(1))
         .scalars()
         .first()
     )
@@ -311,8 +298,7 @@ def start_sync(
                 "status": run.status,
                 "dispatch_status": dispatch_status,
                 "item_count": int(
-                    (nas_summary.get("changed_files") or 0)
-                    + (mail_summary.get("downloaded_attachments") or 0)
+                    (nas_summary.get("changed_files") or 0) + (mail_summary.get("downloaded_attachments") or 0)
                 ),
             }
         ),
@@ -321,9 +307,7 @@ def start_sync(
         run_id=run.id,
         status=run.status,
         started_at=run.started_at,
-        last_sync_at=(last_run.finished_at or last_run.started_at)
-        if last_run
-        else None,
+        last_sync_at=(last_run.finished_at or last_run.started_at) if last_run else None,
         dispatch_status=dispatch_status,
         dispatch_error=dispatch_error,
         nas=SyncSourceSummary(
@@ -343,20 +327,14 @@ def start_sync(
 
 
 @router.get("/sync/runs/{run_id}", response_model=SyncRunDetailResponse)
-def get_sync_run_detail(
-    run_id: str, db: Session = Depends(get_db)
-) -> SyncRunDetailResponse:
+def get_sync_run_detail(run_id: str, db: Session = Depends(get_db)) -> SyncRunDetailResponse:
     run = refresh_sync_run_status(db, run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="sync_run_not_found")
 
     summary = get_sync_summary(db, run)
     items = (
-        db.execute(
-            select(SyncRunItem)
-            .where(SyncRunItem.run_id == run.id)
-            .order_by(SyncRunItem.updated_at.desc())
-        )
+        db.execute(select(SyncRunItem).where(SyncRunItem.run_id == run.id).order_by(SyncRunItem.updated_at.desc()))
         .scalars()
         .all()
     )
@@ -395,9 +373,7 @@ def get_last_sync(db: Session = Depends(get_db)) -> SyncLastResponse:
 
 
 @router.post("/ingestion/jobs", response_model=IngestionJobResponse)
-def create_ingestion_job(
-    payload: IngestionJobCreateRequest, db: Session = Depends(get_db)
-) -> IngestionJobResponse:
+def create_ingestion_job(payload: IngestionJobCreateRequest, db: Session = Depends(get_db)) -> IngestionJobResponse:
     input_paths = crud.filter_ignored_paths(db, payload.file_paths)
     if not input_paths:
         raise HTTPException(status_code=409, detail="all_paths_ignored")
@@ -423,9 +399,7 @@ def create_ingestion_job(
 
 
 @router.get("/ingestion/jobs/{job_id}", response_model=IngestionJobResponse)
-def get_ingestion_job(
-    job_id: str, db: Session = Depends(get_db)
-) -> IngestionJobResponse:
+def get_ingestion_job(job_id: str, db: Session = Depends(get_db)) -> IngestionJobResponse:
     job = crud.get_ingestion_job(db, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job_not_found")
@@ -450,9 +424,7 @@ def get_ingestion_job(
 
 
 @router.delete("/ingestion/jobs/{job_id}", response_model=IngestionJobDeleteResponse)
-def delete_ingestion_job(
-    job_id: str, db: Session = Depends(get_db)
-) -> IngestionJobDeleteResponse:
+def delete_ingestion_job(job_id: str, db: Session = Depends(get_db)) -> IngestionJobDeleteResponse:
     job = crud.get_ingestion_job(db, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job_not_found")
@@ -468,9 +440,7 @@ def delete_ingestion_job(
     crud.delete_ingestion_job(db, job)
     logger.info(
         "ingestion_job_deleted",
-        extra=sanitize_log_context(
-            {"job_id": job_id, "ignored_paths": ignored_count, "status": "deleted"}
-        ),
+        extra=sanitize_log_context({"job_id": job_id, "ignored_paths": ignored_count, "status": "deleted"}),
     )
     return IngestionJobDeleteResponse(
         job_id=job_id,
@@ -481,9 +451,7 @@ def delete_ingestion_job(
 
 
 @router.post("/ingestion/jobs/{job_id}/retry", response_model=IngestionJobResponse)
-def retry_ingestion_job(
-    job_id: str, db: Session = Depends(get_db)
-) -> IngestionJobResponse:
+def retry_ingestion_job(job_id: str, db: Session = Depends(get_db)) -> IngestionJobResponse:
     source = crud.get_ingestion_job(db, job_id)
     if source is None:
         raise HTTPException(status_code=404, detail="job_not_found")
@@ -494,9 +462,7 @@ def retry_ingestion_job(
     }:
         raise HTTPException(status_code=409, detail="job_is_active")
 
-    retryable = (int(source.failed_count or 0) > 0) or (
-        source.status == IngestionJobStatus.FAILED.value
-    )
+    retryable = (int(source.failed_count or 0) > 0) or (source.status == IngestionJobStatus.FAILED.value)
     if not retryable:
         raise HTTPException(status_code=400, detail="job_not_retryable")
 
@@ -510,9 +476,7 @@ def retry_ingestion_job(
     db.refresh(job)
     logger.info(
         "ingestion_job_retry_requested",
-        extra=sanitize_log_context(
-            {"source_job_id": source.id, "new_job_id": job.id, "status": mode}
-        ),
+        extra=sanitize_log_context({"source_job_id": source.id, "new_job_id": job.id, "status": mode}),
     )
     return IngestionJobResponse(
         job_id=job.id,
@@ -563,12 +527,8 @@ def list_documents(
         default=None,
         description="Metadata search over title/summary/file/category/tags.",
     ),
-    tags_all: str | None = Query(
-        default=None, description="Comma-separated tag keys; logical AND."
-    ),
-    tags_any: str | None = Query(
-        default=None, description="Comma-separated tag keys; logical OR."
-    ),
+    tags_all: str | None = Query(default=None, description="Comma-separated tag keys; logical AND."),
+    tags_any: str | None = Query(default=None, description="Comma-separated tag keys; logical OR."),
     include_missing: bool = Query(default=False),
     source_state: str | None = Query(default=None, pattern="^(available|missing|all)$"),
     limit: int = Query(default=50, ge=1, le=200),
@@ -608,9 +568,7 @@ def list_documents(
                 category_label_en=row.category_label_en or "",
                 category_label_zh=row.category_label_zh or "",
                 source_available=crud.document_source_available_cached(row),
-                source_missing_reason=""
-                if crud.document_source_available_cached(row)
-                else "source_file_missing",
+                source_missing_reason="" if crud.document_source_available_cached(row) else "source_file_missing",
                 tags=tag_map.get(row.id, []),
                 updated_at=row.updated_at,
             )
@@ -634,11 +592,7 @@ def get_document(
     include_chunks_effective = bool(include_chunks)
     chunks = []
     if include_chunks_effective:
-        stmt = (
-            select(Chunk)
-            .where(Chunk.document_id == doc.id)
-            .order_by(Chunk.chunk_index.asc())
-        )
+        stmt = select(Chunk).where(Chunk.document_id == doc.id).order_by(Chunk.chunk_index.asc())
         if chunk_limit > 0:
             stmt = stmt.limit(int(chunk_limit))
         chunks = db.execute(stmt).scalars().all()
@@ -756,18 +710,8 @@ def get_document_content(
 
 @router.get("/queue", response_model=QueueResponse)
 def get_queue(db: Session = Depends(get_db)) -> QueueResponse:
-    jobs = (
-        db.execute(
-            select(IngestionJob).order_by(IngestionJob.created_at.desc()).limit(20)
-        )
-        .scalars()
-        .all()
-    )
-    docs = (
-        db.execute(select(Document).order_by(Document.updated_at.desc()).limit(50))
-        .scalars()
-        .all()
-    )
+    jobs = db.execute(select(IngestionJob).order_by(IngestionJob.created_at.desc()).limit(20)).scalars().all()
+    docs = db.execute(select(Document).order_by(Document.updated_at.desc()).limit(50)).scalars().all()
 
     totals = crud.get_queue_totals(db)
     return QueueResponse(
@@ -828,9 +772,7 @@ def reprocess_document(doc_id: str, db: Session = Depends(get_db)) -> ReprocessR
     mode = enqueue_ingestion_job(job.id, force_reprocess=True, reprocess_doc_id=doc.id)
     logger.info(
         "document_reprocess_requested",
-        extra=sanitize_log_context(
-            {"doc_id": doc_id, "step": "reprocess", "status": mode}
-        ),
+        extra=sanitize_log_context({"doc_id": doc_id, "step": "reprocess", "status": mode}),
     )
     return ReprocessResponse(doc_id=doc_id, job_id=job.id, status="queued")
 
@@ -872,9 +814,7 @@ def update_document_friendly_name(
 
 
 @router.get("/documents/{doc_id}/tags", response_model=DocumentTagsResponse)
-def get_document_tags(
-    doc_id: str, db: Session = Depends(get_db)
-) -> DocumentTagsResponse:
+def get_document_tags(doc_id: str, db: Session = Depends(get_db)) -> DocumentTagsResponse:
     doc = crud.get_document(db, doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="document_not_found")
@@ -895,9 +835,7 @@ def patch_document_tags(
     if (not payload.add) and (not payload.remove):
         raise HTTPException(status_code=400, detail="tags_patch_empty")
 
-    rows, invalid = crud.patch_document_tags(
-        db, document_id=doc_id, add=payload.add, remove=payload.remove
-    )
+    rows, invalid = crud.patch_document_tags(db, document_id=doc_id, add=payload.add, remove=payload.remove)
     if invalid:
         detail = "invalid_tags:" + ",".join(invalid[:10])
         if "too_many_tags" in invalid:
@@ -952,9 +890,7 @@ def list_tasks(
 
 
 @router.post("/tasks", response_model=TaskResponse)
-def create_task(
-    payload: TaskCreateRequest, db: Session = Depends(get_db)
-) -> TaskResponse:
+def create_task(payload: TaskCreateRequest, db: Session = Depends(get_db)) -> TaskResponse:
     task = crud.create_task(
         db,
         {
@@ -1011,9 +947,7 @@ def plan(payload: PlannerRequest) -> PlannerDecision:
 
 
 @router.post("/agent/execute", response_model=AgentExecuteResponse)
-def execute(
-    payload: AgentExecuteRequest, db: Session = Depends(get_db)
-) -> AgentExecuteResponse:
+def execute(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> AgentExecuteResponse:
     try:
         return execute_agent(db, payload)
     except requests.exceptions.Timeout as exc:
@@ -1062,15 +996,11 @@ _AGENT_STAGE_LABELS: dict[str, dict[str, str]] = {
 
 
 @router.post("/agent/execute/stream")
-def agent_execute_stream(
-    payload: AgentExecuteRequest, db: Session = Depends(get_db)
-) -> StreamingResponse:
+def agent_execute_stream(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> StreamingResponse:
     def _event_generator():
         try:
             for node_name, resp in stream_agent_graph(db, payload):
-                label = _AGENT_STAGE_LABELS.get(
-                    node_name, {"zh": node_name, "en": node_name}
-                )
+                label = _AGENT_STAGE_LABELS.get(node_name, {"zh": node_name, "en": node_name})
                 if resp is not None:
                     event = {
                         "stage": node_name,
@@ -1093,9 +1023,7 @@ def agent_execute_stream(
 
 
 @router.post("/summaries/map-reduce", response_model=MapReduceSummaryResponse)
-def map_reduce_summary(
-    payload: MapReduceSummaryRequest, db: Session = Depends(get_db)
-) -> MapReduceSummaryResponse:
+def map_reduce_summary(payload: MapReduceSummaryRequest, db: Session = Depends(get_db)) -> MapReduceSummaryResponse:
     try:
         out = build_map_reduce_summary(
             db,
@@ -1141,22 +1069,13 @@ def map_reduce_summary(
         apply_reason = "ok"
         cascade_reason = "summary_applied"
     else:
-        detail = ",".join(
-            str(x or "").strip() for x in out.quality_flags if str(x or "").strip()
-        )
-        doc.summary_last_error = (detail or str(out.quality_state or "needs_regen"))[
-            :240
-        ]
+        detail = ",".join(str(x or "").strip() for x in out.quality_flags if str(x or "").strip())
+        doc.summary_last_error = (detail or str(out.quality_state or "needs_regen"))[:240]
         apply_reason = str(out.quality_state or "quality_not_ok")
         cascade_reason = str(out.quality_state or "quality_not_ok")
 
     chunks = (
-        db.execute(
-            select(Chunk)
-            .where(Chunk.document_id == doc.id)
-            .order_by(Chunk.chunk_index.asc())
-            .limit(20)
-        )
+        db.execute(select(Chunk).where(Chunk.document_id == doc.id).order_by(Chunk.chunk_index.asc()).limit(20))
         .scalars()
         .all()
     )
@@ -1196,15 +1115,11 @@ def map_reduce_summary(
                 doc.category_label_zh = str(safe_zh or "")[:128]
             doc.category_version = "taxonomy-v1"
             category_recomputed = True
-        elif (not str(doc.category_label_en or "").strip()) or (
-            not str(doc.category_label_zh or "").strip()
-        ):
+        elif (not str(doc.category_label_en or "").strip()) or (not str(doc.category_label_zh or "").strip()):
             default_en, default_zh = category_labels_for_path(doc.category_path)
             doc.category_label_en = str(default_en or "")[:128]
             doc.category_label_zh = str(default_zh or "")[:128]
-        guarded_existing, blocked_existing = apply_legacy_category_guard(
-            doc.category_path
-        )
+        guarded_existing, blocked_existing = apply_legacy_category_guard(doc.category_path)
         if blocked_existing:
             logger.warning(
                 "legacy_category_blocked",
@@ -1223,18 +1138,14 @@ def map_reduce_summary(
             doc.category_label_en = str(safe_en or "")[:128]
             doc.category_label_zh = str(safe_zh or "")[:128]
 
-        normalized_summary_en, normalized_summary_zh = (
-            normalize_vehicle_insurance_summary(
-                category_path=doc.category_path,
-                file_name=doc.file_name,
-                summary_en=doc.summary_en,
-                summary_zh=doc.summary_zh,
-                content_excerpt=excerpt,
-            )
+        normalized_summary_en, normalized_summary_zh = normalize_vehicle_insurance_summary(
+            category_path=doc.category_path,
+            file_name=doc.file_name,
+            summary_en=doc.summary_en,
+            summary_zh=doc.summary_zh,
+            content_excerpt=excerpt,
         )
-        if normalized_summary_en != str(
-            doc.summary_en or ""
-        ) or normalized_summary_zh != str(doc.summary_zh or ""):
+        if normalized_summary_en != str(doc.summary_en or "") or normalized_summary_zh != str(doc.summary_zh or ""):
             doc.summary_en = normalized_summary_en[:2000]
             doc.summary_zh = normalized_summary_zh[:2000]
             try:
@@ -1279,9 +1190,7 @@ def map_reduce_summary(
             row = (
                 db.execute(
                     select(MailIngestionEvent)
-                    .where(
-                        MailIngestionEvent.attachment_path == str(doc.source_path or "")
-                    )
+                    .where(MailIngestionEvent.attachment_path == str(doc.source_path or ""))
                     .order_by(MailIngestionEvent.created_at.desc())
                     .limit(1)
                 )
@@ -1304,9 +1213,7 @@ def map_reduce_summary(
         )
         try:
             with db.begin_nested():
-                crud.sync_auto_tags_for_document(
-                    db, document_id=doc.id, auto_tag_keys=auto_tags
-                )
+                crud.sync_auto_tags_for_document(db, document_id=doc.id, auto_tag_keys=auto_tags)
             tags_recomputed = True
             doc_tags = crud.get_document_tag_keys(db, doc.id)
         except Exception as exc:
@@ -1330,11 +1237,7 @@ def map_reduce_summary(
 
     if out.quality_state == "ok":
         chunks_for_vector = (
-            db.execute(
-                select(Chunk)
-                .where(Chunk.document_id == doc.id)
-                .order_by(Chunk.chunk_index.asc())
-            )
+            db.execute(select(Chunk).where(Chunk.document_id == doc.id).order_by(Chunk.chunk_index.asc()))
             .scalars()
             .all()
         )
@@ -1409,9 +1312,7 @@ class MapReduceStatusResponse(BaseModel):
 
 
 @router.post("/summaries/map-reduce/async", response_model=MapReduceAsyncResponse)
-def map_reduce_summary_async(
-    payload: MapReduceSummaryRequest, db: Session = Depends(get_db)
-) -> MapReduceAsyncResponse:
+def map_reduce_summary_async(payload: MapReduceSummaryRequest, db: Session = Depends(get_db)) -> MapReduceAsyncResponse:
     """Dispatch a map-reduce summarisation job asynchronously via Celery.
 
     Returns immediately with a task_id. Poll GET /summaries/map-reduce/status/{doc_id}
@@ -1420,9 +1321,7 @@ def map_reduce_summary_async(
     """
     doc = crud.get_document(db, payload.doc_id)
     if doc is None:
-        raise HTTPException(
-            status_code=404, detail=f"Document not found: {payload.doc_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Document not found: {payload.doc_id}")
     task = celery_app.send_task(
         "fkv.map_reduce.process",
         kwargs={
@@ -1436,12 +1335,8 @@ def map_reduce_summary_async(
     return MapReduceAsyncResponse(task_id=str(task.id), doc_id=payload.doc_id)
 
 
-@router.get(
-    "/summaries/map-reduce/status/{doc_id}", response_model=MapReduceStatusResponse
-)
-def map_reduce_status(
-    doc_id: str, db: Session = Depends(get_db)
-) -> MapReduceStatusResponse:
+@router.get("/summaries/map-reduce/status/{doc_id}", response_model=MapReduceStatusResponse)
+def map_reduce_status(doc_id: str, db: Session = Depends(get_db)) -> MapReduceStatusResponse:
     """Return the current map-reduce checkpoint status for a document.
 
     ``job_status`` progresses through:
@@ -1461,12 +1356,8 @@ def map_reduce_status(
                 pages_total = int(_parts[1])
             except ValueError:
                 pass
-    page_summaries_available = str(
-        doc.mapreduce_page_summaries_json or "[]"
-    ).strip() not in ("", "[]")
-    section_summaries_available = str(
-        doc.mapreduce_section_summaries_json or "[]"
-    ).strip() not in ("", "[]")
+    page_summaries_available = str(doc.mapreduce_page_summaries_json or "[]").strip() not in ("", "[]")
+    section_summaries_available = str(doc.mapreduce_section_summaries_json or "[]").strip() not in ("", "[]")
     return MapReduceStatusResponse(
         doc_id=doc_id,
         job_status=job_status,
@@ -1478,12 +1369,8 @@ def map_reduce_status(
 
 
 @router.post("/mail/poll", response_model=MailPollResponse)
-def poll_mailbox(
-    payload: MailPollRequest | None = None, db: Session = Depends(get_db)
-) -> MailPollResponse:
-    out = poll_mailbox_and_enqueue(
-        db, max_results=(payload.max_results if payload else None)
-    )
+def poll_mailbox(payload: MailPollRequest | None = None, db: Session = Depends(get_db)) -> MailPollResponse:
+    out = poll_mailbox_and_enqueue(db, max_results=(payload.max_results if payload else None))
     return MailPollResponse(
         polled_messages=int(out.get("polled_messages") or 0),
         processed_messages=int(out.get("processed_messages") or 0),
@@ -1498,13 +1385,9 @@ def poll_mailbox(
 @router.get("/mail/health", response_model=MailHealthResponse)
 def mail_health() -> MailHealthResponse:
     if not bool(settings.mail_poll_enabled):
-        return MailHealthResponse(
-            enabled=False, status="disabled", detail="Mail polling is disabled"
-        )
+        return MailHealthResponse(enabled=False, status="disabled", detail="Mail polling is disabled")
     result = get_gmail_health()
-    return MailHealthResponse(
-        enabled=True, status=result["status"], detail=result["detail"]
-    )
+    return MailHealthResponse(enabled=True, status=result["status"], detail=result["detail"])
 
 
 @router.get("/mail/events", response_model=MailEventsResponse)
@@ -1575,9 +1458,7 @@ def auth_setup(body: _SetupRequest, db: Session = Depends(get_db)):
     if is_setup_complete(db):
         raise HTTPException(status_code=400, detail="Setup already complete.")
     if len(body.password) < 8:
-        raise HTTPException(
-            status_code=422, detail="Password must be at least 8 characters."
-        )
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
     set_admin_password(body.password, db)
     return {"ok": True}
 
@@ -1604,9 +1485,7 @@ def auth_login(body: _LoginRequest, response: Response, db: Session = Depends(ge
 @router.post("/auth/logout")
 def auth_logout(response: Response):
     """Clear the JWT cookie."""
-    response.delete_cookie(
-        key=COOKIE_NAME, httponly=True, samesite="lax", secure=settings.cookie_secure
-    )
+    response.delete_cookie(key=COOKIE_NAME, httponly=True, samesite="lax", secure=settings.cookie_secure)
     return {"ok": True}
 
 
@@ -1624,9 +1503,7 @@ def auth_change_password(
     if not verify_admin_password(body.old_password, db):
         raise HTTPException(status_code=401, detail="Old password incorrect.")
     if len(body.new_password) < 8:
-        raise HTTPException(
-            status_code=422, detail="New password must be at least 8 characters."
-        )
+        raise HTTPException(status_code=422, detail="New password must be at least 8 characters.")
     set_admin_password(body.new_password, db)
     return {"ok": True}
 
@@ -1644,7 +1521,6 @@ from app.runtime_config import (  # noqa: E402
     get_runtime_setting,
     invalidate_runtime_cache,
 )
-
 
 # Settings that require worker restart to take effect
 RESTART_REQUIRED_KEYS = {
@@ -1704,9 +1580,7 @@ def patch_settings(body: dict, db: Session = Depends(get_db)):
         str_value = str(value) if not isinstance(value, str) else value
         row = db.get(AppSetting, key)
         if row is None:
-            row = AppSetting(
-                key=key, value=str_value, updated_at=dt.datetime.now(dt.UTC)
-            )
+            row = AppSetting(key=key, value=str_value, updated_at=dt.datetime.now(dt.UTC))
             db.add(row)
         else:
             row.value = str_value
@@ -1740,9 +1614,7 @@ def patch_keywords(body: dict, db: Session = Depends(get_db)):
     valid_keys = {"person_keywords", "pet_keywords", "location_keywords"}
     for key, terms in body.items():
         if key not in valid_keys:
-            raise HTTPException(
-                status_code=400, detail=f"Unknown keyword list: {key!r}"
-            )
+            raise HTTPException(status_code=400, detail=f"Unknown keyword list: {key!r}")
         if isinstance(terms, list):
             terms_dict = {t.lower(): t.lower() for t in terms}
         elif isinstance(terms, dict):
@@ -1752,9 +1624,7 @@ def patch_keywords(body: dict, db: Session = Depends(get_db)):
         str_value = _json.dumps({"terms": terms_dict})
         row = db.get(AppSetting, key)
         if row is None:
-            row = AppSetting(
-                key=key, value=str_value, updated_at=dt.datetime.now(dt.UTC)
-            )
+            row = AppSetting(key=key, value=str_value, updated_at=dt.datetime.now(dt.UTC))
             db.add(row)
         else:
             row.value = str_value
@@ -1777,10 +1647,7 @@ def get_ollama_models(db: Session = Depends(get_db)):
         resp = requests.get(f"{ollama_url}/api/tags", timeout=5)
         resp.raise_for_status()
         data = resp.json()
-        models_list = [
-            {"name": m.get("name", ""), "size": m.get("size", 0)}
-            for m in data.get("models", [])
-        ]
+        models_list = [{"name": m.get("name", ""), "size": m.get("size", 0)} for m in data.get("models", [])]
         return {"models": models_list, "ok": True}
     except Exception as exc:
         return {"models": [], "ok": False, "error": str(exc)}
@@ -1813,9 +1680,7 @@ def connectivity_health(db: Session = Depends(get_db)):
 
     # Qdrant
     try:
-        qdrant_resp = requests.get(
-            f"{settings.qdrant_url}/collections/{settings.qdrant_collection}", timeout=5
-        )
+        qdrant_resp = requests.get(f"{settings.qdrant_url}/collections/{settings.qdrant_collection}", timeout=5)
         qdrant_result = {
             "ok": qdrant_resp.status_code == 200,
             "collection": settings.qdrant_collection,

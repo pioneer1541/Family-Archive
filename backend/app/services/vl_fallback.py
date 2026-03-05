@@ -42,11 +42,7 @@ def _to_b64_image_bytes(raw: bytes) -> str:
 
 
 def _call_vl(images_b64: list[str], *, prompt: str) -> str:
-    if (
-        (not images_b64)
-        or _in_test_mode()
-        or (not bool(settings.ingestion_vl_fallback_enabled))
-    ):
+    if (not images_b64) or _in_test_mode() or (not bool(settings.ingestion_vl_fallback_enabled)):
         return ""
     try:
         url = settings.ollama_base_url.rstrip("/") + "/api/chat"
@@ -70,9 +66,7 @@ def _call_vl(images_b64: list[str], *, prompt: str) -> str:
             ],
             "options": {"temperature": 0.0},
         }
-        r = requests.post(
-            url, json=payload, timeout=max(6, int(settings.vl_timeout_sec))
-        )
+        r = requests.post(url, json=payload, timeout=max(6, int(settings.vl_timeout_sec)))
         r.raise_for_status()
         body = r.json() if hasattr(r, "json") else {}
         msg = body.get("message") if isinstance(body, dict) else {}
@@ -137,18 +131,14 @@ def extract_image_text_with_vl(path: str) -> str:
     image_b64 = _read_image_as_b64(path)
     if not image_b64:
         return ""
-    return _call_vl(
-        [image_b64], prompt="Extract all visible text from this document image."
-    )
+    return _call_vl([image_b64], prompt="Extract all visible text from this document image.")
 
 
 def extract_pdf_page_text_with_vl(path: str, page_index: int, *, dpi: int = 180) -> str:
     image_b64 = _render_pdf_page_b64(path, page_index, dpi=dpi)
     if not image_b64:
         return ""
-    return _call_vl(
-        [image_b64], prompt=f"Extract text from PDF page {int(page_index) + 1}."
-    )
+    return _call_vl([image_b64], prompt=f"Extract text from PDF page {int(page_index) + 1}.")
 
 
 def extract_pdf_text_with_vl(path: str, *, max_pages: int = 8, dpi: int = 180) -> str:

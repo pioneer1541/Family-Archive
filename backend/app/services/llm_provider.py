@@ -6,7 +6,7 @@ LLM Provider 抽象层
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 import requests
 from openai import OpenAI
