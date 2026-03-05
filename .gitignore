@@ -41,3 +41,4 @@ backend/evaluation/*.md
 
 # Local env file with secrets — never commit
 .env
+backups/
