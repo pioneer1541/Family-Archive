@@ -4,12 +4,22 @@ import {useEffect, useState, useCallback} from 'react';
 import {useTranslations, useLocale} from 'next-intl';
 import {useRouter} from 'next/navigation';
 import {getKbClient} from '@src/lib/api/kb-client';
-import type {AppSettingItem, ConnectivityStatus, KeywordLists, OllamaModel} from '@src/lib/api/types';
+import type {AppSettingItem, ConnectivityStatus, KeywordLists, OllamaModel, GmailCredential, GmailCredentialCreate, GmailCredentialUpdate} from '@src/lib/api/types';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type TabKey = 'llm' | 'storage' | 'mail' | 'timeout' | 'advanced' | 'keywords' | 'account';
+type TabKey = 'llm' | 'storage' | 'mail' | 'gmail' | 'timeout' | 'advanced' | 'keywords' | 'account';
+
+// ---------------------------------------------------------------------------
+// Helper functions
+// ---------------------------------------------------------------------------
+
+// 脱敏显示 client_id (只显示前8位和后4位)
+function maskClientId(clientId: string): string {
+  if (!clientId || clientId.length <= 12) return '****';
+  return clientId.substring(0, 8) + '****' + clientId.substring(clientId.length - 4);
+}
 
 // ---------------------------------------------------------------------------
 // Helper components
@@ -102,6 +112,7 @@ function KeywordEditor({
 // ---------------------------------------------------------------------------
 export default function SettingsPage() {
   const t = useTranslations('settings');
+  const tg = useTranslations('gmail');
   const locale = useLocale();
   const router = useRouter();
   const isZh = locale === 'zh-CN';
@@ -123,12 +134,36 @@ export default function SettingsPage() {
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [pwError, setPwError] = useState('');
+  // Gmail credentials
+  const [gmailCreds, setGmailCreds] = useState<GmailCredential[]>([]);
+  const [gmailLoading, setGmailLoading] = useState(false);
+  const [gmailFormOpen, setGmailFormOpen] = useState(false);
+  const [gmailForm, setGmailForm] = useState<GmailCredentialCreate>({name: "", client_id: "", client_secret: ""});
+  const [gmailEditId, setGmailEditId] = useState<string | null>(null);
+  const [gmailError, setGmailError] = useState("");
+  const [gmailSaving, setGmailSaving] = useState(false);
+  // Gmail 删除确认
+  const [gmailDeleteId, setGmailDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     client.getSettings?.().then(setItems).catch(() => {});
     client.getOllamaModels?.().then(setModels).catch(() => {});
     client.getKeywords?.().then(setKeywords).catch(() => {});
+    loadGmailCredentials();
   }, []);
+
+  // 加载 Gmail 凭证列表
+  async function loadGmailCredentials() {
+    setGmailLoading(true);
+    try {
+      const creds = await client.getGmailCredentials?.() ?? [];
+      setGmailCreds(creds);
+    } catch {
+      setGmailCreds([]);
+    } finally {
+      setGmailLoading(false);
+    }
+  }
 
   function getVal(key: string): string {
     if (key in patch) return patch[key];
@@ -221,6 +256,97 @@ export default function SettingsPage() {
     router.replace(`/${locale}/login`);
   }
 
+  // Gmail 凭证操作
+  async function handleGmailSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setGmailError("");
+    
+    // 验证表单
+    if (!gmailForm.name.trim()) {
+      setGmailError(tg('validationName'));
+      return;
+    }
+    if (!gmailForm.client_id.trim()) {
+      setGmailError(tg('validationClientId'));
+      return;
+    }
+    if (!gmailEditId && !gmailForm.client_secret.trim()) {
+      setGmailError(tg('validationClientSecret'));
+      return;
+    }
+
+    try {
+      setGmailSaving(true);
+      if (gmailEditId) {
+        const updateData: GmailCredentialUpdate = {
+          name: gmailForm.name,
+          client_id: gmailForm.client_id,
+        };
+        if (gmailForm.client_secret.trim()) {
+          updateData.client_secret = gmailForm.client_secret.trim();
+        }
+        await client.updateGmailCredential?.(gmailEditId, updateData);
+        setToast(tg('toastUpdated'));
+      } else {
+        await client.createGmailCredential?.(gmailForm);
+        setToast(tg('toastAdded'));
+      }
+      setGmailFormOpen(false);
+      setGmailEditId(null);
+      setGmailForm({name: "", client_id: "", client_secret: ""});
+      loadGmailCredentials();
+      setTimeout(() => setToast(''), 3000);
+    } catch (err) {
+      setGmailError(err instanceof Error ? err.message : tg('toastFailed'));
+    } finally {
+      setGmailSaving(false);
+    }
+  }
+
+  // 打开编辑表单
+  function handleGmailEdit(cred: GmailCredential) {
+    setGmailEditId(cred.id);
+    setGmailForm({
+      name: cred.name,
+      client_id: cred.client_id,
+      client_secret: "",
+    });
+    setGmailFormOpen(true);
+    setGmailError("");
+  }
+
+  // 确认删除
+  async function handleGmailDelete() {
+    if (!gmailDeleteId) return;
+    try {
+      await client.deleteGmailCredential?.(gmailDeleteId);
+      setToast(tg('toastDeleted'));
+      setGmailDeleteId(null);
+      loadGmailCredentials();
+      setTimeout(() => setToast(''), 3000);
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : tg('deleteFailed'));
+      setTimeout(() => setToast(''), 4000);
+    }
+  }
+
+  // 取消表单
+  function handleGmailCancel() {
+    setGmailFormOpen(false);
+    setGmailEditId(null);
+    setGmailForm({name: "", client_id: "", client_secret: ""});
+    setGmailError("");
+  }
+
+  function handleGmailCreate() {
+    setGmailEditId(null);
+    setGmailForm({name: "", client_id: "", client_secret: ""});
+    setGmailError("");
+    setGmailFormOpen(true);
+  }
+
+  const gmailDeleteTarget = gmailCreds.find((cred) => cred.id === gmailDeleteId) ?? null;
+
   const MODEL_KEYS = ['summary_model', 'planner_model', 'synthesizer_model', 'embed_model', 'category_model', 'friendly_name_model', 'vl_extract_model'];
   const TIMEOUT_KEYS = ['summary_timeout_page_sec', 'summary_timeout_section_sec', 'summary_timeout_final_sec', 'agent_synth_timeout_sec'];
 
@@ -228,6 +354,7 @@ export default function SettingsPage() {
     {key: 'llm', label: t('tabLlm')},
     {key: 'storage', label: t('tabStorage')},
     {key: 'mail', label: t('tabMail')},
+    {key: 'gmail', label: t('tabGmail')},
     {key: 'timeout', label: t('tabTimeout')},
     {key: 'advanced', label: t('tabAdvanced')},
     {key: 'keywords', label: t('tabKeywords')},
@@ -357,6 +484,154 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* Gmail Tab */}
+          {tab === 'gmail' && (
+            <div className="settings-section">
+              <div className="settings-section-header">
+                <h3>{tg('credentials')}</h3>
+                <button
+                  type="button"
+                  className="btn-primary btn-sm"
+                  onClick={handleGmailCreate}
+                  disabled={gmailFormOpen}
+                >
+                  {tg('add')}
+                </button>
+              </div>
+              <p className="settings-hint">{tg('hint')}</p>
+
+              {gmailLoading ? (
+                <p className="settings-hint">{t('loading')}</p>
+              ) : gmailCreds.length === 0 ? (
+                <p className="settings-hint">{tg('empty')}</p>
+              ) : (
+                <div className="gmail-cred-table-wrap">
+                  <table className="gmail-cred-table">
+                    <thead>
+                      <tr>
+                        <th>{tg('tableName')}</th>
+                        <th>{tg('tableClientId')}</th>
+                        <th>{tg('tableCreatedAt')}</th>
+                        <th>{tg('tableUpdatedAt')}</th>
+                        <th>{tg('tableActions')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gmailCreds.map((cred) => (
+                        <tr key={cred.id}>
+                          <td>{cred.name}</td>
+                          <td className="gmail-cred-mono">{maskClientId(cred.client_id)}</td>
+                          <td>{new Date(cred.created_at).toLocaleDateString(locale)}</td>
+                          <td>{new Date(cred.updated_at).toLocaleDateString(locale)}</td>
+                          <td className="gmail-cred-actions">
+                            <button
+                              type="button"
+                              className="btn-secondary btn-sm"
+                              onClick={() => handleGmailEdit(cred)}
+                            >
+                              {t('edit')}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-secondary btn-sm btn-danger"
+                              onClick={() => setGmailDeleteId(cred.id)}
+                            >
+                              {t('delete')}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Gmail Form Modal */}
+              {gmailFormOpen && (
+                <div className="settings-restart-dialog" onClick={handleGmailCancel}>
+                  <div className="settings-restart-content gmail-modal-content" onClick={(e) => e.stopPropagation()}>
+                    <h3>{gmailEditId ? tg('modalEditTitle') : tg('modalCreateTitle')}</h3>
+                    <form onSubmit={handleGmailSubmit} className="settings-form gmail-cred-form">
+                      <div className="settings-field">
+                        <label>{tg('name')}</label>
+                        <input
+                          type="text"
+                          value={gmailForm.name}
+                          onChange={(e) => setGmailForm({...gmailForm, name: e.target.value})}
+                          placeholder={tg('namePlaceholder')}
+                          required
+                        />
+                      </div>
+                      <div className="settings-field">
+                        <label>{tg('clientId')}</label>
+                        <input
+                          type="text"
+                          value={gmailForm.client_id}
+                          onChange={(e) => setGmailForm({...gmailForm, client_id: e.target.value})}
+                          placeholder={tg('clientIdPlaceholder')}
+                          required
+                        />
+                      </div>
+                      <div className="settings-field">
+                        <label>{tg('clientSecret')}</label>
+                        <input
+                          type="password"
+                          value={gmailForm.client_secret}
+                          onChange={(e) => setGmailForm({...gmailForm, client_secret: e.target.value})}
+                          placeholder={tg('clientSecretPlaceholder')}
+                          required={!gmailEditId}
+                        />
+                        {gmailEditId && (
+                          <p className="settings-hint">{tg('secretHint')}</p>
+                        )}
+                      </div>
+                      {gmailError && <p className="setup-error">{gmailError}</p>}
+                      <div className="settings-form-actions">
+                        <button type="button" className="btn-secondary" onClick={handleGmailCancel}>
+                          {t('cancel')}
+                        </button>
+                        <button type="submit" className="btn-primary" disabled={gmailSaving}>
+                          {gmailSaving
+                            ? t('loading')
+                            : (gmailEditId ? tg('update') : tg('create'))}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Delete Confirmation */}
+              {gmailDeleteId && (
+                <div className="settings-restart-dialog">
+                  <div className="settings-restart-content">
+                    <h3>{tg('deleteConfirm')}</h3>
+                    <p>{tg('deleteHint')}</p>
+                    {gmailDeleteTarget && (
+                      <p className="settings-hint">{`${tg('name')}: ${gmailDeleteTarget.name}`}</p>
+                    )}
+                    <div className="settings-restart-actions">
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => setGmailDeleteId(null)}
+                      >
+                        {t('cancel')}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-primary btn-danger"
+                        onClick={handleGmailDelete}
+                      >
+                        {tg('delete')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Timeout Tab */}
           {tab === 'timeout' && (
             <div className="settings-section">
@@ -464,8 +739,8 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Save/Reset buttons (except account tab) */}
-          {tab !== 'account' && (
+          {/* Save/Reset buttons (except account and gmail tabs) */}
+          {tab !== 'account' && tab !== 'gmail' && (
             <div className="settings-actions">
               <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
                 {saving ? '…' : t('save')}

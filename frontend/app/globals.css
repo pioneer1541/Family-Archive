@@ -2828,6 +2828,13 @@ body.keyboard-open {
   gap: 20px;
 }
 
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .settings-field {
   display: flex;
   flex-direction: column;
@@ -2887,6 +2894,12 @@ body.keyboard-open {
   flex-direction: column;
   gap: 16px;
   max-width: 380px;
+}
+
+.settings-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .settings-divider {
@@ -2950,6 +2963,56 @@ body.keyboard-open {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+}
+
+.gmail-modal-content {
+  max-width: 520px;
+}
+
+.gmail-cred-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.gmail-cred-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+  background: var(--paper);
+}
+
+.gmail-cred-table th,
+.gmail-cred-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.gmail-cred-table th {
+  background: var(--bg2);
+  color: var(--ink2);
+  font-weight: 600;
+}
+
+.gmail-cred-table tbody tr:hover {
+  background: var(--bg2);
+}
+
+.gmail-cred-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.gmail-cred-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: var(--ink2);
+}
+
+.gmail-cred-actions {
+  display: flex;
+  gap: 8px;
 }
 
 /* Connectivity */

@@ -304,6 +304,41 @@ export interface KeywordLists {
   location_keywords: Record<string, string>;
 }
 
+// ---------------------------------------------------------------------------
+// User & Auth
+// ---------------------------------------------------------------------------
+
+export interface UserResponse {
+  id: string;
+  email: string;
+  created_at: string;
+}
+
+// Gmail credential types
+export interface GmailCredential {
+  id: string;
+  name: string;
+  client_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GmailCredentialCreate {
+  name: string;
+  client_id: string;
+  client_secret: string;
+}
+
+export interface GmailCredentialUpdate {
+  name?: string;
+  client_id?: string;
+  client_secret?: string;
+}
+
+// ---------------------------------------------------------------------------
+// API Client Interface
+// ---------------------------------------------------------------------------
+
 export interface KbApiClient {
   getDocs(params?: GetDocsParams): Promise<KbDoc[]>;
   getDocsPage?(params?: GetDocsParams): Promise<{items: KbDoc[]; total: number; limit: number; offset: number}>;
@@ -321,9 +356,11 @@ export interface KbApiClient {
   // Auth
   getAuthStatus?(): Promise<AuthStatus>;
   authSetup?(password: string): Promise<void>;
-  authLogin?(password: string): Promise<void>;
+  authLogin?(email: string, password: string): Promise<void>;
+  authRegister?(email: string, password: string): Promise<void>;
   authLogout?(): Promise<void>;
   changePassword?(oldPassword: string, newPassword: string): Promise<void>;
+  getMe?(): Promise<UserResponse | null>;
   // Settings
   getSettings?(): Promise<AppSettingItem[]>;
   updateSettings?(patch: Record<string, string>): Promise<void>;
@@ -334,4 +371,9 @@ export interface KbApiClient {
   updateKeywords?(patch: Partial<KeywordLists>): Promise<void>;
   // Restart
   restartServices?(): Promise<{ok: boolean; message?: string; error?: string; manual?: boolean}>;
+  // Gmail Credentials
+  getGmailCredentials?(): Promise<GmailCredential[]>;
+  createGmailCredential?(data: GmailCredentialCreate): Promise<GmailCredential>;
+  updateGmailCredential?(id: string, data: GmailCredentialUpdate): Promise<GmailCredential>;
+  deleteGmailCredential?(id: string): Promise<void>;
 }

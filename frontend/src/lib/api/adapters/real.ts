@@ -25,7 +25,11 @@ import type {
   SyncRunDetail,
   SyncRunStartResult,
   SyncSourceSummary,
-  UiLocale
+  UiLocale,
+  UserResponse,
+  GmailCredential,
+  GmailCredentialCreate,
+  GmailCredentialUpdate
 } from '../types';
 
 const API_BASE = process.env.NEXT_PUBLIC_FKV_API_BASE || '/api';
@@ -1109,11 +1113,11 @@ async function authSetup(password: string): Promise<void> {
   }
 }
 
-async function authLogin(password: string): Promise<void> {
+async function authLogin(email: string, password: string): Promise<void> {
   const r = await fetch(`${API_BASE}/v1/auth/login`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({password}),
+    body: JSON.stringify({email, password}),
   });
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
@@ -1134,6 +1138,28 @@ async function changePassword(oldPassword: string, newPassword: string): Promise
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
     throw new Error(err?.detail || 'Password change failed');
+  }
+}
+
+async function getMe(): Promise<UserResponse | null> {
+  try {
+    const r = await fetch(`${API_BASE}/v1/auth/me`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
+async function authRegister(email: string, password: string): Promise<void> {
+  const r = await fetch(`${API_BASE}/v1/auth/register`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email, password}),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err?.detail || 'Registration failed');
   }
 }
 
@@ -1206,6 +1232,58 @@ async function restartServices(): Promise<{ok: boolean; message?: string; error?
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// Gmail Credentials
+// ---------------------------------------------------------------------------
+
+async function getGmailCredentials(): Promise<GmailCredential[]> {
+  try {
+    const r = await fetch(`${API_BASE}/v1/gmail/credentials`);
+    if (!r.ok) return [];
+    const data = await r.json();
+    return Array.isArray(data?.items) ? data.items : [];
+  } catch {
+    return [];
+  }
+}
+
+async function createGmailCredential(data: GmailCredentialCreate): Promise<GmailCredential> {
+  const r = await fetch(`${API_BASE}/v1/gmail/credentials`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err?.detail || "Failed to create credential");
+  }
+  return await r.json();
+}
+
+async function updateGmailCredential(id: string, data: GmailCredentialUpdate): Promise<GmailCredential> {
+  const r = await fetch(`${API_BASE}/v1/gmail/credentials/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err?.detail || "Failed to update credential");
+  }
+  return await r.json();
+}
+
+async function deleteGmailCredential(id: string): Promise<void> {
+  const r = await fetch(`${API_BASE}/v1/gmail/credentials/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err?.detail || "Failed to delete credential");
+  }
+}
+
 export function createRealAdapter(): KbApiClient {
   return {
     getDocs,
@@ -1233,5 +1311,11 @@ export function createRealAdapter(): KbApiClient {
     getKeywords,
     updateKeywords,
     restartServices,
+    getMe,
+    authRegister,
+    getGmailCredentials,
+    createGmailCredential,
+    updateGmailCredential,
+    deleteGmailCredential,
   };
 }
