@@ -1189,6 +1189,23 @@ async function updateKeywords(patch: Partial<KeywordLists>): Promise<void> {
   if (!r.ok) throw new Error('Keywords update failed');
 }
 
+async function restartServices(): Promise<{ok: boolean; message?: string; error?: string; manual?: boolean}> {
+  try {
+    const r = await fetch(`${API_BASE}/v1/restart`, {
+      method: 'POST',
+    });
+    const data = await r.json().catch(() => ({}));
+    return {
+      ok: Boolean(data?.ok),
+      message: String(data?.message || ''),
+      error: String(data?.error || ''),
+      manual: Boolean(data?.manual),
+    };
+  } catch {
+    return {ok: false, error: 'Network error', manual: true};
+  }
+}
+
 export function createRealAdapter(): KbApiClient {
   return {
     getDocs,
@@ -1215,5 +1232,6 @@ export function createRealAdapter(): KbApiClient {
     getConnectivity,
     getKeywords,
     updateKeywords,
+    restartServices,
   };
 }

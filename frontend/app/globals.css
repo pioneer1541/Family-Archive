@@ -2909,6 +2909,49 @@ body.keyboard-open {
   animation: fade-in 0.2s ease;
 }
 
+/* Restart Dialog */
+.settings-restart-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fade-in 0.2s ease;
+}
+
+.settings-restart-content {
+  background: var(--paper);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: var(--shadow-lg);
+}
+
+.settings-restart-content h3 {
+  margin: 0 0 12px 0;
+  font-size: 1.2rem;
+  color: var(--ink);
+}
+
+.settings-restart-content p {
+  margin: 0 0 20px 0;
+  font-size: 0.95rem;
+  color: var(--ink-secondary);
+  line-height: 1.5;
+}
+
+.settings-restart-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
 /* Connectivity */
 .connectivity-status {
   display: flex;

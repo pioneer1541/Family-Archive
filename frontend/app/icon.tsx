@@ -16,13 +16,25 @@ export default function Icon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#2a2118',
-          color: '#f5f0e8',
-          fontSize: 196,
-          fontWeight: 700
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: 80,
         }}
       >
-        FV
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 320,
+            height: 320,
+            background: 'rgba(255, 255, 255, 0.15)',
+            borderRadius: 60,
+          }}
+        >
+          <span style={{ fontSize: 180, fontWeight: 700, color: '#fff' }}>
+            FV
+          </span>
+        </div>
       </div>
     ),
     size

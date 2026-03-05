@@ -1,0 +1,25 @@
+# Family Vault Frontend - Development
+# Uses Playwright image for e2e testing support
+
+FROM mcr.microsoft.com/playwright:v1.50.0-jammy
+
+WORKDIR /app
+
+ENV NEXT_PUBLIC_FKV_API_BASE=/api
+ENV FKV_INTERNAL_API_BASE=http://fkv-api:18080
+ENV NEXT_DIST_DIR=.next-runtime
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy application code
+COPY . .
+
+EXPOSE 18081
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3     CMD wget --no-verbose --tries=1 --spider http://localhost:18081/ || exit 1
+
+CMD ["npm", "run", "dev"]

@@ -2,14 +2,14 @@ import type {MetadataRoute} from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Family Knowledge Vault',
+    name: 'Family Vault',
     short_name: 'Family Vault',
     description: 'Family archive workspace with bilingual search and AI agent.',
     start_url: '/zh-CN/dashboard',
     scope: '/',
     display: 'standalone',
-    background_color: '#f5f0e8',
-    theme_color: '#f5f0e8',
+    background_color: '#667eea',
+    theme_color: '#667eea',
     icons: [
       {
         src: '/icon?size=192',

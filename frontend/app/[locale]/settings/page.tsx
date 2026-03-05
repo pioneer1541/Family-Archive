@@ -116,6 +116,8 @@ export default function SettingsPage() {
   const [keywordsPatch, setKeywordsPatch] = useState<Partial<KeywordLists>>({});
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
+  const [restartRequired, setRestartRequired] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   // Account tab
   const [oldPw, setOldPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -140,7 +142,16 @@ export default function SettingsPage() {
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      if (Object.keys(patch).length > 0) await client.updateSettings?.(patch);
+      if (Object.keys(patch).length > 0) {
+        const result = await fetch('/api/v1/settings', {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(patch),
+        }).then(r => r.json()).catch(() => ({}));
+        if (result?.restart_required) {
+          setRestartRequired(true);
+        }
+      }
       if (Object.keys(keywordsPatch).length > 0) await client.updateKeywords?.(keywordsPatch);
       setPatch({});
       setKeywordsPatch({});
@@ -153,6 +164,25 @@ export default function SettingsPage() {
       setSaving(false);
     }
   }, [patch, keywordsPatch, client, t]);
+
+  const handleRestart = useCallback(async () => {
+    setRestarting(true);
+    try {
+      const result = await client.restartServices?.();
+      if (result?.ok) {
+        setRestartRequired(false);
+        setToast(isZh ? '服务已重启' : 'Services restarted');
+      } else {
+        setToast(isZh ? '重启失败，请手动重启容器' : 'Restart failed, please restart container manually');
+      }
+      setTimeout(() => setToast(''), 4000);
+    } catch {
+      setToast(isZh ? '重启失败' : 'Restart failed');
+      setTimeout(() => setToast(''), 4000);
+    } finally {
+      setRestarting(false);
+    }
+  }, [client, isZh]);
 
   async function handleTestConn() {
     try {
@@ -443,6 +473,33 @@ export default function SettingsPage() {
 
       {/* Toast */}
       {toast && <div className="settings-toast">{toast}</div>}
+      
+      {/* Restart Dialog */}
+      {restartRequired && (
+        <div className="settings-restart-dialog">
+          <div className="settings-restart-content">
+            <h3>{isZh ? '需要重启' : 'Restart Required'}</h3>
+            <p>{isZh ? '模型设置已更改，需要重启服务才能生效。' : 'Model settings changed. A service restart is required for changes to take effect.'}</p>
+            <div className="settings-restart-actions">
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                onClick={() => setRestartRequired(false)}
+              >
+                {isZh ? '稍后' : 'Later'}
+              </button>
+              <button 
+                type="button" 
+                className="btn-primary" 
+                onClick={handleRestart}
+                disabled={restarting}
+              >
+                {restarting ? (isZh ? '重启中...' : 'Restarting...') : (isZh ? '立即重启' : 'Restart Now')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

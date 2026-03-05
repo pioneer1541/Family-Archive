@@ -4,10 +4,10 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Family Knowledge Vault',
-    template: '%s | Family Knowledge Vault'
+    default: 'Family Vault',
+    template: '%s | Family Vault'
   },
-  applicationName: 'Family Knowledge Vault',
+  applicationName: 'Family Vault',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     email: false,
     address: false
   },
-  themeColor: '#f5f0e8',
+  themeColor: '#667eea',
   icons: {
     apple: [
       {url: '/apple-icon?size=180', sizes: '180x180', type: 'image/png'},
@@ -37,7 +37,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#f5f0e8'
+  themeColor: '#667eea'
 };
 
 export default function RootLayout({children}: {children: ReactNode}) {

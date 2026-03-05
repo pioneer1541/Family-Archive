@@ -332,4 +332,6 @@ export interface KbApiClient {
   // Keywords
   getKeywords?(): Promise<KeywordLists>;
   updateKeywords?(patch: Partial<KeywordLists>): Promise<void>;
+  // Restart
+  restartServices?(): Promise<{ok: boolean; message?: string; error?: string; manual?: boolean}>;
 }

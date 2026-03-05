@@ -56,9 +56,21 @@ export default function LoginPage() {
           </button>
         </form>
         <p className="setup-hint" style={{marginTop: '1rem', textAlign: 'center'}}>
-          {isZh
-            ? '忘记密码？在容器内运行 reset 命令重置。'
-            : 'Forgot password? Run the reset command inside the container.'}
+          {isZh ? (
+            <>
+              忘记密码？请通过以下命令重置：<br/>
+              <code style={{display: 'block', marginTop: '0.5rem', padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '4px', fontSize: '0.85rem'}}>
+                docker exec -it fkv-api python -c "from app.auth import set_admin_password; from app.db import SessionLocal; db = SessionLocal(); set_admin_password('新密码', db); print('密码已重置')"
+              </code>
+            </>
+          ) : (
+            <>
+              Forgot password? Reset with:<br/>
+              <code style={{display: 'block', marginTop: '0.5rem', padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '4px', fontSize: '0.85rem'}}>
+                docker exec -it fkv-api python -c "from app.auth import set_admin_password; from app.db import SessionLocal; db = SessionLocal(); set_admin_password('new_password', db); print('Password reset')"
+              </code>
+            </>
+          )}
         </p>
       </div>
     </div>
