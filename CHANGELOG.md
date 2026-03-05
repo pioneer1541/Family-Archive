@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- LLM 多提供商支持
+  - 支持 Ollama、OpenAI、Kimi、GLM、Custom 五种提供商
+  - API Key 加密存储 (Fernet 对称加密)
+  - LLM Router 支持本地/云端回退机制
+  - 数据库迁移脚本 (llm_providers 表)
+  - Settings UI 添加提供商管理界面
+
+- 服务管理
+  - /api/v1/restart API 端点 (重启 Worker 应用配置变更)
+  - 设置变更检测 (PATCH /settings 返回 restart_required)
+  - Worker 容器内 Docker socket 通信支持
+
+- Bug 修复
+  - JWT 环境变量配置一致性 (统一使用 FAMILY_VAULT_JWT_SECRET)
+  - 前端构建目录路径 (修正 .next-runtime 目录)
+  - Fernet 加密密钥处理 (移除多余的 base64 decode)
+  - Settings 保存响应状态检查 (正确处理 4xx/5xx 错误)
+
 - Docker 化支持
   - `install.sh` 一键安装脚本
   - `update.sh` 更新脚本 (含自动备份和回滚)
