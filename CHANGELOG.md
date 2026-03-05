@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Gmail 密钥管理
+  - GmailCredentials 数据模型
+  - Gmail OAuth 凭证加密存储
+  - API 端点：GET/POST/PUT/DELETE /api/v1/gmail/credentials
+  - 凭证显示脱敏处理
+
 - 多用户系统
   - User 模型和数据库迁移
   - 用户注册、登录、登出 API（/api/v1/auth/*）

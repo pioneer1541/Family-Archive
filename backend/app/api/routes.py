@@ -1834,3 +1834,93 @@ _root_router = APIRouter()
 _root_router.include_router(router)
 _root_router.include_router(auth_router)
 router = _root_router
+
+
+# ---------------------------------------------------------------------------
+# Gmail Credentials API
+# ---------------------------------------------------------------------------
+
+@router.get("/gmail/credentials")
+def list_gmail_credentials(db: Session = Depends(get_db)):
+    """List all Gmail credentials (masked)."""
+    from app.models import GmailCredentials
+    
+    creds = db.execute(select(GmailCredentials).where(GmailCredentials.is_active is True)).scalars().all()
+    items = []
+    for c in creds:
+        client_id_masked = c.client_id[:8] + '...' + c.client_id[-4:] if len(c.client_id) > 12 else c.client_id
+        items.append({
+            "id": c.id,
+            "name": c.name,
+            "client_id_masked": client_id_masked,
+            "redirect_uri": c.redirect_uri,
+            "is_active": c.is_active,
+            "created_at": c.created_at.isoformat(),
+            "updated_at": c.updated_at.isoformat(),
+        })
+    return {"items": items, "total": len(items)}
+
+
+@router.post("/gmail/credentials")
+def create_gmail_credentials(body: dict, db: Session = Depends(get_db)):
+    """Create a new Gmail credential."""
+    import uuid
+    from app.models import GmailCredentials
+    from app.utils.encryption import encrypt
+    
+    cred = GmailCredentials(
+        id=str(uuid.uuid4()),
+        name=body["name"],
+        client_id=body["client_id"],
+        client_secret_encrypted=encrypt(body["client_secret"]),
+        redirect_uri=body.get("redirect_uri", "http://localhost"),
+        token_encrypted=encrypt(body["token"]) if body.get("token") else None,
+        refresh_token_encrypted=encrypt(body["refresh_token"]) if body.get("refresh_token") else None,
+        token_uri=body.get("token_uri", "https://oauth2.googleapis.com/token"),
+        auth_uri=body.get("auth_uri", "https://accounts.google.com/o/oauth2/auth"),
+        scopes=body.get("scopes", "https://www.googleapis.com/auth/gmail.readonly"),
+    )
+    db.add(cred)
+    db.commit()
+    return {"ok": True, "id": cred.id}
+
+
+@router.put("/gmail/credentials/{cred_id}")
+def update_gmail_credentials(cred_id: str, body: dict, db: Session = Depends(get_db)):
+    """Update a Gmail credential."""
+    from app.models import GmailCredentials
+    from app.utils.encryption import encrypt
+    
+    cred = db.get(GmailCredentials, cred_id)
+    if not cred:
+        return {"ok": False, "error": "Not found"}, 404
+    
+    if "name" in body:
+        cred.name = body["name"]
+    if "client_id" in body:
+        cred.client_id = body["client_id"]
+    if "client_secret" in body:
+        cred.client_secret_encrypted = encrypt(body["client_secret"])
+    if "token" in body:
+        cred.token_encrypted = encrypt(body["token"]) if body["token"] else None
+    if "refresh_token" in body:
+        cred.refresh_token_encrypted = encrypt(body["refresh_token"]) if body["refresh_token"] else None
+    if "is_active" in body:
+        cred.is_active = body["is_active"]
+    
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/gmail/credentials/{cred_id}")
+def delete_gmail_credentials(cred_id: str, db: Session = Depends(get_db)):
+    """Delete a Gmail credential."""
+    from app.models import GmailCredentials
+    
+    cred = db.get(GmailCredentials, cred_id)
+    if not cred:
+        return {"ok": False, "error": "Not found"}, 404
+    
+    db.delete(cred)
+    db.commit()
+    return {"ok": True}

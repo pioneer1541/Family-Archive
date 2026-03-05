@@ -711,3 +711,61 @@ class AuthStatusResponse(BaseModel):
     setup_complete: bool
     authenticated: bool = False
     user: UserResponse | None = None
+
+
+# ---------------------------------------------------------------------------
+# Gmail Credentials schemas
+# ---------------------------------------------------------------------------
+
+class GmailCredentialCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    client_id: str = Field(min_length=1, max_length=256)
+    client_secret: str = Field(min_length=1)
+    redirect_uri: str = Field(default="http://localhost", max_length=512)
+    token: str | None = None
+    refresh_token: str | None = None
+    token_uri: str = Field(default="https://oauth2.googleapis.com/token", max_length=256)
+    auth_uri: str = Field(default="https://accounts.google.com/o/oauth2/auth", max_length=256)
+    scopes: str = Field(default="https://www.googleapis.com/auth/gmail.readonly")
+
+
+class GmailCredentialUpdate(BaseModel):
+    name: str | None = Field(default=None, max_length=128)
+    client_id: str | None = Field(default=None, max_length=256)
+    client_secret: str | None = None
+    redirect_uri: str | None = Field(default=None, max_length=512)
+    token: str | None = None
+    refresh_token: str | None = None
+    token_uri: str | None = Field(default=None, max_length=256)
+    auth_uri: str | None = Field(default=None, max_length=256)
+    scopes: str | None = None
+    is_active: bool | None = None
+
+
+class GmailCredentialItem(BaseModel):
+    id: str
+    name: str
+    client_id_masked: str
+    redirect_uri: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class GmailCredentialDetail(BaseModel):
+    id: str
+    name: str
+    client_id: str
+    client_secret_masked: str
+    redirect_uri: str
+    token_uri: str
+    auth_uri: str
+    scopes: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class GmailCredentialListResponse(BaseModel):
+    items: list[GmailCredentialItem]
+    total: int

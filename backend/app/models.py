@@ -355,3 +355,29 @@ class User(Base):
         onupdate=lambda: dt.datetime.now(dt.UTC),
     )
     deleted_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+
+
+class GmailCredentials(Base):
+    """Gmail OAuth 凭证表 - 存储加密后的 OAuth 凭证"""
+    __tablename__ = "gmail_credentials"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    client_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    client_secret_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    redirect_uri: Mapped[str] = mapped_column(String(512), nullable=False, default="http://localhost")
+    token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    refresh_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    token_uri: Mapped[str] = mapped_column(String(256), nullable=False, default="https://oauth2.googleapis.com/token")
+    auth_uri: Mapped[str] = mapped_column(String(256), nullable=False, default="https://accounts.google.com/o/oauth2/auth")
+    scopes: Mapped[str] = mapped_column(Text, nullable=False, default="https://www.googleapis.com/auth/gmail.readonly")
+    is_active: Mapped[bool] = mapped_column(nullable=False, default=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: dt.datetime.now(dt.UTC)
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: dt.datetime.now(dt.UTC),
+        onupdate=lambda: dt.datetime.now(dt.UTC),
+    )
