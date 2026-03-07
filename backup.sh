@@ -25,6 +25,31 @@ BACKUP_DIR="$SCRIPT_DIR/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_NAME="family_vault_backup_$TIMESTAMP"
 KEEP_BACKUPS=10  # 保留最近 N 个备份
+DB_BACKUP_ARTIFACT=""
+
+resolve_database_url() {
+    local value="${DATABASE_URL:-}"
+    if [ -z "$value" ] && [ -n "${FAMILY_VAULT_DATABASE_URL:-}" ]; then
+        value="$FAMILY_VAULT_DATABASE_URL"
+    fi
+    if [ -z "$value" ] && [ -f ".env" ]; then
+        value=$(grep -E '^[[:space:]]*FAMILY_VAULT_DATABASE_URL=' .env | tail -n 1 | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+    fi
+    echo "$value"
+}
+
+detect_db_type() {
+    local db_url="$1"
+    if [[ "$db_url" == postgresql://* ]] || [[ "$db_url" == postgresql+*://* ]] || [[ "$db_url" == postgres://* ]]; then
+        echo "postgres"
+        return
+    fi
+    if [[ "$db_url" == sqlite://* ]] || [[ "$db_url" == sqlite:* ]]; then
+        echo "sqlite"
+        return
+    fi
+    echo "unknown"
+}
 
 # 参数解析
 BACKUP_TYPE="full"  # full, quick, data-only
@@ -66,6 +91,10 @@ echo "============================================"
 echo "备份类型: $BACKUP_TYPE"
 echo ""
 
+DB_URL="$(resolve_database_url)"
+DB_TYPE="$(detect_db_type "$DB_URL")"
+log_info "检测数据库类型: $DB_TYPE"
+
 # 创建备份目录
 mkdir -p "$BACKUP_DIR"
 TEMP_DIR="$BACKUP_DIR/$BACKUP_NAME"
@@ -73,11 +102,20 @@ mkdir -p "$TEMP_DIR"
 
 # 1. 备份数据库
 log_info "备份数据库..."
-if [ -f "data/family_vault.db" ]; then
-    cp data/family_vault.db "$TEMP_DIR/family_vault.db"
-    log_success "数据库已备份"
+if [ "$DB_TYPE" = "postgres" ]; then
+    if ! command -v pg_dump >/dev/null 2>&1; then
+        log_error "检测到 PostgreSQL，但未找到 pg_dump 命令"
+        exit 1
+    fi
+    DB_BACKUP_ARTIFACT="$TEMP_DIR/family_vault.pg.dump"
+    pg_dump --format=custom --no-owner --no-privileges --file="$DB_BACKUP_ARTIFACT" "$DB_URL"
+    log_success "PostgreSQL 已备份: $DB_BACKUP_ARTIFACT"
+elif [ -f "data/family_vault.db" ]; then
+    DB_BACKUP_ARTIFACT="$TEMP_DIR/family_vault.db"
+    cp data/family_vault.db "$DB_BACKUP_ARTIFACT"
+    log_success "SQLite 数据库已备份"
 else
-    log_warn "数据库文件不存在"
+    log_warn "未检测到可备份数据库（SQLite 文件不存在，且未配置 PostgreSQL URL）"
 fi
 
 # 2. 备份配置
@@ -155,7 +193,8 @@ echo ""
 # 7. 恢复命令提示
 echo "📝 恢复命令:"
 echo "   tar -xzf ${BACKUP_NAME}.tar.gz"
-echo "   cp ${BACKUP_NAME}/family_vault.db data/"
+echo "   # SQLite: cp ${BACKUP_NAME}/family_vault.db data/"
+echo "   # PostgreSQL: pg_restore --clean --if-exists -d \"\$DATABASE_URL\" ${BACKUP_NAME}/family_vault.pg.dump"
 echo "   cp ${BACKUP_NAME}/.env ."
 echo ""
 

@@ -183,9 +183,15 @@ docker compose up -d
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `FAMILY_VAULT_JWT_SECRET` | JWT 密钥 (必须修改) | - |
-| `FAMILY_VAULT_DATABASE_URL` | 数据库路径 | SQLite |
+| `FAMILY_VAULT_DATABASE_URL` | 数据库连接串（SQLite 或 PostgreSQL） | `sqlite:///./family_vault.db` |
 | `FAMILY_VAULT_OLLAMA_BASE_URL` | Ollama 服务地址 | http://host.docker.internal:11434 |
 | `FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR` | NAS 源目录 | - |
+
+PostgreSQL 示例：
+
+```bash
+FAMILY_VAULT_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/family_vault
+```
 
 ### NAS 挂载
 
