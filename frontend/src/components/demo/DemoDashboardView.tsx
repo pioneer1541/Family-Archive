@@ -3,7 +3,8 @@
 import {useEffect, useMemo, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
 import {getKbClient} from '@src/lib/api/kb-client';
-import type {KbCategory, KbDoc, UiLocale} from '@src/lib/api/types';
+import type {KbCategory, KbDoc, UiLocale, BilingualText} from '@src/lib/api/types';
+import {pickBilingualText} from '@src/lib/i18n/bilingual';
 import {useRouter} from '@/i18n/navigation';
 
 // Demo Dashboard - 优化版界面设计
@@ -150,9 +151,9 @@ function DemoDashboardView() {
                     {new Date(doc.updatedAt || Date.now()).toLocaleDateString(locale === 'zh-CN' ? 'zh-CN' : 'en-AU')}
                   </span>
                 </div>
-                <h3 className="demo-doc-title">{doc.title || doc.title || doc.fileName || 'Untitled'}</h3>
+                <h3 className="demo-doc-title">{pickBilingualText(doc.title, locale).text || doc.fileName || "Untitled"}</h3>
                 <p className="demo-doc-preview">
-                  {(doc.summary || doc.summary || '').slice(0, 80)}...
+                  {pickBilingualText(doc.summary, locale).text.slice(0, 80)}...
                 </p>
               </article>
             ))}

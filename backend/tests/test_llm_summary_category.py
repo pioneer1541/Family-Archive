@@ -4,7 +4,7 @@ from app.services import llm_summary
 def test_classify_category_from_summary_uses_model_and_allowed_path(monkeypatch):
     seen: dict[str, str] = {}
 
-    def _fake_call_json_result(_prompt, _payload, *, timeout_sec=None, model_name=None, retry_count=None, call_name=None):
+    def _fake_call_json_result(_prompt, _payload, *, timeout_sec=None, model_name=None, retry_count=None, call_name=None, db=None):
         seen["model_name"] = str(model_name or "")
         return llm_summary.LlmJsonCallResult(
             ok=True,

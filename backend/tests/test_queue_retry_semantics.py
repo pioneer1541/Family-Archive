@@ -90,6 +90,7 @@ def test_delete_job_ignores_paths_for_future_enqueue(client, tmp_path: Path, mon
     assert blocked.status_code == 409
     assert blocked.json()["detail"] == "all_paths_ignored"
 
+    monkeypatch.setattr(nas.settings, "source_type", "nas")
     monkeypatch.setattr(nas.settings, "nas_default_source_dir", str(tmp_path))
     monkeypatch.setattr(nas.settings, "nas_allowed_extensions", ["txt"])
     scanned = client.post("/v1/ingestion/nas/scan", json={"paths": [str(tmp_path)], "recursive": True, "max_files": 100})
