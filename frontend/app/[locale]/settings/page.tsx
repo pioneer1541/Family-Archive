@@ -224,13 +224,16 @@ export default function SettingsPage() {
     setRestarting(true);
     try {
       const result = await client.restartServices?.();
+      const fallbackSuccess = isZh ? '服务已重启' : 'Services restarted';
+      const fallbackFail = isZh ? '重启失败，请手动重启容器' : 'Restart failed, please restart container manually';
+      const toastMessage = (result?.message || result?.error || '').trim();
       if (result?.ok) {
         setRestartRequired(false);
-        setToast(isZh ? '服务已重启' : 'Services restarted');
+        setToast(toastMessage || fallbackSuccess);
       } else {
-        setToast(isZh ? '重启失败，请手动重启容器' : 'Restart failed, please restart container manually');
+        setToast(toastMessage || fallbackFail);
       }
-      setTimeout(() => setToast(''), 4000);
+      setTimeout(() => setToast(''), toastMessage.length > 120 ? 12000 : 6000);
     } catch {
       setToast(isZh ? '重启失败' : 'Restart failed');
       setTimeout(() => setToast(''), 4000);

@@ -3,6 +3,8 @@ import json
 import mimetypes
 import os
 from pathlib import Path
+import shutil
+import subprocess
 
 import requests
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response
@@ -1908,64 +1910,67 @@ def connectivity_health(db: Session = Depends(get_db)):
 
 
 @router.post("/restart")
-# ---------------------------------------------------------------------------
-# Service restart
-# ---------------------------------------------------------------------------
-
-@router.post("/restart")
 def restart_services():
-    """Restart backend services (worker) to apply configuration changes."""
-    import socket
+    """Restart backend worker to apply configuration changes."""
+    manual_cmd = "docker compose restart fkv-worker"
 
-    in_docker = os.path.exists("/.dockerenv")
-
-    if not in_docker:
-        return {
-            "ok": False,
-            "error": "Restart only available in Docker environment",
-            "manual": True,
-        }
-
-    try:
-        sock_path = "/var/run/docker.sock"
-        if not os.path.exists(sock_path):
-            return {"ok": False, "error": "Docker socket not available", "manual": True}
-
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.settimeout(30)
-        sock.connect(sock_path)
-
-        # HTTP request to restart container via Docker API
-        request = "POST /containers/fkv-worker/restart HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n"
-        sock.sendall(request.encode())
-
-        response = b""
-        while True:
-            chunk = sock.recv(4096)
-            if not chunk:
-                break
-            response += chunk
-            if b"\r\n\r\n" in response:
-                break
-
-        sock.close()
-
-        response_str = response.decode("utf-8", errors="ignore")
-        if "HTTP/1.1 204" in response_str or "HTTP/1.1 200" in response_str:
-            return {"ok": True, "message": "Worker restarted successfully"}
-        else:
+    docker_bin = shutil.which("docker")
+    if docker_bin:
+        try:
+            result = subprocess.run(
+                [docker_bin, "compose", "restart", "fkv-worker"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=45,
+            )
+            if result.returncode == 0:
+                return {
+                    "ok": True,
+                    "message": "Worker restart requested successfully via docker compose.",
+                }
+            stderr = (result.stderr or "").strip()
+            stdout = (result.stdout or "").strip()
+            detail = stderr or stdout or "docker compose returned non-zero exit code"
             return {
                 "ok": False,
-                "error": f"Failed to restart: {response_str[:200]}",
                 "manual": True,
+                "error": (
+                    f"Automatic restart failed: {detail[:300]}. "
+                    f"Please run manually: {manual_cmd}"
+                ),
+                "message": f"Please run manually: {manual_cmd}",
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "ok": False,
+                "manual": True,
+                "error": (
+                    "Automatic restart timed out. "
+                    f"Please run manually: {manual_cmd}"
+                ),
+                "message": f"Please run manually: {manual_cmd}",
+            }
+        except Exception as exc:
+            return {
+                "ok": False,
+                "manual": True,
+                "error": (
+                    f"Automatic restart failed: {str(exc)[:300]}. "
+                    f"Please run manually: {manual_cmd}"
+                ),
+                "message": f"Please run manually: {manual_cmd}",
             }
 
-    except socket.timeout:
-        return {"ok": False, "error": "Restart command timed out", "manual": True}
-    except FileNotFoundError:
-        return {"ok": False, "error": "Docker socket not found", "manual": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "manual": True}
+    return {
+        "ok": False,
+        "manual": True,
+        "error": (
+            "Docker CLI is not available in this environment. "
+            f"Please run manually: {manual_cmd}"
+        ),
+        "message": f"Please run manually: {manual_cmd}",
+    }
 
 
 _root_router = APIRouter()
