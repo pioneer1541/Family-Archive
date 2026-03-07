@@ -280,7 +280,7 @@ def test_agent_semantic_stats_are_exposed(client, monkeypatch):
         )
 
     # Force search_semantic route so search_documents is always called regardless of LLM response.
-    def _fake_route(req):
+    def _fake_route(req, db=None):
         return SimpleNamespace(
             route="lookup", domain="generic", sub_intent="search_semantic",
             rewritten_query=req.query, time_window_months=None,
@@ -289,6 +289,18 @@ def test_agent_semantic_stats_are_exposed(client, monkeypatch):
 
     monkeypatch.setattr("app.services.agent_bundle_search.search_documents", _fake_search)
     monkeypatch.setattr(agent_service, "route_and_rewrite", _fake_route)
+
+    def _fake_synth(req, planner, bundle, *, trace_id, conversation, db=None):
+        return (
+            SimpleNamespace(
+                answer="Test answer",
+                citations=[],
+                confidence=0.9,
+            ),
+            None,
+        )
+
+    monkeypatch.setattr(agent_service, "_synthesize_with_model", _fake_synth)
     r = client.post("/v1/agent/execute", json={"query": "请帮我查找保修条款", "ui_lang": "zh", "query_lang": "zh"})
     assert r.status_code == 200
     stats = r.json().get("executor_stats") or {}
