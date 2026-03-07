@@ -44,6 +44,64 @@ Family Vault 支持多种 LLM 提供商，可在设置界面中切换：
 
 ---
 
+
+## 🏗️ 后端架构
+
+Family Vault 后端采用模块化架构，核心 Agent 服务由以下模块组成：
+
+### Agent 模块结构
+
+```
+backend/app/services/
+├── agent.py (1289 行) — 主入口，协调各模块
+├── agent_constants.py — 常量和 QueryFacet 定义
+├── query_policy.py — 查询理解和 facet 检测
+├── evidence.py — 证据评估和覆盖率计算
+├── detail_extract.py — 细节字段提取
+├── docs.py — 文档辅助函数
+├── bills.py — Bill 相关工具函数
+├── queue_reprocess.py — 队列和重处理逻辑
+├── agent_utils.py — JSON/Scope 工具函数
+├── agent_actions.py — Action 构建器
+├── agent_router_adapter.py — Router 和 Chitchat 适配器
+├── agent_bundle_search.py — 搜索 Bundle 构建
+├── planner.py — LLM Planner 路由决策
+├── search.py — 向量 + 全文混合搜索
+├── qdrant.py — Qdrant 向量数据库操作
+├── ingestion.py — 文档摄取和分块
+├── llm_router.py — 多 LLM 提供商路由
+└── ... — 其他服务模块
+```
+
+### 核心流程
+
+```
+用户查询 → Planner (LLM) → Router → Bundle Builder → Search → Evidence → Synthesis
+```
+
+1. **Planner** — LLM 分析用户意图，决定路由策略
+2. **Router** — 根据 Planner 决策选择 Bundle 类型
+3. **Bundle Builder** — 构建上下文（搜索/账单/详情等）
+4. **Search** — Qdrant 向量搜索 + SQLite 全文搜索
+5. **Evidence** — 评估答案覆盖率和可信度
+6. **Synthesis** — LLM 生成最终答案
+
+### 模块职责
+
+| 模块 | 职责 |
+|------|------|
+| `agent.py` | 协调各模块，执行查询流程 |
+| `query_policy.py` | 查询理解、facet 检测、上下文策略 |
+| `evidence.py` | 证据评估、覆盖率计算、可答性推断 |
+| `detail_extract.py` | 细节字段提取、JSON 序列化 |
+| `docs.py` | 文档去重、相关文档构建 |
+| `bills.py` | Bill 相关日期/金额格式化 |
+| `agent_bundle_search.py` | 搜索 Bundle 构建（核心检索逻辑） |
+| `planner.py` | LLM 路由决策 |
+| `search.py` | 混合搜索（向量 + 全文） |
+
+---
+
 ## 📋 系统要求
 
 | 项目 | 最低要求 | 推荐配置 |
