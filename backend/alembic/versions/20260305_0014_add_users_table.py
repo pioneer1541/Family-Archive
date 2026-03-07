@@ -1,8 +1,8 @@
 """add users table
 
-Revision ID: 0014
-Revises: 0013
-Create Date: 2025-03-05
+Revision ID: 20260305_0014
+Revises: 20260303_0013
+Create Date: 2026-03-05
 
 """
 from typing import Sequence, Union
@@ -25,9 +25,9 @@ def upgrade() -> None:
         sa.Column('email', sa.String(255), nullable=False),
         sa.Column('password_hash', sa.String(128), nullable=False),
         sa.Column('role', sa.String(16), nullable=False, server_default='user'),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='1'),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
         sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
     )
     op.create_index('ix_users_email', 'users', ['email'], unique=True)
@@ -47,7 +47,7 @@ def upgrade() -> None:
             conn.execute(
                 sa.text(
                     "INSERT INTO users (id, email, password_hash, role, is_active, created_at, updated_at) "
-                    "VALUES (:id, 'admin@local', :hash, 'admin', 1, datetime('now'), datetime('now'))"
+                    "VALUES (:id, 'admin@local', :hash, 'admin', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
                 ),
                 {'id': user_id, 'hash': password_hash}
             )

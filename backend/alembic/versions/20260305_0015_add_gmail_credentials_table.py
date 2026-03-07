@@ -1,6 +1,6 @@
 """add gmail_credentials table
 
-Revision ID: 0015
+Revision ID: 20260305_0015
 Revises: 20260305_0014
 Create Date: 2026-03-05
 
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = '0015'
+revision: str = '20260305_0015'
 down_revision: Union[str, None] = '20260305_0014'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -30,9 +30,9 @@ def upgrade() -> None:
         sa.Column('token_uri', sa.String(256), nullable=False, server_default='https://oauth2.googleapis.com/token'),
         sa.Column('auth_uri', sa.String(256), nullable=False, server_default='https://accounts.google.com/o/oauth2/auth'),
         sa.Column('scopes', sa.Text(), nullable=False, server_default='https://www.googleapis.com/auth/gmail.readonly'),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='1'),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
     )
 
 
