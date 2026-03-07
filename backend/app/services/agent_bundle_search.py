@@ -37,12 +37,16 @@ def _build_detail_extract_bundle(
     category_path: str | None,
 ) -> dict[str, Any]:
     lowered_query = str(req.query or "").lower()
-    topic = _resolve_detail_topic(req.query, planner.doc_scope if isinstance(planner.doc_scope, dict) else {})
+    topic = _resolve_detail_topic(
+        req.query, planner.doc_scope if isinstance(planner.doc_scope, dict) else {}
+    )
     selected_ids = [str(x or "").strip() for x in doc_ids if str(x or "").strip()]
     if selected_ids:
         related_docs = _build_related_docs(db, selected_ids, cap=10)
     else:
-        seed_bundle = _build_search_bundle(db, req, planner, doc_ids=[], category_path=category_path)
+        seed_bundle = _build_search_bundle(
+            db, req, planner, doc_ids=[], category_path=category_path
+        )
         related_docs = seed_bundle.get("related_docs") or []
 
     _active_prefixes: tuple[str, ...] = ()
@@ -108,27 +112,50 @@ def _build_detail_extract_bundle(
         ):
             insurance_prefixes = ("health/insurance",)
         _active_prefixes = insurance_prefixes
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(insurance_prefixes)]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(insurance_prefixes)
+        ]
     elif topic == "bill":
         _active_prefixes = ("finance/bills",)
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith("finance/bills")]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith("finance/bills")
+        ]
     elif topic == "home":
         _active_prefixes = ("home/property", "home/maintenance", "legal/property")
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(_active_prefixes)]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(_active_prefixes)
+        ]
     elif topic == "appliances":
         _active_prefixes = ("home/manuals", "home/appliances", "tech/hardware")
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(_active_prefixes)]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(_active_prefixes)
+        ]
     elif topic == "pets":
         pet_prefixes: tuple[str, ...] = (
             "home/pets",
             "health/medical_records",
             "home/insurance/pet",
         )
-        if any(tok in lowered_query for tok in ("birthday", "birth date", "dob", "生日", "出生日期")):
+        if any(
+            tok in lowered_query
+            for tok in ("birthday", "birth date", "dob", "生日", "出生日期")
+        ):
             # Broaden to health/insurance — desexing/medical certs may be filed there
             pet_prefixes = ("home/pets", "health/medical_records", "health/insurance")
         _active_prefixes = pet_prefixes
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(pet_prefixes)]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(pet_prefixes)
+        ]
     elif topic == "warranty":
         _active_prefixes = (
             "home/manuals",
@@ -136,10 +163,18 @@ def _build_detail_extract_bundle(
             "tech/hardware",
             "home/maintenance",
         )
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(_active_prefixes)]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(_active_prefixes)
+        ]
     elif topic == "contract":
         _active_prefixes = ("legal/contracts", "legal/property")
-        scoped_docs = [doc for doc in related_docs if str(doc.category_path or "").startswith(_active_prefixes)]
+        scoped_docs = [
+            doc
+            for doc in related_docs
+            if str(doc.category_path or "").startswith(_active_prefixes)
+        ]
     if (not scoped_docs) and topic == "generic":
         scoped_docs = related_docs[:6]
     elif not scoped_docs and _active_prefixes:
@@ -177,7 +212,12 @@ def _build_detail_extract_bundle(
         if len(context_chunks) >= 10:
             break
         rows = (
-            db.execute(select(Chunk).where(Chunk.document_id == doc.doc_id).order_by(Chunk.chunk_index.asc()).limit(4))
+            db.execute(
+                select(Chunk)
+                .where(Chunk.document_id == doc.doc_id)
+                .order_by(Chunk.chunk_index.asc())
+                .limit(4)
+            )
             .scalars()
             .all()
         )
@@ -222,9 +262,17 @@ def _build_detail_extract_bundle(
     if _is_howto and topic in {"generic", "home", "appliances"}:
         detail_rows, missing_fields = [], []
     else:
-        detail_rows, missing_fields = _detail_rows_from_chunks(topic=topic, chunks=context_chunks, ui_lang=req.ui_lang)
-    fields_filled = sum(1 for row in detail_rows if str(row.value_zh or row.value_en).strip())
-    detail_sections = [DetailSection(section_name=f"{topic}_details", rows=detail_rows)] if detail_rows else []
+        detail_rows, missing_fields = _detail_rows_from_chunks(
+            topic=topic, chunks=context_chunks, ui_lang=req.ui_lang
+        )
+    fields_filled = sum(
+        1 for row in detail_rows if str(row.value_zh or row.value_en).strip()
+    )
+    detail_sections = (
+        [DetailSection(section_name=f"{topic}_details", rows=detail_rows)]
+        if detail_rows
+        else []
+    )
     evidence_doc_ids: list[str] = []
     seen_evidence_docs: set[str] = set()
     for row in detail_rows:
@@ -235,7 +283,9 @@ def _build_detail_extract_bundle(
             seen_evidence_docs.add(doc_id)
             evidence_doc_ids.append(doc_id)
     if evidence_doc_ids:
-        scoped_docs = [doc for doc in scoped_docs if str(doc.doc_id or "") in seen_evidence_docs]
+        scoped_docs = [
+            doc for doc in scoped_docs if str(doc.doc_id or "") in seen_evidence_docs
+        ]
     return {
         "route": "detail_extract",
         "context_chunks": context_chunks[:12],
@@ -260,7 +310,9 @@ def _build_detail_extract_bundle(
             docs_matched=int(docs_matched),
             fields_filled=int(fields_filled),
         ),
-        "related_doc_selection_mode": "evidence_only" if evidence_doc_ids else "evidence_plus_candidates",
+        "related_doc_selection_mode": "evidence_only"
+        if evidence_doc_ids
+        else "evidence_plus_candidates",
         "evidence_backed_doc_ids": evidence_doc_ids,
     }
 
@@ -275,7 +327,9 @@ def _build_entity_fact_lookup_bundle(
 ) -> dict[str, Any]:
     # Reuse generic detail extraction templates, but expose route as entity_fact_lookup
     # so routing/eval can audit structured usage.
-    out = _build_detail_extract_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
+    out = _build_detail_extract_bundle(
+        db, req, planner, doc_ids=doc_ids, category_path=category_path
+    )
     out["route"] = "entity_fact_lookup"
     out["route_reason"] = "entity_fact_structured"
     out["fact_route"] = "none"
@@ -292,22 +346,40 @@ def _build_search_bundle(
     category_path: str | None,
 ) -> dict[str, Any]:
     facet = _detect_query_facet(req.query)
-    domain_whitelist = tuple(path.lower() for path in _domain_category_whitelist(req.query, facet))
+    domain_whitelist = tuple(
+        path.lower() for path in _domain_category_whitelist(req.query, facet)
+    )
     query_required_terms = _query_required_terms(req.query)
     historical_fact_query = _is_historical_fact_query(req.query)
-    strict_categories = {str(item or "").strip().lower() for item in facet.strict_categories if str(item or "").strip()}
-    required_terms = [str(item or "").strip().lower() for item in facet.required_terms if str(item or "").strip()]
+    strict_categories = {
+        str(item or "").strip().lower()
+        for item in facet.strict_categories
+        if str(item or "").strip()
+    }
+    required_terms = [
+        str(item or "").strip().lower()
+        for item in facet.required_terms
+        if str(item or "").strip()
+    ]
 
     effective_category_path = category_path
-    if (not effective_category_path) and facet.strict_mode and len(strict_categories) == 1:
+    if (
+        (not effective_category_path)
+        and facet.strict_mode
+        and len(strict_categories) == 1
+    ):
         effective_category_path = next(iter(strict_categories))
 
     search_req = SearchRequest(
         query=req.query,
         top_k=12,
         score_threshold=0.0,
-        ui_lang=planner.ui_lang if planner.ui_lang in {"zh", "en"} else ("zh" if req.ui_lang == "zh" else "en"),
-        query_lang=planner.query_lang if planner.query_lang in {"zh", "en"} else req.query_lang,
+        ui_lang=planner.ui_lang
+        if planner.ui_lang in {"zh", "en"}
+        else ("zh" if req.ui_lang == "zh" else "en"),
+        query_lang=planner.query_lang
+        if planner.query_lang in {"zh", "en"}
+        else req.query_lang,
         category_path=effective_category_path,
         include_missing=False,
     )
@@ -317,14 +389,28 @@ def _build_search_bundle(
         allowed_doc_ids = set(doc_ids)
         hits = [hit for hit in hits if str(hit.doc_id) in allowed_doc_ids]
 
-    candidate_doc_ids = [str(hit.doc_id or "").strip() for hit in hits if str(hit.doc_id or "").strip()]
-    candidate_docs = db.execute(select(Document).where(Document.id.in_(set(candidate_doc_ids)))).scalars().all()
+    candidate_doc_ids = [
+        str(hit.doc_id or "").strip() for hit in hits if str(hit.doc_id or "").strip()
+    ]
+    candidate_docs = (
+        db.execute(select(Document).where(Document.id.in_(set(candidate_doc_ids))))
+        .scalars()
+        .all()
+    )
     doc_map = {str(item.id): item for item in candidate_docs}
 
     top_hits = hits[:10]
-    hit_chunk_ids = [str(hit.chunk_id or "").strip() for hit in top_hits if str(hit.chunk_id or "").strip()]
+    hit_chunk_ids = [
+        str(hit.chunk_id or "").strip()
+        for hit in top_hits
+        if str(hit.chunk_id or "").strip()
+    ]
     chunk_rows = (
-        db.execute(select(Chunk).where(Chunk.id.in_(set(hit_chunk_ids)))).scalars().all() if hit_chunk_ids else []
+        db.execute(select(Chunk).where(Chunk.id.in_(set(hit_chunk_ids))))
+        .scalars()
+        .all()
+        if hit_chunk_ids
+        else []
     )
     chunk_map = {str(chunk.id): chunk for chunk in chunk_rows}
 
@@ -355,11 +441,15 @@ def _build_search_bundle(
                     str(getattr(doc, "file_name", "") or ""),
                     str(getattr(doc, "summary_zh", "") or ""),
                     str(getattr(doc, "summary_en", "") or ""),
-                    " ".join(str(item or "") for item in (getattr(hit, "tags", []) or [])),
+                    " ".join(
+                        str(item or "") for item in (getattr(hit, "tags", []) or [])
+                    ),
                     str(chunk.content or ""),
                 ]
             ).lower()
-            if required_terms and (not any(term in text_blob for term in required_terms)):
+            if required_terms and (
+                not any(term in text_blob for term in required_terms)
+            ):
                 continue
             if historical_fact_query and _looks_planned_or_proposal_doc(text_blob):
                 continue
@@ -367,7 +457,9 @@ def _build_search_bundle(
             text_blob = ""
             if domain_whitelist or query_required_terms:
                 hit_category = str(hit.category_path or "").strip().lower()
-                if domain_whitelist and (not any(hit_category.startswith(path) for path in domain_whitelist)):
+                if domain_whitelist and (
+                    not any(hit_category.startswith(path) for path in domain_whitelist)
+                ):
                     continue
                 doc = doc_map.get(doc_id)
                 text_blob = " ".join(
@@ -381,9 +473,15 @@ def _build_search_bundle(
                         str(chunk.content or ""),
                     ]
                 ).lower()
-            if query_required_terms and (not any(term in text_blob for term in query_required_terms)):
+            if query_required_terms and (
+                not any(term in text_blob for term in query_required_terms)
+            ):
                 continue
-            if historical_fact_query and text_blob and _looks_planned_or_proposal_doc(text_blob):
+            if (
+                historical_fact_query
+                and text_blob
+                and _looks_planned_or_proposal_doc(text_blob)
+            ):
                 continue
 
         seen_chunk_ids.add(chunk.id)
@@ -469,7 +567,9 @@ def _build_search_bundle(
 
     if (not facet.strict_mode) and len(context_chunks) < 3:
         need = max(0, 3 - len(context_chunks))
-        context_chunks.extend(_fill_chunks_from_doc_scope(db, doc_ids, seen_chunk_ids, need))
+        context_chunks.extend(
+            _fill_chunks_from_doc_scope(db, doc_ids, seen_chunk_ids, need)
+        )
     context_chunks = context_chunks[:10]
 
     sources: list[ResultCardSource] = []
@@ -505,7 +605,13 @@ def _build_search_bundle(
         "sources": sources,
         "related_docs": related_docs,
         "hit_count": len(context_chunks),
-        "doc_count": len({str(item.get("doc_id") or "") for item in context_chunks if str(item.get("doc_id") or "")}),
+        "doc_count": len(
+            {
+                str(item.get("doc_id") or "")
+                for item in context_chunks
+                if str(item.get("doc_id") or "")
+            }
+        ),
         "query_en": str(search_res.query_en or ""),
         "bilingual_search": bool(search_res.bilingual),
         "qdrant_used": bool(search_res.qdrant_used),

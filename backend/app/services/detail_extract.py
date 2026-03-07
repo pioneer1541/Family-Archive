@@ -1,5 +1,4 @@
 import datetime as dt
-import json
 import re
 from typing import Any
 
@@ -74,7 +73,9 @@ def _json_safe_value(value: Any) -> Any:
     return value
 
 
-def _resolve_detail_topic(query: str, planner_scope: dict[str, Any] | None = None) -> str:
+def _resolve_detail_topic(
+    query: str, planner_scope: dict[str, Any] | None = None
+) -> str:
     hint = str((planner_scope or {}).get("topic_hint") or "").strip().lower()
     if hint in {
         "insurance",
@@ -245,18 +246,30 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
     if field == "loan_bank":
         for token in ("cba", "commonwealth bank", "anz", "nab", "westpac", "bank"):
             if token in lowered:
-                return token.upper() if token in {"cba", "anz", "nab"} else token.title()
+                return (
+                    token.upper() if token in {"cba", "anz", "nab"} else token.title()
+                )
     if field in {"payment_status", "status"}:
         if any(token in lowered for token in ("paid", "已缴", "已支付")):
             return "Paid"
         if any(token in lowered for token in ("unpaid", "未缴", "待缴", "due")):
             return "Unpaid"
     if field in {"policy_type", "coverage_scope"}:
-        if "vehicle" in lowered or "car" in lowered or "motor" in lowered or "车" in lowered:
+        if (
+            "vehicle" in lowered
+            or "car" in lowered
+            or "motor" in lowered
+            or "车" in lowered
+        ):
             return "Vehicle"
         if "pet" in lowered or "宠物" in lowered:
             return "Pet"
-        if "health" in lowered or "hospital" in lowered or "医保" in lowered or "医疗" in lowered:
+        if (
+            "health" in lowered
+            or "hospital" in lowered
+            or "医保" in lowered
+            or "医疗" in lowered
+        ):
             return "Health"
     if field in {"brand"}:
         for token in ("daikin", "rheem", "tesla", "bosch", "lg", "samsung", "miele"):
@@ -270,10 +283,14 @@ def _extract_evidence_value(text: str, topic: str, field: str) -> str:
         m = re.search(r"(\d+(?:\.\d+)?)\s*(?:sqm|m2|㎡|平方米)", lowered)
         if m:
             return m.group(1) + " m2"
-    if field in {"maintenance_item"} and any(t in lowered for t in ("repair", "maintenance", "维修", "保养")):
+    if field in {"maintenance_item"} and any(
+        t in lowered for t in ("repair", "maintenance", "维修", "保养")
+    ):
         line = next((ln.strip() for ln in raw.splitlines() if ln.strip()), "")
         return line[:120]
-    if field in {"vaccine_type"} and any(t in lowered for t in ("vaccine", "vaccination", "疫苗")):
+    if field in {"vaccine_type"} and any(
+        t in lowered for t in ("vaccine", "vaccination", "疫苗")
+    ):
         line = next((ln.strip() for ln in raw.splitlines() if ln.strip()), "")
         return line[:120]
     if field in {"vet_name"}:

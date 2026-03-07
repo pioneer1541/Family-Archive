@@ -46,7 +46,9 @@ def _extract_year_month(text: str) -> tuple[int | None, int | None]:
         if 1 <= m <= 12:
             return (y, m)
 
-    ymd = re.search(r"(20\d{2})[\/\-.](0?[1-9]|1[0-2])(?:[\/\-.](?:0?[1-9]|[12]\d|3[01]))?", raw)
+    ymd = re.search(
+        r"(20\d{2})[\/\-.](0?[1-9]|1[0-2])(?:[\/\-.](?:0?[1-9]|[12]\d|3[01]))?", raw
+    )
     if ymd:
         return (int(ymd.group(1)), int(ymd.group(2)))
 

@@ -76,7 +76,9 @@ _ACTION_META: dict[str, dict[str, Any]] = {
 }
 
 
-def _build_action(key: str, *, default_label_en: str, default_label_zh: str) -> ResultCardAction:
+def _build_action(
+    key: str, *, default_label_en: str, default_label_zh: str
+) -> ResultCardAction:
     meta = _ACTION_META.get(key, {})
     return ResultCardAction(
         key=key,
@@ -103,6 +105,10 @@ def _default_actions(planner: PlannerDecision) -> list[ResultCardAction]:
 
     out: list[ResultCardAction] = []
     for key in chosen[:4]:
-        label_en, label_zh = _ACTION_LABELS.get(key, (key.replace("_", " ").title(), key))
-        out.append(_build_action(key, default_label_en=label_en, default_label_zh=label_zh))
+        label_en, label_zh = _ACTION_LABELS.get(
+            key, (key.replace("_", " ").title(), key)
+        )
+        out.append(
+            _build_action(key, default_label_en=label_en, default_label_zh=label_zh)
+        )
     return out
