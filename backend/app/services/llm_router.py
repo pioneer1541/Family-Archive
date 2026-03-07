@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.llm_models.llm_provider import LLMProvider, ProviderType
 from app.logging_utils import get_logger
+from app.runtime_config import get_model_setting
 from app.services.llm_provider import (
     LLMConfig,
     LLMProviderInterface,
@@ -97,13 +98,13 @@ class LLMRouter:
         self._providers: Dict[str, LLMProviderInterface] = {}
         self._local_provider: Optional[LLMProviderInterface] = None
 
-    def _get_local_provider(self) -> LLMProviderInterface:
+    def _get_local_provider(self, db: Session | None = None) -> LLMProviderInterface:
         """获取本地 Ollama Provider（单例）"""
         if self._local_provider is None:
             config = LLMConfig(
                 provider_type=ServiceProviderType.OLLAMA,
                 base_url=settings.ollama_base_url,
-                model_name=settings.summary_model,  # 使用默认模型
+                model_name=get_model_setting("summary_model", db),  # 使用默认模型
             )
             self._local_provider = create_provider(config)
         return self._local_provider
@@ -188,7 +189,7 @@ class LLMRouter:
         parsed = ModelKey.parse(model_key)
 
         if parsed.source == "local":
-            provider = self._get_local_provider()
+            provider = self._get_local_provider(db)
             model_name = parsed.model_name
 
         else:
@@ -199,8 +200,8 @@ class LLMRouter:
                 logger.warning(
                     f"云端 Provider {parsed.provider_name} 不可用，回退到本地 Ollama"
                 )
-                provider = self._get_local_provider()
-                model_name = settings.summary_model
+                provider = self._get_local_provider(db)
+                model_name = get_model_setting("summary_model", db)
 
         return provider, model_name
 
@@ -245,7 +246,7 @@ def get_llm_client(
     return get_router().get_llm_client(db, model_key, fallback)
 
 
-def migrate_legacy_model_key(model: str) -> str:
+def migrate_legacy_model_key(model: str, db: Session | None = None) -> str:
     """
     将旧格式的模型名称迁移为新的 model_key 格式
 
@@ -256,7 +257,7 @@ def migrate_legacy_model_key(model: str) -> str:
         新格式 model_key（如 local:qwen3:4b-instruct）
     """
     if not model:
-        return "local:" + settings.summary_model
+        return "local:" + get_model_setting("summary_model", db)
 
     # 如果已经是新格式，直接返回
     if model.startswith("local:") or model.startswith("cloud:"):

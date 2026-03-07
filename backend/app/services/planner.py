@@ -4,8 +4,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import requests
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.runtime_config import get_runtime_setting
 from app.schemas import PlannerDecision, PlannerRequest
 from app.services.agent_queryspec import (
     apply_query_spec_to_planner_fields,
@@ -376,10 +378,12 @@ def _planner_prompt(req: PlannerRequest) -> list[dict[str, str]]:
     ]
 
 
-def _planner_from_llm(req: PlannerRequest) -> PlannerDecision | None:
+def _planner_from_llm(
+    req: PlannerRequest, db: Session | None = None
+) -> PlannerDecision | None:
     url = settings.ollama_base_url.rstrip("/") + "/api/chat"
     payload = {
-        "model": settings.planner_model,
+        "model": get_runtime_setting("planner_model", db),
         "stream": False,
         "messages": _planner_prompt(req),
         "options": {"temperature": 0.0},
@@ -477,8 +481,8 @@ def _planner_from_llm(req: PlannerRequest) -> PlannerDecision | None:
         return None
 
 
-def plan_from_request(req: PlannerRequest) -> PlannerDecision:
-    from_llm = _planner_from_llm(req)
+def plan_from_request(req: PlannerRequest, db: Session | None = None) -> PlannerDecision:
+    from_llm = _planner_from_llm(req, db)
     plan = (
         _apply_intent_override(req, from_llm)
         if from_llm is not None
@@ -742,7 +746,7 @@ def _router_heuristic(req: PlannerRequest) -> RouterDecision:
     )
 
 
-def route_and_rewrite(req: PlannerRequest) -> RouterDecision:
+def route_and_rewrite(req: PlannerRequest, db: Session | None = None) -> RouterDecision:
     """Single LLM call: classify the user's intent + rewrite the query for vector search.
 
     Returns a RouterDecision with route in {lookup, calculate, chitchat, system}.
@@ -752,7 +756,7 @@ def route_and_rewrite(req: PlannerRequest) -> RouterDecision:
         resp = requests.post(
             f"{settings.ollama_base_url}/api/chat",
             json={
-                "model": settings.planner_model,
+                "model": get_runtime_setting("planner_model", db),
                 "messages": [
                     {"role": "system", "content": _ROUTER_SYSTEM_PROMPT},
                     {"role": "user", "content": req.query},

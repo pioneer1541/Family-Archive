@@ -814,7 +814,8 @@ def planner_node(
                 ui_lang=req.ui_lang,
                 query_lang=req.query_lang,
                 doc_scope=req.doc_scope,
-            )
+            ),
+            db=db,
         )
     else:
         planner = req.planner
@@ -2573,6 +2574,7 @@ def answer_build_node(
             bundle,
             trace_id=str(state.get("trace_id") or ""),
             conversation=synth_conversation,
+            db=db,
         )
         synth_latency_ms = int((time.perf_counter() - synth_started) * 1000)
         if card is None:

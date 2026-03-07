@@ -4,9 +4,11 @@ import uuid
 from typing import Any
 
 import requests
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.logging_utils import get_logger, sanitize_log_context
+from app.runtime_config import get_runtime_setting
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -43,11 +45,13 @@ def qdrant_payload(
     }
 
 
-def _embed_text(text: str) -> list[float]:
-    return _embed_texts([text])[0]
+def _embed_text(text: str, db: Session | None = None) -> list[float]:
+    return _embed_texts([text], db=db)[0]
 
 
-def _embed_texts(texts: list[str]) -> list[list[float]]:
+def _embed_texts(
+    texts: list[str], db: Session | None = None
+) -> list[list[float]]:
     clean = [str(t or "") for t in texts]
     if not clean:
         return []
@@ -56,7 +60,12 @@ def _embed_texts(texts: list[str]) -> list[list[float]]:
         clean if (settings.qdrant_embed_batch_enable and len(clean) > 1) else clean[0]
     )
     r = requests.post(
-        url, json={"model": settings.embed_model, "input": input_payload}, timeout=20
+        url,
+        json={
+            "model": get_runtime_setting("embed_model", db),
+            "input": input_payload,
+        },
+        timeout=20,
     )
     r.raise_for_status()
     data = r.json() if hasattr(r, "json") else {}
@@ -76,22 +85,22 @@ def _embed_texts(texts: list[str]) -> list[list[float]]:
         if len(clean) == 1 and len(vectors) == 1:
             return vectors
         if settings.qdrant_embed_batch_enable and len(clean) > 1:
-            return [_embed_texts([item])[0] for item in clean]
+            return [_embed_texts([item], db=db)[0] for item in clean]
         raise RuntimeError(f"embed_count_mismatch:{len(vectors)}:{len(clean)}")
     return vectors
 
 
-def _embed_query_cached(query: str) -> list[float]:
+def _embed_query_cached(query: str, db: Session | None = None) -> list[float]:
     key = str(query or "").strip().lower()
     if not key:
-        return _embed_text(query)
+        return _embed_text(query, db=db)
 
     now = time.time()
     hit = _query_embedding_cache.get(key)
     if hit and (now - float(hit[0]) <= _QUERY_CACHE_TTL_SEC):
         return hit[1]
 
-    vec = _embed_text(query)
+    vec = _embed_text(query, db=db)
     _query_embedding_cache[key] = (now, vec)
     if len(_query_embedding_cache) > _QUERY_CACHE_MAX:
         oldest_key = min(
@@ -134,7 +143,7 @@ def ensure_collection_exists(force: bool = False) -> None:
     _collection_ready = True
 
 
-def upsert_records(records: list[dict[str, Any]]) -> None:
+def upsert_records(records: list[dict[str, Any]], db: Session | None = None) -> None:
     if (not settings.qdrant_enable) or (not records):
         return
     ensure_collection_exists()
@@ -154,7 +163,9 @@ def upsert_records(records: list[dict[str, Any]]) -> None:
     points: list[dict[str, Any]] = []
     for start in range(0, len(clean_records), embed_batch_size):
         batch = clean_records[start : start + embed_batch_size]
-        vectors = _embed_texts([str(item.get("text") or "").strip() for item in batch])
+        vectors = _embed_texts(
+            [str(item.get("text") or "").strip() for item in batch], db=db
+        )
         for rec, vec in zip(batch, vectors):
             pid = _stable_point_id(str(rec.get("doc_id")), str(rec.get("chunk_id")))
             points.append({"id": pid, "vector": vec, "payload": rec})
@@ -187,6 +198,7 @@ def search_records(
     top_k: int,
     score_threshold: float = 0.0,
     category_path: str | None = None,
+    db: Session | None = None,
 ) -> list[dict[str, Any]]:
     if (not settings.qdrant_enable) or (not str(query or "").strip()) or top_k <= 0:
         return []
@@ -198,7 +210,7 @@ def search_records(
         + f"/collections/{settings.qdrant_collection}/points/search"
     )
     body: dict[str, Any] = {
-        "vector": _embed_query_cached(query),
+        "vector": _embed_query_cached(query, db=db),
         "limit": int(top_k),
         "with_payload": True,
     }

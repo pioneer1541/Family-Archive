@@ -5,8 +5,10 @@ import re
 from pathlib import Path
 
 import requests
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.runtime_config import get_model_setting
 
 try:
     from PIL import Image
@@ -41,7 +43,9 @@ def _to_b64_image_bytes(raw: bytes) -> str:
     return base64.b64encode(raw).decode("utf-8")
 
 
-def _call_vl(images_b64: list[str], *, prompt: str) -> str:
+def _call_vl(
+    images_b64: list[str], *, prompt: str, db: Session | None = None
+) -> str:
     if (
         (not images_b64)
         or _in_test_mode()
@@ -51,7 +55,7 @@ def _call_vl(images_b64: list[str], *, prompt: str) -> str:
     try:
         url = settings.ollama_base_url.rstrip("/") + "/api/chat"
         payload = {
-            "model": settings.vl_extract_model,
+            "model": get_model_setting("vl_extract_model", db),
             "stream": False,
             "messages": [
                 {
@@ -130,7 +134,7 @@ def _render_pdf_page_b64(path: str, page_index: int, *, dpi: int = 180) -> str:
             pass
 
 
-def extract_image_text_with_vl(path: str) -> str:
+def extract_image_text_with_vl(path: str, db: Session | None = None) -> str:
     ext = Path(str(path or "")).suffix.lower().lstrip(".")
     if ext not in {"jpg", "jpeg", "png", "webp", "bmp", "tif", "tiff", "heic"}:
         return ""
@@ -138,20 +142,26 @@ def extract_image_text_with_vl(path: str) -> str:
     if not image_b64:
         return ""
     return _call_vl(
-        [image_b64], prompt="Extract all visible text from this document image."
+        [image_b64], prompt="Extract all visible text from this document image.", db=db
     )
 
 
-def extract_pdf_page_text_with_vl(path: str, page_index: int, *, dpi: int = 180) -> str:
+def extract_pdf_page_text_with_vl(
+    path: str, page_index: int, *, dpi: int = 180, db: Session | None = None
+) -> str:
     image_b64 = _render_pdf_page_b64(path, page_index, dpi=dpi)
     if not image_b64:
         return ""
     return _call_vl(
-        [image_b64], prompt=f"Extract text from PDF page {int(page_index) + 1}."
+        [image_b64],
+        prompt=f"Extract text from PDF page {int(page_index) + 1}.",
+        db=db,
     )
 
 
-def extract_pdf_text_with_vl(path: str, *, max_pages: int = 8, dpi: int = 180) -> str:
+def extract_pdf_text_with_vl(
+    path: str, *, max_pages: int = 8, dpi: int = 180, db: Session | None = None
+) -> str:
     if _in_test_mode():
         return ""
     raw_path = str(path or "").strip()
@@ -160,7 +170,7 @@ def extract_pdf_text_with_vl(path: str, *, max_pages: int = 8, dpi: int = 180) -
     limit = max(1, int(max_pages))
     out: list[str] = []
     for idx in range(limit):
-        text = extract_pdf_page_text_with_vl(raw_path, idx, dpi=dpi)
+        text = extract_pdf_page_text_with_vl(raw_path, idx, dpi=dpi, db=db)
         if text:
             out.append(text)
     return _normalize_text("\n".join(out))

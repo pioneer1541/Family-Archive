@@ -1009,8 +1009,8 @@ def get_task(task_id: str, db: Session = Depends(get_db)) -> TaskResponse:
 
 
 @router.post("/agent/plan", response_model=PlannerDecision)
-def plan(payload: PlannerRequest) -> PlannerDecision:
-    return plan_from_request(payload)
+def plan(payload: PlannerRequest, db: Session = Depends(get_db)) -> PlannerDecision:
+    return plan_from_request(payload, db=db)
 
 
 @router.post("/agent/execute", response_model=AgentExecuteResponse)
@@ -1122,7 +1122,7 @@ def map_reduce_summary(
     summary_en = str((out.short_summary.en if out.short_summary else "") or "").strip()
     summary_zh = str((out.short_summary.zh if out.short_summary else "") or "").strip()
     doc.summary_quality_state = str(out.quality_state or "needs_regen")[:24]
-    doc.summary_model = str(settings.summary_model or "")[:64]
+    doc.summary_model = str(get_model_setting("summary_model", db) or "")[:64]
     doc.summary_version = "prompt-v2"
     # Persist long-document sampling metadata so the UI can surface it
     doc.longdoc_mode = str(out.longdoc_mode or "normal")[:16]
@@ -1173,6 +1173,7 @@ def map_reduce_summary(
             summary_en=doc.summary_en,
             summary_zh=doc.summary_zh,
             content_excerpt=excerpt,
+            db=db,
         )
         if classified is not None:
             cat_en, cat_zh, cat_path = classified
@@ -1254,6 +1255,7 @@ def map_reduce_summary(
             fallback_en=doc.title_en,
             fallback_zh=doc.title_zh,
             content_excerpt=excerpt,
+            db=db,
         )
         if renamed is not None:
             title_en, title_zh = renamed
@@ -1358,7 +1360,7 @@ def map_reduce_summary(
         ]
         if payload_records:
             try:
-                upsert_records(payload_records)
+                upsert_records(payload_records, db=db)
                 qdrant_synced = True
             except Exception as exc:
                 qdrant_synced = False
@@ -1643,6 +1645,7 @@ import os as _os  # noqa: E402
 from app.runtime_config import (  # noqa: E402
     _RUNTIME_CONFIGURABLE,
     SETTING_META,
+    get_model_setting,
     get_runtime_json,
     get_runtime_setting,
     invalidate_runtime_cache,

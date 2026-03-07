@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app import crud
 from app.config import get_settings
 from app.logging_utils import get_logger, sanitize_log_context
+from app.runtime_config import get_runtime_setting
 from app.schemas import (
     AgentExecuteRequest,
     AgentExecuteResponse,
@@ -1514,10 +1515,11 @@ def _synthesize_with_model(
     *,
     trace_id: str,
     conversation: list[dict[str, str]],
+    db: Session | None = None,
 ) -> tuple[ResultCard | None, str]:
     url = settings.ollama_base_url.rstrip("/") + "/api/chat"
     payload = {
-        "model": settings.synthesizer_model,
+        "model": get_runtime_setting("synthesizer_model", db),
         "stream": False,
         "messages": _synth_prompt(req, planner, bundle, conversation=conversation),
         "options": {"temperature": 0.1},
@@ -2300,7 +2302,8 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
                 ui_lang=req.ui_lang,
                 query_lang=req.query_lang,
                 doc_scope=req.doc_scope,
-            )
+            ),
+            db=db,
         )
         planner = _router_to_planner(router, req)
     planner_latency_ms = int((time.perf_counter() - planner_started) * 1000)
@@ -2546,6 +2549,7 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
             bundle,
             trace_id=trace_id,
             conversation=synth_conversation,
+            db=db,
         )
         synth_latency_ms = int((time.perf_counter() - synth_started) * 1000)
     synth_fallback_used = False
@@ -2733,7 +2737,8 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
                 ui_lang=req.ui_lang,
                 query_lang=req.query_lang,
                 doc_scope=req.doc_scope,
-            )
+            ),
+            db=db,
         )
     else:
         planner = req.planner
@@ -2935,6 +2940,7 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
             bundle,
             trace_id=trace_id,
             conversation=synth_conversation,
+            db=db,
         )
         synth_latency_ms = int((time.perf_counter() - synth_started) * 1000)
     synth_fallback_used = False

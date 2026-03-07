@@ -7,9 +7,11 @@ from dataclasses import dataclass
 from typing import Any
 
 import requests
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.logging_utils import get_logger, sanitize_log_context
+from app.runtime_config import get_model_setting, get_runtime_setting
 from app.services.source_tags import (
     category_labels_for_path,
     leaf_category_paths,
@@ -425,8 +427,10 @@ def _call_json_result(
     model_name: str | None = None,
     retry_count: int = 2,
     call_name: str = "llm_json_call",
+    db: Session | None = None,
 ) -> LlmJsonCallResult:
-    model = str(model_name or settings.summary_model).strip() or settings.summary_model
+    fallback_model = get_model_setting("summary_model", db)
+    model = str(model_name or fallback_model).strip() or fallback_model
     timeout = (
         int(timeout_sec)
         if timeout_sec is not None
@@ -541,6 +545,7 @@ def _call_json(
     *,
     timeout_sec: int | None = None,
     model_name: str | None = None,
+    db: Session | None = None,
 ) -> dict[str, Any]:
     out = _call_json_result(
         system_prompt,
@@ -548,6 +553,7 @@ def _call_json(
         timeout_sec=timeout_sec,
         model_name=model_name,
         retry_count=2,
+        db=db,
     )
     return out.parsed_json if out.ok else {}
 
@@ -653,6 +659,7 @@ def summarize_document_with_model(
     title_zh: str,
     category_label_en: str,
     category_label_zh: str,
+    db: Session | None = None,
 ) -> tuple[str, str] | None:
     out = _call_json_result(
         DOCUMENT_SUMMARY_PROMPT,
@@ -671,6 +678,7 @@ def summarize_document_with_model(
         timeout_sec=_stage_timeout("DOC", 30),
         retry_count=2,
         call_name="summarize_document",
+        db=db,
     )
     if not out.ok:
         return None
@@ -686,7 +694,12 @@ def summarize_document_with_model(
 
 
 def summarize_page_with_model(
-    *, page_text: str, page_index: int, total_pages: int, title: str
+    *,
+    page_text: str,
+    page_index: int,
+    total_pages: int,
+    title: str,
+    db: Session | None = None,
 ) -> tuple[str, str] | None:
     out = _call_json_result(
         PAGE_SUMMARY_PROMPT,
@@ -700,6 +713,7 @@ def summarize_page_with_model(
         timeout_sec=_stage_timeout("PAGE", 25),
         retry_count=2,
         call_name="summarize_page",
+        db=db,
     )
     if not out.ok:
         return None
@@ -722,6 +736,7 @@ def summarize_section_with_model(
     page_summaries_en: list[str],
     page_summaries_zh: list[str],
     title: str,
+    db: Session | None = None,
 ) -> tuple[str, str] | None:
     out = _call_json_result(
         SECTION_SUMMARY_PROMPT,
@@ -736,6 +751,7 @@ def summarize_section_with_model(
         timeout_sec=_stage_timeout("SECTION", 35),
         retry_count=2,
         call_name="summarize_section",
+        db=db,
     )
     if not out.ok:
         return None
@@ -756,6 +772,7 @@ def summarize_final_with_model(
     section_summaries_en: list[str],
     section_summaries_zh: list[str],
     semantic_chunks: list[str],
+    db: Session | None = None,
 ) -> tuple[str, str] | None:
     # Fix 2B: enforce a total character budget before building the prompt.
     # Per-item caps are already applied below (260/420 chars), but when there
@@ -787,6 +804,7 @@ def summarize_final_with_model(
         timeout_sec=_stage_timeout("FINAL", 45),
         retry_count=2,
         call_name="summarize_final",
+        db=db,
     )
     if not out.ok:
         return None
@@ -1313,6 +1331,7 @@ def regenerate_friendly_name_from_summary(
     fallback_en: str,
     fallback_zh: str,
     content_excerpt: str = "",
+    db: Session | None = None,
 ) -> tuple[str, str] | None:
     out = _call_json_result(
         FRIENDLY_NAME_PROMPT,
@@ -1330,8 +1349,9 @@ def regenerate_friendly_name_from_summary(
         },
         timeout_sec=_stage_timeout("NAME", 20),
         retry_count=2,
-        model_name=settings.friendly_name_model,
+        model_name=get_model_setting("friendly_name_model", db),
         call_name="friendly_name",
+        db=db,
     )
     if not out.ok:
         return None
@@ -1372,6 +1392,7 @@ def classify_category_from_summary(
     summary_en: str,
     summary_zh: str,
     content_excerpt: str = "",
+    db: Session | None = None,
 ) -> tuple[str, str, str] | None:
     allowed = [
         path
@@ -1396,8 +1417,9 @@ def classify_category_from_summary(
         },
         timeout_sec=_stage_timeout("CATEGORY", 20),
         retry_count=2,
-        model_name=settings.category_model,
+        model_name=get_model_setting("category_model", db),
         call_name="classify_category",
+        db=db,
     )
     if not out.ok:
         return None

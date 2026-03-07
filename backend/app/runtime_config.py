@@ -275,6 +275,11 @@ def get_runtime_setting(key: str, db: Session | None = None) -> str:
     return default
 
 
+def get_model_setting(model_key: str, db: Session | None = None) -> str:
+    """Semantic wrapper for model settings."""
+    return get_runtime_setting(model_key, db)
+
+
 def get_runtime_bool(key: str, db: Session | None = None) -> bool:
     """Convenience wrapper — interprets "1"/"true"/"yes" as True."""
     val = get_runtime_setting(key, db).strip().lower()

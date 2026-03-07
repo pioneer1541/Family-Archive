@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app import crud
 from app.config import get_settings
 from app.models import Chunk, Document, DocumentStatus
+from app.runtime_config import get_runtime_setting
 from app.schemas import SearchHit, SearchRequest, SearchResponse
 from app.services.qdrant import search_records
 from app.services.source_tags import infer_source_type
@@ -20,14 +21,14 @@ def _is_zh(text: str) -> bool:
     return bool(re.search(r"[\u4e00-\u9fff]", str(text or "")))
 
 
-def _translate_query_to_en(query: str) -> str:
+def _translate_query_to_en(query: str, db: Session | None = None) -> str:
     if not query or (not _is_zh(query)):
         return ""
 
     try:
         url = settings.ollama_base_url.rstrip("/") + "/api/chat"
         payload = {
-            "model": settings.planner_model,
+            "model": get_runtime_setting("planner_model", db),
             "stream": False,
             "messages": [
                 {
@@ -109,7 +110,11 @@ def _parse_datetime(value: Any) -> dt.datetime:
 
 
 def _search_vector_query(
-    query: str, category_path: str | None, score_threshold: float, top_k: int
+    query: str,
+    category_path: str | None,
+    score_threshold: float,
+    top_k: int,
+    db: Session | None = None,
 ) -> list[dict[str, Any]]:
     try:
         hits = search_records(
@@ -117,6 +122,7 @@ def _search_vector_query(
             top_k=top_k,
             score_threshold=score_threshold,
             category_path=category_path,
+            db=db,
         )
     except Exception:
         return []
@@ -253,13 +259,14 @@ def search_documents(db: Session, req: SearchRequest) -> SearchResponse:
             return SearchResponse(query=query, query_en="", bilingual=False, hits=[])
 
     if req.query_lang == "zh" or (req.query_lang == "auto" and _is_zh(query)):
-        query_en = _translate_query_to_en(query)
+        query_en = _translate_query_to_en(query, db)
 
     vector_hits_a = _search_vector_query(
         query=query,
         category_path=req.category_path,
         score_threshold=req.score_threshold,
         top_k=req.top_k,
+        db=db,
     )
     vector_hits_b = []
     if query_en and query_en.lower() != query.lower():
@@ -268,6 +275,7 @@ def search_documents(db: Session, req: SearchRequest) -> SearchResponse:
             category_path=req.category_path,
             score_threshold=req.score_threshold,
             top_k=req.top_k,
+            db=db,
         )
 
     merged_vector = _merge_hits(vector_hits_a, vector_hits_b, req.top_k)

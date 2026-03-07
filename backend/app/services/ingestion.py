@@ -19,6 +19,7 @@ from app.models import (
     IngestionJobStatus,
     MailIngestionEvent,
 )
+from app.runtime_config import get_model_setting
 from app.services.bill_facts import upsert_bill_fact_for_document
 from app.services.document_summary import build_document_summaries
 from app.services.friendly_name import generate_friendly_names
@@ -487,7 +488,7 @@ def _process_single_path(
         if source_type == "mail":
             mail_subject, mail_from = _mail_context_for_attachment(db, path)
 
-        text = extract_text_from_path(path)
+        text = extract_text_from_path(path, db=db)
         if not str(text or "").strip():
             if bool(settings.ingestion_metadata_fallback_enabled):
                 text = _metadata_fallback_text(
@@ -548,6 +549,7 @@ def _process_single_path(
             category_label_zh=category_label_zh,
             title_en=document.title_en,
             title_zh=document.title_zh,
+            db=db,
         )
         summary_flags = detect_summary_quality_flags(summary_en, summary_zh)
         document.summary_quality_state = (
@@ -558,7 +560,7 @@ def _process_single_path(
             if document.summary_quality_state != "ok"
             else ""
         )
-        document.summary_model = str(settings.summary_model or "")[:64]
+        document.summary_model = str(get_model_setting("summary_model", db) or "")[:64]
         document.summary_version = "prompt-v2"
 
         classified = classify_category_from_summary(
@@ -567,6 +569,7 @@ def _process_single_path(
             summary_en=summary_en,
             summary_zh=summary_zh,
             content_excerpt=text[:1200],
+            db=db,
         )
         if classified is not None:
             category_label_en, category_label_zh, category_path = classified
@@ -604,6 +607,7 @@ def _process_single_path(
             fallback_en=fallback_title_en,
             fallback_zh=fallback_title_zh,
             content_excerpt=text[:2400],
+            db=db,
         )
         if rename is not None:
             renamed_en, renamed_zh = rename
@@ -661,7 +665,7 @@ def _process_single_path(
             document, chunk_rows, source_type=source_type, tags=document_tags
         )
         try:
-            upsert_records(payload_records)
+            upsert_records(payload_records, db=db)
             for c in chunk_rows:
                 c.embedding_status = "ready" if settings.qdrant_enable else "pending"
             if old_chunk_ids:

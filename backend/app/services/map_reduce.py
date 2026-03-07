@@ -225,7 +225,9 @@ def build_map_reduce_summary(
     page_chunks: list[str] = []
     try:
         if str(doc.source_path or "").strip():
-            page_chunks = extract_page_chunks_from_path(doc.source_path, max_pages=260)
+            page_chunks = extract_page_chunks_from_path(
+                doc.source_path, max_pages=260, db=db
+            )
     except Exception:
         page_chunks = []
     if not page_chunks:
@@ -260,6 +262,7 @@ def build_map_reduce_summary(
             page_index=idx,
             total_pages=total_pages,
             title=title,
+            db=db,
         )
         if model_out is None:
             model_out = _fallback_page_summary(page_text, idx)
@@ -299,6 +302,7 @@ def build_map_reduce_summary(
             page_summaries_en=sec_en_rows,
             page_summaries_zh=sec_zh_rows,
             title=title,
+            db=db,
         )
         if sec_model is None:
             sec_model = _fallback_section_summary(
@@ -351,6 +355,7 @@ def build_map_reduce_summary(
         section_summaries_en=final_sections_en,
         section_summaries_zh=final_sections_zh,
         semantic_chunks=final_semantics,
+        db=db,
     )
     quality_flags: list[str] = []
     final_fallback_used = False

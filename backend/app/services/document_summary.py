@@ -1,6 +1,8 @@
 import re
 from collections import Counter
 
+from sqlalchemy.orm import Session
+
 from app.services.llm_summary import summarize_document_with_model
 
 _SENTENCE_SPLIT = re.compile(r"(?:\r?\n)+|(?<=[\.\!\?。！？；;])\s+")
@@ -280,6 +282,7 @@ def build_document_summaries(
     category_label_zh: str,
     title_en: str,
     title_zh: str,
+    db: Session | None = None,
 ) -> tuple[str, str]:
     raw = str(text or "").strip()
     if not raw:
@@ -294,6 +297,7 @@ def build_document_summaries(
         title_zh=title_zh,
         category_label_en=category_label_en,
         category_label_zh=category_label_zh,
+        db=db,
     )
     if model_summary is not None:
         en, zh = model_summary

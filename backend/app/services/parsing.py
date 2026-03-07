@@ -6,6 +6,7 @@ from pathlib import Path
 from docx import Document as DocxDocument
 from openpyxl import load_workbook
 from pypdf import PdfReader
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.services.ocr_fallback import (
@@ -138,7 +139,9 @@ def _clean_text(text: str) -> str:
     return "\n".join(rows).strip()
 
 
-def _read_pdf_pages(path: str, max_pages: int = 120) -> list[str]:
+def _read_pdf_pages(
+    path: str, max_pages: int = 120, db: Session | None = None
+) -> list[str]:
     try:
         reader = PdfReader(path)
     except Exception:
@@ -169,6 +172,7 @@ def _read_pdf_pages(path: str, max_pages: int = 120) -> list[str]:
                     path,
                     idx,
                     dpi=int(settings.ingestion_ocr_render_dpi),
+                    db=db,
                 )
             )
         out.append(text)
@@ -188,10 +192,12 @@ def _split_text_to_pseudo_pages(text: str, *, tokens_per_page: int = 420) -> lis
     return out
 
 
-def extract_page_chunks_from_path(path: str, *, max_pages: int = 160) -> list[str]:
+def extract_page_chunks_from_path(
+    path: str, *, max_pages: int = 160, db: Session | None = None
+) -> list[str]:
     ext = Path(path).suffix.lower().lstrip(".")
     if ext == "pdf":
-        pages = _read_pdf_pages(path, max_pages=max_pages)
+        pages = _read_pdf_pages(path, max_pages=max_pages, db=db)
         if any(str(p or "").strip() for p in pages):
             return [p for p in pages if str(p or "").strip()]
 
@@ -206,6 +212,7 @@ def extract_page_chunks_from_path(path: str, *, max_pages: int = 160) -> list[st
                     max(1, int(max_pages)), int(settings.ingestion_ocr_pdf_max_pages)
                 ),
                 dpi=int(settings.ingestion_ocr_render_dpi),
+                db=db,
             )
         )
         if vl_text:
@@ -221,7 +228,7 @@ def extract_page_chunks_from_path(path: str, *, max_pages: int = 160) -> list[st
     if ext in IMAGE_EXTS:
         text = _clean_text(extract_ocr_text(path))
         if not text:
-            text = _clean_text(extract_image_text_with_vl(path))
+            text = _clean_text(extract_image_text_with_vl(path, db=db))
         return [text] if text else []
     raise ValueError(f"unsupported_extension:{ext}")
 
@@ -251,12 +258,12 @@ def _read_xlsx(path: str, max_rows: int = 2000) -> str:
     return "\n".join(parts)
 
 
-def extract_text_from_path(path: str) -> str:
+def extract_text_from_path(path: str, db: Session | None = None) -> str:
     ext = Path(path).suffix.lower().lstrip(".")
     if ext in {"txt", "md"}:
         return _read_txt(path)
     if ext == "pdf":
-        pages = extract_page_chunks_from_path(path, max_pages=120)
+        pages = extract_page_chunks_from_path(path, max_pages=120, db=db)
         text = "\n\n".join(
             f"[Page {idx + 1}]\n{page}"
             for idx, page in enumerate(pages)
@@ -273,7 +280,7 @@ def extract_text_from_path(path: str) -> str:
         text = _clean_text(extract_ocr_text(path))
         if text:
             return text
-        return _clean_text(extract_image_text_with_vl(path))
+        return _clean_text(extract_image_text_with_vl(path, db=db))
     raise ValueError(f"unsupported_extension:{ext}")
 
 
