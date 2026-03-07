@@ -250,7 +250,7 @@ def test_agent_structured_intents_do_not_call_search(client, monkeypatch):
         calls["search"] += 1
         raise AssertionError("search should not be called for structured intents")
 
-    monkeypatch.setattr(agent_service, "search_documents", _fake_search)
+    monkeypatch.setattr("app.services.agent_bundle_search.search_documents", _fake_search)
     monkeypatch.setattr(agent_service, "list_recent_bill_facts", lambda *args, **kwargs: [])
 
     payloads = [
@@ -287,7 +287,7 @@ def test_agent_semantic_stats_are_exposed(client, monkeypatch):
             ui_lang=req.ui_lang, query_lang=req.query_lang, route_reason="heuristic",
         )
 
-    monkeypatch.setattr(agent_service, "search_documents", _fake_search)
+    monkeypatch.setattr("app.services.agent_bundle_search.search_documents", _fake_search)
     monkeypatch.setattr(agent_service, "route_and_rewrite", _fake_route)
     r = client.post("/v1/agent/execute", json={"query": "请帮我查找保修条款", "ui_lang": "zh", "query_lang": "zh"})
     assert r.status_code == 200
@@ -496,7 +496,7 @@ def test_agent_home_aircon_and_property_query_returns_related_docs(client, tmp_p
             lexical_hit_count=2,
         )
 
-    monkeypatch.setattr(agent_service, "search_documents", _fake_search)
+    monkeypatch.setattr("app.services.agent_bundle_search.search_documents", _fake_search)
     planner = {
         "intent": "search_documents",
         "confidence": 0.91,
@@ -589,7 +589,7 @@ def test_agent_network_bill_strict_filter(client, tmp_path: Path, monkeypatch):
             lexical_hit_count=1,
         )
 
-    monkeypatch.setattr(agent_service, "search_documents", _fake_search)
+    monkeypatch.setattr("app.services.agent_bundle_search.search_documents", _fake_search)
     planner = {
         "intent": "search_documents",
         "confidence": 0.88,
@@ -671,7 +671,7 @@ def test_agent_property_contact_strict_filter(client, tmp_path: Path, monkeypatc
             lexical_hit_count=2,
         )
 
-    monkeypatch.setattr(agent_service, "search_documents", _fake_search)
+    monkeypatch.setattr("app.services.agent_bundle_search.search_documents", _fake_search)
     planner = {
         "intent": "search_documents",
         "confidence": 0.86,
@@ -733,7 +733,7 @@ def test_agent_strict_filter_zero_hit_returns_empty_related_docs(client, tmp_pat
             lexical_hit_count=0,
         )
 
-    monkeypatch.setattr(agent_service, "search_documents", _fake_search)
+    monkeypatch.setattr("app.services.agent_bundle_search.search_documents", _fake_search)
     monkeypatch.setattr(agent_service.requests, "post", lambda *args, **kwargs: (_ for _ in ()).throw(agent_service.requests.exceptions.Timeout()))
     planner = {
         "intent": "search_documents",
@@ -1175,7 +1175,7 @@ def test_agent_related_docs_order_follows_score_not_updated_time(client, tmp_pat
             lexical_hit_count=1,
         )
 
-    monkeypatch.setattr(agent_service, "search_documents", _fake_search)
+    monkeypatch.setattr("app.services.agent_bundle_search.search_documents", _fake_search)
     monkeypatch.setattr(agent_service.requests, "post", lambda *args, **kwargs: (_ for _ in ()).throw(agent_service.requests.exceptions.Timeout()))
     planner = {
         "intent": "search_documents",
@@ -1231,7 +1231,7 @@ def test_agent_synth_fallback_stats_and_text_are_user_facing(client, tmp_path: P
             lexical_hit_count=1,
         )
 
-    monkeypatch.setattr(agent_service, "search_documents", _fake_search)
+    monkeypatch.setattr("app.services.agent_bundle_search.search_documents", _fake_search)
     monkeypatch.setattr(agent_service.requests, "post", lambda *args, **kwargs: (_ for _ in ()).throw(agent_service.requests.exceptions.Timeout()))
     planner = {
         "intent": "search_documents",

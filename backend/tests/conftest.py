@@ -13,6 +13,7 @@ if str(ROOT_DIR) not in sys.path:
 
 TEST_DB_PATH = ROOT_DIR / ".test_family_vault.db"
 os.environ["FAMILY_VAULT_DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
+os.environ["FAMILY_VAULT_JWT_SECRET"] = "test-jwt-secret-not-for-production-use"
 os.environ["FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER"] = "1"
 os.environ["FAMILY_VAULT_QDRANT_ENABLE"] = "0"
 os.environ["FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED"] = "0"

@@ -42,25 +42,17 @@ def _apply_graph_timing_fields_to_stats(stats_obj: Any, timing: dict[str, Any]) 
     if stats_obj is None:
         return
     node_lat = dict(timing.get("graph_node_latencies_ms") or {})
-    planner_latency_ms = int(
-        timing.get("planner_latency_ms") or node_lat.get("planner") or 0
-    )
+    planner_latency_ms = int(timing.get("planner_latency_ms") or node_lat.get("planner") or 0)
     synth_latency_ms = int(timing.get("synth_latency_ms") or 0)
     graph_search_calls = int(timing.get("graph_search_calls") or 0)
-    graph_router_assist_latency_ms = int(
-        timing.get("graph_router_assist_latency_ms") or 0
-    )
+    graph_router_assist_latency_ms = int(timing.get("graph_router_assist_latency_ms") or 0)
     graph_retrieval_latency_ms = int(node_lat.get("retrieve") or 0)
     graph_rerank_latency_ms = int(node_lat.get("rerank") or 0)
     graph_expand_latency_ms = int(node_lat.get("expand") or 0)
     graph_extract_latency_ms = int(node_lat.get("extract") or 0)
     graph_judge_latency_ms = int(node_lat.get("judge") or 0)
-    graph_recovery_latency_ms = int(node_lat.get("recovery_plan") or 0) + int(
-        node_lat.get("recovery_apply") or 0
-    )
-    executor_latency_ms = int(
-        timing.get("total_latency_ms") or sum(int(v or 0) for v in node_lat.values())
-    )
+    graph_recovery_latency_ms = int(node_lat.get("recovery_plan") or 0) + int(node_lat.get("recovery_apply") or 0)
+    executor_latency_ms = int(timing.get("total_latency_ms") or sum(int(v or 0) for v in node_lat.values()))
 
     def _set(name: str, value: Any) -> None:
         if isinstance(stats_obj, dict):
@@ -95,9 +87,7 @@ def _apply_graph_timing_fields_to_stats(stats_obj: Any, timing: dict[str, Any]) 
         pass
 
 
-def _timed_node(
-    node_key: str, fn: Callable[[Any, dict[str, Any] | None], dict[str, Any]]
-):
+def _timed_node(node_key: str, fn: Callable[[Any, dict[str, Any] | None], dict[str, Any]]):
     def _wrapped(state: dict[str, Any], config: dict[str, Any] | None = None):
         started = time.perf_counter()
         out = fn(state, config)
@@ -114,15 +104,11 @@ def _timed_node(
         stats_payload = payload.get("executor_stats_payload")
         if isinstance(stats_payload, dict):
             payload["executor_stats_payload"] = {**stats_payload}
-            _apply_graph_timing_fields_to_stats(
-                payload["executor_stats_payload"], merged_timing
-            )
+            _apply_graph_timing_fields_to_stats(payload["executor_stats_payload"], merged_timing)
 
         resp = payload.get("response")
         if resp is not None and hasattr(resp, "executor_stats"):
-            _apply_graph_timing_fields_to_stats(
-                getattr(resp, "executor_stats", None), merged_timing
-            )
+            _apply_graph_timing_fields_to_stats(getattr(resp, "executor_stats", None), merged_timing)
 
         return payload
 
@@ -141,25 +127,17 @@ def _compiled_agent_graph():
         "node_structured_fastpath",
         _timed_node("structured_fastpath", structured_fastpath_node),
     )
-    graph.add_node(
-        "node_query_variant", _timed_node("query_variant", query_variant_node)
-    )
+    graph.add_node("node_query_variant", _timed_node("query_variant", query_variant_node))
     graph.add_node("node_retrieve", _timed_node("retrieve", retrieve_candidates_node))
     graph.add_node("node_rerank", _timed_node("rerank", rerank_candidates_node))
     graph.add_node("node_expand", _timed_node("expand", expand_context_node))
     graph.add_node("node_extract_slots", _timed_node("extract", extract_slots_node))
     graph.add_node("node_derive", _timed_node("derive", derive_facts_node))
     graph.add_node("node_judge", _timed_node("judge", sufficiency_judge_node))
-    graph.add_node(
-        "node_recovery_plan", _timed_node("recovery_plan", recovery_plan_node)
-    )
-    graph.add_node(
-        "node_recovery_apply", _timed_node("recovery_apply", recovery_apply_node)
-    )
+    graph.add_node("node_recovery_plan", _timed_node("recovery_plan", recovery_plan_node))
+    graph.add_node("node_recovery_apply", _timed_node("recovery_apply", recovery_apply_node))
     graph.add_node("node_answer_build", _timed_node("answer_build", answer_build_node))
-    graph.add_node(
-        "node_finalize", _timed_node("response_finalize", response_finalize_node)
-    )
+    graph.add_node("node_finalize", _timed_node("response_finalize", response_finalize_node))
 
     graph.add_edge(START, "node_planner")
     graph.add_edge("node_planner", "node_route")
@@ -255,9 +233,7 @@ def stream_agent_graph(db: Session, req: AgentExecuteRequest):
     raise RuntimeError("agent_graph_no_response")
 
 
-def try_run_agent_graph_shadow(
-    db: Session, req: AgentExecuteRequest
-) -> AgentExecuteResponse | None:
+def try_run_agent_graph_shadow(db: Session, req: AgentExecuteRequest) -> AgentExecuteResponse | None:
     try:
         return execute_agent_graph(db, req)
     except Exception as exc:  # pragma: no cover - shadow best effort

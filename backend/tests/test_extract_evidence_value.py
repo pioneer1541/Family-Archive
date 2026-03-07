@@ -14,7 +14,7 @@ Regression coverage for the Fluffy vet-certificate bug:
 
 import pytest
 
-from app.services.agent import _extract_evidence_value
+from app.services.detail_extract import _extract_evidence_value
 
 pytestmark = pytest.mark.no_db_reset  # pure unit tests — no DB needed
 

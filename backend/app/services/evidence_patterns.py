@@ -30,9 +30,7 @@ _MONTH_MAP = {
 }
 
 RE_DATE_ISO = re.compile(r"\b(20\d{2})[-/](1[0-2]|0?[1-9])[-/](3[01]|[12]\d|0?[1-9])\b")
-RE_DATE_ZH = re.compile(
-    r"(20\d{2})\s*年\s*(1[0-2]|0?[1-9])\s*月\s*(3[01]|[12]\d|0?[1-9])\s*日?"
-)
+RE_DATE_ZH = re.compile(r"(20\d{2})\s*年\s*(1[0-2]|0?[1-9])\s*月\s*(3[01]|[12]\d|0?[1-9])\s*日?")
 RE_DATE_DMY = re.compile(r"\b(3[01]|[12]\d|0?[1-9])/(1[0-2]|0?[1-9])/(20\d{2})\b")
 RE_DATE_MONTHNAME_1 = re.compile(
     r"\b("
@@ -48,9 +46,7 @@ RE_DATE_MONTHNAME_2 = re.compile(
 )
 RE_DATE_YEAR_MONTH = re.compile(r"\b(20\d{2})[-/](1[0-2]|0?[1-9])\b")
 RE_DATE_MONTH_YEAR = re.compile(
-    r"\b("
-    + "|".join(sorted(_MONTH_MAP.keys(), key=len, reverse=True))
-    + r")\.?\s+(20\d{2})\b",
+    r"\b(" + "|".join(sorted(_MONTH_MAP.keys(), key=len, reverse=True)) + r")\.?\s+(20\d{2})\b",
     flags=re.I,
 )
 
@@ -67,9 +63,7 @@ RE_REFERENCE = re.compile(
     r"\b(?:policy|invoice|inv|work\s*order|ticket|claim|ref(?:erence)?)?\s*[:#-]?\s*([A-Z0-9][A-Z0-9._/-]{4,})\b",
     flags=re.I,
 )
-RE_SQM = re.compile(
-    r"\b(\d+(?:\.\d+)?)\s*(?:sqm|m2)\b|(?<!\d)(\d+(?:\.\d+)?)\s*(?:㎡|平方米)"
-)
+RE_SQM = re.compile(r"\b(\d+(?:\.\d+)?)\s*(?:sqm|m2)\b|(?<!\d)(\d+(?:\.\d+)?)\s*(?:㎡|平方米)")
 RE_MONTHLY_INTERVAL = re.compile(
     r"(?:every\s+(\d+)\s+(day|week|month|year)s?)|(?:每\s*(\d+)\s*(天|周|星期|月|年))",
     flags=re.I,
@@ -158,9 +152,7 @@ def find_amounts(text: str) -> list[str]:
             continue
         # Require a currency marker or context word to reduce false positives.
         full = m.group(0)
-        if not any(
-            tok in full.lower() for tok in ("$", "aud", "usd", "澳币", "元", "美元")
-        ):
+        if not any(tok in full.lower() for tok in ("$", "aud", "usd", "澳币", "元", "美元")):
             window = raw[max(0, m.start() - 12) : min(len(raw), m.end() + 12)].lower()
             if not any(
                 tok in window
@@ -179,11 +171,7 @@ def find_amounts(text: str) -> list[str]:
                 continue
         clean_num = num.replace(",", "")
         currency = (
-            (prefix or suffix or "AUD")
-            .upper()
-            .replace("澳币", "AUD")
-            .replace("美元", "USD")
-            .replace("元", "CNY")
+            (prefix or suffix or "AUD").upper().replace("澳币", "AUD").replace("美元", "USD").replace("元", "CNY")
         )
         out.append(f"{currency} {clean_num}")
     return _uniq(out)
