@@ -3166,3 +3166,549 @@ body.keyboard-open {
   }
   .setup-card { padding: 28px 20px; }
 }
+/* ========================================
+   Demo Dashboard Styles
+   设计方向：温暖极简主义 + 精致细节
+   ======================================== */
+
+/* CSS Variables - 扩展配色 */
+.demo-dashboard {
+  --demo-bg: #faf8f5;
+  --demo-surface: #ffffff;
+  --demo-surface-elevated: #ffffff;
+  --demo-border: rgba(42, 33, 24, 0.08);
+  --demo-border-hover: rgba(42, 33, 24, 0.15);
+  --demo-text: #2a2118;
+  --demo-text-secondary: #6b5e4a;
+  --demo-text-muted: #9b8c78;
+  --demo-accent: #b85c38;
+  --demo-accent-light: rgba(184, 92, 56, 0.1);
+  --demo-accent-gradient: linear-gradient(135deg, #b85c38 0%, #d4824e 100%);
+  --demo-success: #4a7c59;
+  --demo-shadow-sm: 0 1px 3px rgba(42, 33, 24, 0.06);
+  --demo-shadow-md: 0 4px 12px rgba(42, 33, 24, 0.08);
+  --demo-shadow-lg: 0 12px 32px rgba(42, 33, 24, 0.12);
+  --demo-radius-sm: 8px;
+  --demo-radius-md: 12px;
+  --demo-radius-lg: 20px;
+  --demo-radius-full: 9999px;
+  --demo-transition-fast: 0.15s ease;
+  --demo-transition-normal: 0.25s ease;
+  --demo-transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* 动画 */
+  animation: demoFadeIn 0.5s ease;
+}
+
+@keyframes demoFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========================================
+   Hero Section
+   ======================================== */
+.demo-hero {
+  position: relative;
+  background: var(--demo-accent-gradient);
+  padding: 48px 24px;
+  margin: -32px -32px 32px -32px;
+  overflow: hidden;
+}
+
+.demo-hero-content {
+  position: relative;
+  z-index: 2;
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.demo-hero-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+  margin-bottom: 12px;
+  letter-spacing: 0.02em;
+}
+
+.demo-title-line {
+  display: block;
+}
+
+.demo-title-accent {
+  opacity: 0.9;
+  font-size: 0.85em;
+  font-weight: 400;
+  margin-top: 4px;
+}
+
+.demo-hero-subtitle {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 28px;
+  letter-spacing: 0.05em;
+}
+
+/* 装饰性背景圆 */
+.demo-hero-decoration {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.demo-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.demo-circle-1 {
+  width: 300px;
+  height: 300px;
+  top: -100px;
+  right: -50px;
+  animation: demoFloat 8s ease-in-out infinite;
+}
+
+.demo-circle-2 {
+  width: 200px;
+  height: 200px;
+  bottom: -50px;
+  left: -30px;
+  animation: demoFloat 6s ease-in-out infinite reverse;
+}
+
+.demo-circle-3 {
+  width: 100px;
+  height: 100px;
+  top: 50%;
+  right: 20%;
+  animation: demoFloat 10s ease-in-out infinite;
+}
+
+@keyframes demoFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-20px) scale(1.05); }
+}
+
+/* ========================================
+   Search Box - 核心交互元素
+   ======================================== */
+.demo-search-container {
+  margin-top: 8px;
+}
+
+.demo-search-box {
+  display: flex;
+  align-items: center;
+  background: var(--demo-surface);
+  border-radius: var(--demo-radius-full);
+  padding: 6px 6px 6px 20px;
+  box-shadow: var(--demo-shadow-lg);
+  transition: var(--demo-transition-normal);
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.demo-search-box:focus-within {
+  box-shadow: var(--demo-shadow-lg), 0 0 0 3px var(--demo-accent-light);
+  transform: translateY(-2px);
+}
+
+.demo-search-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--demo-text-muted);
+  flex-shrink: 0;
+}
+
+.demo-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 12px 16px;
+  font-size: 1rem;
+  color: var(--demo-text);
+  outline: none;
+  min-width: 0;
+}
+
+.demo-search-input::placeholder {
+  color: var(--demo-text-muted);
+}
+
+.demo-search-btn {
+  background: var(--demo-accent-gradient);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--demo-radius-full);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--demo-transition-fast);
+}
+
+.demo-search-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(184, 92, 56, 0.3);
+}
+
+.demo-search-btn:active {
+  transform: scale(0.98);
+}
+
+/* ========================================
+   Stats Section - 玻璃态卡片
+   ======================================== */
+.demo-stats {
+  margin-bottom: 32px;
+}
+
+.demo-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.demo-stat-card {
+  background: var(--demo-surface);
+  border: 1px solid var(--demo-border);
+  border-radius: var(--demo-radius-md);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: var(--demo-transition-normal);
+  cursor: default;
+}
+
+.demo-stat-card:hover {
+  border-color: var(--demo-border-hover);
+  box-shadow: var(--demo-shadow-md);
+  transform: translateY(-2px);
+}
+
+.demo-stat-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.demo-stat-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.demo-stat-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--demo-text);
+  line-height: 1.2;
+}
+
+.demo-stat-label {
+  font-size: 0.8rem;
+  color: var(--demo-text-muted);
+  margin-top: 2px;
+}
+
+/* ========================================
+   Section Header
+   ======================================== */
+.demo-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.demo-section-header h2 {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--demo-text);
+}
+
+.demo-link-btn {
+  background: none;
+  border: none;
+  color: var(--demo-accent);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--demo-radius-sm);
+  transition: var(--demo-transition-fast);
+}
+
+.demo-link-btn:hover {
+  background: var(--demo-accent-light);
+}
+
+/* ========================================
+   Recent Documents - 卡片网格
+   ======================================== */
+.demo-recent {
+  margin-bottom: 32px;
+}
+
+.demo-docs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.demo-doc-card {
+  background: var(--demo-surface);
+  border: 1px solid var(--demo-border);
+  border-radius: var(--demo-radius-md);
+  padding: 20px;
+  cursor: pointer;
+  transition: var(--demo-transition-normal);
+  animation: demoCardIn 0.4s ease backwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+@keyframes demoCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.demo-doc-card:hover {
+  border-color: var(--demo-accent);
+  box-shadow: var(--demo-shadow-md);
+  transform: translateY(-4px);
+}
+
+.demo-doc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.demo-doc-ext {
+  background: var(--demo-accent-light);
+  color: var(--demo-accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: var(--demo-radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.demo-doc-date {
+  font-size: 0.75rem;
+  color: var(--demo-text-muted);
+}
+
+.demo-doc-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--demo-text);
+  margin-bottom: 8px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.demo-doc-preview {
+  font-size: 0.8rem;
+  color: var(--demo-text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ========================================
+   Skeleton Loading
+   ======================================== */
+.demo-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.demo-skeleton-card {
+  background: var(--demo-surface);
+  border: 1px solid var(--demo-border);
+  border-radius: var(--demo-radius-md);
+  padding: 20px;
+}
+
+.demo-skeleton {
+  background: linear-gradient(90deg, #f0ede8 25%, #e8e4dd 50%, #f0ede8 75%);
+  background-size: 200% 100%;
+  animation: demoSkeleton 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.demo-skeleton-title {
+  height: 20px;
+  width: 70%;
+  margin-bottom: 12px;
+}
+
+.demo-skeleton-text {
+  height: 14px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.demo-skeleton-short {
+  width: 50%;
+}
+
+@keyframes demoSkeleton {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ========================================
+   Empty State
+   ======================================== */
+.demo-empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--demo-text-muted);
+}
+
+.demo-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+/* ========================================
+   Quick Actions
+   ======================================== */
+.demo-actions {
+  margin-bottom: 32px;
+}
+
+.demo-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.demo-action-btn {
+  background: var(--demo-surface);
+  border: 1px solid var(--demo-border);
+  border-radius: var(--demo-radius-md);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: var(--demo-transition-normal);
+}
+
+.demo-action-btn:hover {
+  border-color: var(--demo-accent);
+  background: var(--demo-accent-light);
+  transform: translateY(-2px);
+  box-shadow: var(--demo-shadow-sm);
+}
+
+.demo-action-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.demo-action-label {
+  font-size: 0.85rem;
+  color: var(--demo-text-secondary);
+  font-weight: 500;
+}
+
+/* ========================================
+   Responsive Design
+   ======================================== */
+@media (max-width: 768px) {
+  .demo-hero {
+    margin: -16px -16px 24px -16px;
+    padding: 32px 16px;
+  }
+  
+  .demo-hero-title {
+    font-size: 1.6rem;
+  }
+  
+  .demo-search-box {
+    padding: 4px 4px 4px 16px;
+  }
+  
+  .demo-search-input {
+    padding: 10px 12px;
+    font-size: 0.95rem;
+  }
+  
+  .demo-search-btn {
+    padding: 10px 18px;
+    font-size: 0.85rem;
+  }
+  
+  .demo-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  
+  .demo-stat-card {
+    padding: 16px 12px;
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+  
+  .demo-stat-icon {
+    font-size: 1.5rem;
+  }
+  
+  .demo-stat-value {
+    font-size: 1.25rem;
+  }
+  
+  .demo-docs-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .demo-actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .demo-hero-title {
+    font-size: 1.4rem;
+  }
+  
+  .demo-hero-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .demo-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .demo-stat-card {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+}
