@@ -303,8 +303,7 @@ def test_agent_semantic_stats_are_exposed(client, monkeypatch):
 def test_agent_bill_attention_fallback_reason_when_bill_facts_empty(client, monkeypatch):
     monkeypatch.setattr(agent_service, "list_recent_bill_facts", lambda *args, **kwargs: [])
     monkeypatch.setattr(
-        agent_service,
-        "search_documents",
+        "app.services.search.search_documents",
         lambda *args, **kwargs: SimpleNamespace(
             hits=[],
             query_en="recent bills",
