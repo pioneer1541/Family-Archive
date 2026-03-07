@@ -31,9 +31,7 @@ _SUB_INTENT_TO_PLANNER_INTENT: dict[str, str] = {
 }
 
 
-def _router_to_planner(
-    router: RouterDecision, req: AgentExecuteRequest
-) -> PlannerDecision:
+def _router_to_planner(router: RouterDecision, req: AgentExecuteRequest) -> PlannerDecision:
     """Convert RouterDecision → PlannerDecision for bundle builder compatibility."""
     intent = _SUB_INTENT_TO_PLANNER_INTENT.get(router.sub_intent, router.sub_intent)
     return PlannerDecision(
@@ -74,9 +72,7 @@ def _build_chitchat_card(req: AgentExecuteRequest) -> ResultCard:
         actions=[],
         detail_sections=[],
         missing_fields=[],
-        coverage_stats=DetailCoverageStats(
-            docs_scanned=0, docs_matched=0, fields_filled=0
-        ),
+        coverage_stats=DetailCoverageStats(docs_scanned=0, docs_matched=0, fields_filled=0),
         evidence_summary=[],
         insufficient_evidence=False,
     )

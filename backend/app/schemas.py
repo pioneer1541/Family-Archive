@@ -726,12 +726,8 @@ class GmailCredentialCreate(BaseModel):
     redirect_uri: str = Field(default="http://localhost", max_length=512)
     token: str | None = None
     refresh_token: str | None = None
-    token_uri: str = Field(
-        default="https://oauth2.googleapis.com/token", max_length=256
-    )
-    auth_uri: str = Field(
-        default="https://accounts.google.com/o/oauth2/auth", max_length=256
-    )
+    token_uri: str = Field(default="https://oauth2.googleapis.com/token", max_length=256)
+    auth_uri: str = Field(default="https://accounts.google.com/o/oauth2/auth", max_length=256)
     scopes: str = Field(default="https://www.googleapis.com/auth/gmail.readonly")
 
 

@@ -46,26 +46,16 @@ def _required_evidence_fields(query: str, planner: PlannerDecision) -> list[str]
     # Use query-driven requirements first, and only lightly trust planner-provided
     # required fields to avoid over-refusal from broad defaults.
     if amount_needed or (
-        "amount" in explicit
-        and any(
-            tok in lowered for tok in ("账单", "bill", "费用", "保费", "price", "cost")
-        )
+        "amount" in explicit and any(tok in lowered for tok in ("账单", "bill", "费用", "保费", "price", "cost"))
     ):
         out.append("amount")
     if date_needed or (
-        "date" in explicit
-        and any(
-            tok in lowered
-            for tok in ("到期", "日期", "when", "date", "expiry", "period")
-        )
+        "date" in explicit and any(tok in lowered for tok in ("到期", "日期", "when", "date", "expiry", "period"))
     ):
         out.append("date")
     if contact_needed or (
         "contact" in explicit
-        and any(
-            tok in lowered
-            for tok in ("联系方式", "电话", "邮箱", "contact", "phone", "email")
-        )
+        and any(tok in lowered for tok in ("联系方式", "电话", "邮箱", "contact", "phone", "email"))
     ):
         out.append("contact")
     if coverage_needed and "explicit_presence_evidence" not in out:
@@ -86,18 +76,10 @@ def _evidence_match(field: str, text: str) -> bool:
     if field == "date":
         _mo_lo = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*"
         return bool(
-            re.search(
-                r"20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?", lowered
-            )  # 2024-11-04
-            or re.search(
-                r"\b\d{1,2}\s+" + _mo_lo + r"\s+20\d{2}\b", lowered
-            )  # 2 December 2025
-            or re.search(
-                _mo_lo + r"\s+\d{1,2},?\s+20\d{2}\b", lowered
-            )  # December 2, 2025
-            or re.search(
-                r"\b\d{1,2}[-/]\d{1,2}[-/]20\d{2}\b", lowered
-            )  # 04-11-2024 or 04/11/2024
+            re.search(r"20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?", lowered)  # 2024-11-04
+            or re.search(r"\b\d{1,2}\s+" + _mo_lo + r"\s+20\d{2}\b", lowered)  # 2 December 2025
+            or re.search(_mo_lo + r"\s+\d{1,2},?\s+20\d{2}\b", lowered)  # December 2, 2025
+            or re.search(r"\b\d{1,2}[-/]\d{1,2}[-/]20\d{2}\b", lowered)  # 04-11-2024 or 04/11/2024
         )
     if field == "contact":
         return ("@" in lowered) or bool(re.search(r"\b\d{8,12}\b", lowered))
@@ -119,9 +101,7 @@ def _evidence_match(field: str, text: str) -> bool:
     return False
 
 
-def _build_evidence_map(
-    fields: list[str], chunks: list[dict[str, Any]]
-) -> dict[str, list[dict[str, str]]]:
+def _build_evidence_map(fields: list[str], chunks: list[dict[str, Any]]) -> dict[str, list[dict[str, str]]]:
     out: dict[str, list[dict[str, str]]] = {}
     for field in fields:  # noqa: F402
         refs: list[dict[str, str]] = []
@@ -142,9 +122,7 @@ def _build_evidence_map(
     return out
 
 
-def _coverage_from_map(
-    fields: list[str], evidence_map: dict[str, list[dict[str, str]]]
-) -> tuple[float, list[str]]:
+def _coverage_from_map(fields: list[str], evidence_map: dict[str, list[dict[str, str]]]) -> tuple[float, list[str]]:
     if not fields:
         return (1.0, [])
     hit = 0
@@ -222,9 +200,7 @@ def _subject_coverage_ok(anchor_terms: list[str], chunks: list[dict[str, Any]]) 
     return any(term in blob for term in anchor_terms if term)
 
 
-def _target_field_coverage_ok(
-    target_fields: list[str], chunks: list[dict[str, Any]]
-) -> bool:
+def _target_field_coverage_ok(target_fields: list[str], chunks: list[dict[str, Any]]) -> bool:
     if not target_fields:
         return True
     texts = []
@@ -237,15 +213,10 @@ def _target_field_coverage_ok(
         return False
     for field in target_fields:  # noqa: F402
         if field == "birth_date":
-            if any(
-                tok in blob for tok in ("birthday", "birth date", "dob", "生日", "出生")
-            ):
+            if any(tok in blob for tok in ("birthday", "birth date", "dob", "生日", "出生")):
                 return True
         elif field == "coverage_scope":
-            if any(
-                tok in blob
-                for tok in ("coverage", "covered", "exclusion", "保障", "覆盖", "除外")
-            ):
+            if any(tok in blob for tok in ("coverage", "covered", "exclusion", "保障", "覆盖", "除外")):
                 return True
         elif field == "maintenance_howto":
             if any(
@@ -263,9 +234,7 @@ def _target_field_coverage_ok(
             ):
                 return True
         elif field == "contact":
-            if ("@" in blob) or any(
-                tok in blob for tok in ("contact", "phone", "email", "电话", "邮箱")
-            ):
+            if ("@" in blob) or any(tok in blob for tok in ("contact", "phone", "email", "电话", "邮箱")):
                 return True
     return False
 

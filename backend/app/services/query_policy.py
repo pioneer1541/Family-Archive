@@ -49,9 +49,7 @@ def _is_followup_query(query: str) -> bool:
     return any(token in text for token in _FOLLOWUP_QUERY_HINTS)
 
 
-def _context_policy_for_query(
-    query: str, *, client_context: dict[str, Any] | None = None
-) -> str:
+def _context_policy_for_query(query: str, *, client_context: dict[str, Any] | None = None) -> str:
     mode = str(settings.agent_context_mode or "smart_followup").strip().lower()
     if mode in {"off", "disabled", "fresh_only"}:
         return "fresh_turn"
@@ -64,9 +62,7 @@ def _context_policy_for_query(
     return "followup_turn" if _is_followup_query(query) else "fresh_turn"
 
 
-def _normalize_conversation_messages(
-    req: AgentExecuteRequest, *, context_policy: str
-) -> list[dict[str, str]]:
+def _normalize_conversation_messages(req: AgentExecuteRequest, *, context_policy: str) -> list[dict[str, str]]:
     if context_policy != "followup_turn":
         return []
     if not isinstance(req.conversation, list):
@@ -117,9 +113,7 @@ def _extract_month_scope(query: str) -> tuple[int | None, int | None]:
         if _today.month == 1:
             return (_today.year - 1, 12)
         return (_today.year, _today.month - 1)
-    if any(
-        t in text for t in ("这个月", "本月", "当月", "this month", "current month")
-    ):
+    if any(t in text for t in ("这个月", "本月", "当月", "this month", "current month")):
         return (_today.year, _today.month)
 
     return (None, None)
@@ -283,25 +277,17 @@ def _target_field_terms(query: str) -> list[str]:
     return out[:4]
 
 
-def _infer_subject_entity(
-    query: str, *, detail_topic: str = "", route: str = ""
-) -> str:
+def _infer_subject_entity(query: str, *, detail_topic: str = "", route: str = "") -> str:
     lowered = str(query or "").lower()
     if any(tok in lowered for tok in ("pet insurance", "宠物保险")):
         return "pet_insurance"
-    if any(
-        tok in lowered for tok in ("birthday", "birth date", "dob", "生日", "出生日期")
-    ):
+    if any(tok in lowered for tok in ("birthday", "birth date", "dob", "生日", "出生日期")):
         return "pet_profile"
     if any(tok in lowered for tok in ("current bill", "current bills", "账单", "bill")):
-        if any(
-            tok in lowered for tok in ("energy", "electricity", "gas", "电费", "燃气")
-        ):
+        if any(tok in lowered for tok in ("energy", "electricity", "gas", "电费", "燃气")):
             return "utility_bills"
         return "bills"
-    if any(
-        tok in lowered for tok in ("water tank", "rainwater tank", "水箱", "蓄水箱")
-    ):
+    if any(tok in lowered for tok in ("water tank", "rainwater tank", "水箱", "蓄水箱")):
         return "home_maintenance"
     if any(tok in lowered for tok in ("insurance", "保单", "保险")):
         return "insurance"

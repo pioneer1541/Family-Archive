@@ -152,9 +152,7 @@ def _is_monthly_eligible_bill_fact(fact: Any, doc: Any) -> tuple[bool, str]:
     return (True, "")
 
 
-def _infer_latest_year_for_month(
-    rows: list[tuple[Any, Any]], target_month: int | None
-) -> int | None:
+def _infer_latest_year_for_month(rows: list[tuple[Any, Any]], target_month: int | None) -> int | None:
     if target_month is None:
         return None
     years: list[int] = []

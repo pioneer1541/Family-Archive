@@ -278,9 +278,7 @@ _HEALTH_INSURANCE_TOKENS = [
     "健康保险",
 ]
 
-_VEHICLE_INSURANCE_STRONG_WORD_RE = re.compile(
-    r"\b(vehicle|motor|rego|registration)\b", flags=re.IGNORECASE
-)
+_VEHICLE_INSURANCE_STRONG_WORD_RE = re.compile(r"\b(vehicle|motor|rego|registration)\b", flags=re.IGNORECASE)
 _VEHICLE_INSURANCE_CAR_WORD_RE = re.compile(r"\bcar\b", flags=re.IGNORECASE)
 _VEHICLE_INSURANCE_DOC_RE = re.compile(
     r"\b(policy|certificate|insurance|policy account|certificate of insurance)\b",
@@ -298,15 +296,11 @@ _HEALTH_INSURANCE_WORD_RE = re.compile(
 )
 _HEALTH_INSURANCE_ZH_RE = re.compile(r"(住院|医保|医疗保险|健康保险|私保)")
 
-_VEHICLE_SUBTYPE_MOTORCYCLE_RE = re.compile(
-    r"\b(motorcycle|motorbike|bike insurance)\b", flags=re.IGNORECASE
-)
+_VEHICLE_SUBTYPE_MOTORCYCLE_RE = re.compile(r"\b(motorcycle|motorbike|bike insurance)\b", flags=re.IGNORECASE)
 _VEHICLE_SUBTYPE_MOTORCYCLE_ZH_RE = re.compile(r"摩托车")
 _VEHICLE_SUBTYPE_CAR_RE = re.compile(r"\b(car|tesla|model\s*y)\b", flags=re.IGNORECASE)
 _VEHICLE_SUBTYPE_CAR_ZH_RE = re.compile(r"(汽车|轿车)")
-_VEHICLE_SUBTYPE_MOTOR_WEAK_RE = re.compile(
-    r"\bmotor(?:\s+vehicle|\s+insurance)?\b", flags=re.IGNORECASE
-)
+_VEHICLE_SUBTYPE_MOTOR_WEAK_RE = re.compile(r"\bmotor(?:\s+vehicle|\s+insurance)?\b", flags=re.IGNORECASE)
 
 _BILL_NAME_TERMS_ZH = [
     "电费账单",
@@ -347,9 +341,7 @@ _NAME_KEEP_DATE_HINTS = [
 ]
 
 _NAME_EN_DATE_PREFIX = re.compile(r"^\s*20\d{2}(?:[-/.](?:0?[1-9]|1[0-2]))?\s*[-_:/ ]*")
-_NAME_ZH_DATE_PREFIX = re.compile(
-    r"^\s*20\d{2}\s*年(?:\s*(?:0?[1-9]|1[0-2])\s*月)?\s*[-_:/： ]*"
-)
+_NAME_ZH_DATE_PREFIX = re.compile(r"^\s*20\d{2}\s*年(?:\s*(?:0?[1-9]|1[0-2])\s*月)?\s*[-_:/： ]*")
 
 
 @dataclass
@@ -431,11 +423,7 @@ def _call_json_result(
 ) -> LlmJsonCallResult:
     fallback_model = get_model_setting("summary_model", db)
     model = str(model_name or fallback_model).strip() or fallback_model
-    timeout = (
-        int(timeout_sec)
-        if timeout_sec is not None
-        else int(settings.summary_timeout_sec)
-    )
+    timeout = int(timeout_sec) if timeout_sec is not None else int(settings.summary_timeout_sec)
     attempts = max(1, int(retry_count) + 1)
 
     if _in_test_mode():
@@ -627,9 +615,7 @@ def detect_summary_quality_flags(summary_en: str, summary_zh: str) -> list[str]:
 
 def is_low_quality_summary(summary_en: str, summary_zh: str) -> bool:
     flags = set(detect_summary_quality_flags(summary_en, summary_zh))
-    return bool(
-        {"empty_summary", "contains_process_terms", "missing_entity_signals"} & flags
-    )
+    return bool({"empty_summary", "contains_process_terms", "missing_entity_signals"} & flags)
 
 
 def _normalize_summary_output(
@@ -782,11 +768,7 @@ def summarize_final_with_model(
     _sec_en = [str(x or "")[:260] for x in section_summaries_en[:24]]
     _sec_zh = [str(x or "")[:260] for x in section_summaries_zh[:24]]
     _chunks = [str(x or "")[:420] for x in semantic_chunks[:8]]
-    _total = (
-        sum(len(x) for x in _sec_en)
-        + sum(len(x) for x in _sec_zh)
-        + sum(len(x) for x in _chunks)
-    )
+    _total = sum(len(x) for x in _sec_en) + sum(len(x) for x in _sec_zh) + sum(len(x) for x in _chunks)
     if _total > 10000:
         _n_sec = max(1, len(_sec_en))
         _sec_cap = max(80, (10000 - sum(len(x) for x in _chunks)) // (_n_sec * 2))
@@ -819,9 +801,7 @@ def summarize_final_with_model(
     return (en_text[:700], zh_text[:700])
 
 
-def _enforce_name_category_consistency(
-    en: str, zh: str, category_path: str
-) -> tuple[str, str]:
+def _enforce_name_category_consistency(en: str, zh: str, category_path: str) -> tuple[str, str]:
     safe_en = str(en or "").strip()
     safe_zh = str(zh or "").strip()
     cp = str(category_path or "").strip().lower()
@@ -837,20 +817,16 @@ def _enforce_name_category_consistency(
         new_zh, new_en = new_pair
         if old_zh in safe_zh and new_zh not in safe_zh:
             safe_zh = safe_zh.replace(old_zh, new_zh)
-        if re.search(
-            rf"\b{re.escape(old_en)}\b", safe_en, flags=re.IGNORECASE
-        ) and not re.search(rf"\b{re.escape(new_en)}\b", safe_en, flags=re.IGNORECASE):
-            safe_en = re.sub(
-                rf"\b{re.escape(old_en)}\b", new_en, safe_en, flags=re.IGNORECASE
-            )
+        if re.search(rf"\b{re.escape(old_en)}\b", safe_en, flags=re.IGNORECASE) and not re.search(
+            rf"\b{re.escape(new_en)}\b", safe_en, flags=re.IGNORECASE
+        ):
+            safe_en = re.sub(rf"\b{re.escape(old_en)}\b", new_en, safe_en, flags=re.IGNORECASE)
 
     if cp and (not cp.startswith("finance/bills/")):
         for token in _BILL_NAME_TERMS_ZH:
             safe_zh = safe_zh.replace(token, "").strip()
         for token in _BILL_NAME_TERMS_EN:
-            safe_en = re.sub(
-                rf"\b{re.escape(token)}\b", "", safe_en, flags=re.IGNORECASE
-            ).strip()
+            safe_en = re.sub(rf"\b{re.escape(token)}\b", "", safe_en, flags=re.IGNORECASE).strip()
         safe_zh = re.sub(r"\s{2,}", " ", safe_zh).strip(" -_/")
         safe_en = re.sub(r"\s{2,}", " ", safe_en).strip(" -_/")
         if cp == "legal/contracts":
@@ -871,14 +847,10 @@ def _enforce_name_category_consistency(
 
 def _contains_any(text: str, tokens: list[str]) -> bool:
     raw = str(text or "").lower()
-    return any(
-        str(token or "").lower() in raw for token in tokens if str(token or "").strip()
-    )
+    return any(str(token or "").lower() in raw for token in tokens if str(token or "").strip())
 
 
-def _has_billing_evidence(
-    *, file_name: str, summary_en: str, summary_zh: str, content_excerpt: str
-) -> bool:
+def _has_billing_evidence(*, file_name: str, summary_en: str, summary_zh: str, content_excerpt: str) -> bool:
     merged = "\n".join(
         [
             str(file_name or ""),
@@ -933,9 +905,7 @@ def _has_non_bill_commercial_evidence(
     return not has_billing_anchor
 
 
-def _fallback_non_billing_category(
-    *, file_name: str, summary_en: str, summary_zh: str, content_excerpt: str
-) -> str:
+def _fallback_non_billing_category(*, file_name: str, summary_en: str, summary_zh: str, content_excerpt: str) -> str:
     if _has_non_bill_commercial_evidence(
         file_name=file_name,
         summary_en=summary_en,
@@ -956,9 +926,7 @@ def _fallback_non_billing_category(
     return "archive/misc"
 
 
-def _has_vehicle_insurance_evidence(
-    *, file_name: str, summary_en: str, summary_zh: str, content_excerpt: str
-) -> bool:
+def _has_vehicle_insurance_evidence(*, file_name: str, summary_en: str, summary_zh: str, content_excerpt: str) -> bool:
     merged = "\n".join(
         [
             str(file_name or ""),
@@ -976,17 +944,12 @@ def _has_vehicle_insurance_evidence(
     has_car_subject = bool(_VEHICLE_INSURANCE_CAR_WORD_RE.search(lowered))
     car_negated = bool(_NEGATED_CAR_CONTEXT_RE.search(merged))
     has_subject = bool(has_strong_subject or (has_car_subject and (not car_negated)))
-    has_doc = bool(
-        _VEHICLE_INSURANCE_DOC_RE.search(lowered)
-        or _VEHICLE_INSURANCE_DOC_ZH_RE.search(merged)
-    )
+    has_doc = bool(_VEHICLE_INSURANCE_DOC_RE.search(lowered) or _VEHICLE_INSURANCE_DOC_ZH_RE.search(merged))
     has_general = _contains_any(lowered, _INSURANCE_GENERAL_TOKENS)
     return bool((has_subject and has_doc) or (has_subject and has_general))
 
 
-def _has_health_insurance_evidence(
-    *, file_name: str, summary_en: str, summary_zh: str, content_excerpt: str
-) -> bool:
+def _has_health_insurance_evidence(*, file_name: str, summary_en: str, summary_zh: str, content_excerpt: str) -> bool:
     merged = "\n".join(
         [
             str(file_name or ""),
@@ -996,9 +959,7 @@ def _has_health_insurance_evidence(
         ]
     )
     lowered = merged.lower()
-    if _HEALTH_INSURANCE_WORD_RE.search(lowered) or _HEALTH_INSURANCE_ZH_RE.search(
-        merged
-    ):
+    if _HEALTH_INSURANCE_WORD_RE.search(lowered) or _HEALTH_INSURANCE_ZH_RE.search(merged):
         return True
     return _contains_any(lowered, _HEALTH_INSURANCE_TOKENS)
 
@@ -1058,10 +1019,7 @@ def _apply_insurance_category_guard(
         ]
     )
     lowered = merged.lower()
-    has_general_insurance = bool(
-        _INSURANCE_GENERAL_WORD_RE.search(lowered)
-        or _INSURANCE_GENERAL_ZH_RE.search(merged)
-    )
+    has_general_insurance = bool(_INSURANCE_GENERAL_WORD_RE.search(lowered) or _INSURANCE_GENERAL_ZH_RE.search(merged))
 
     if _has_vehicle_insurance_evidence(
         file_name=file_name,
@@ -1116,14 +1074,10 @@ def _vehicle_subtype_signals_from_text(text: str) -> set[str]:
     raw = str(text or "")
     lowered = raw.lower()
     out: set[str] = set()
-    if _VEHICLE_SUBTYPE_MOTORCYCLE_RE.search(
-        lowered
-    ) or _VEHICLE_SUBTYPE_MOTORCYCLE_ZH_RE.search(raw):
+    if _VEHICLE_SUBTYPE_MOTORCYCLE_RE.search(lowered) or _VEHICLE_SUBTYPE_MOTORCYCLE_ZH_RE.search(raw):
         out.add("motorcycle")
     # "motor"/"motor vehicle"/"motor insurance" are weak signals and must not imply motorcycle.
-    if _VEHICLE_SUBTYPE_CAR_RE.search(lowered) or _VEHICLE_SUBTYPE_CAR_ZH_RE.search(
-        raw
-    ):
+    if _VEHICLE_SUBTYPE_CAR_RE.search(lowered) or _VEHICLE_SUBTYPE_CAR_ZH_RE.search(raw):
         out.add("car")
     return out
 
@@ -1136,9 +1090,7 @@ def resolve_vehicle_insurance_subtype(
     content_excerpt: str = "",
 ) -> VehicleSubtypeDecision:
     filename_signals = _vehicle_subtype_signals_from_text(str(file_name or ""))
-    summary_signals = _vehicle_subtype_signals_from_text(
-        "\n".join([str(summary_en or ""), str(summary_zh or "")])
-    )
+    summary_signals = _vehicle_subtype_signals_from_text("\n".join([str(summary_en or ""), str(summary_zh or "")]))
     content_signals = _vehicle_subtype_signals_from_text(str(content_excerpt or ""))
     all_signals = set().union(filename_signals, summary_signals, content_signals)
 
@@ -1155,11 +1107,7 @@ def resolve_vehicle_insurance_subtype(
             },
         )
     if "motorcycle" in all_signals:
-        confidence = (
-            "high"
-            if ("motorcycle" in content_signals or "motorcycle" in summary_signals)
-            else "medium"
-        )
+        confidence = "high" if ("motorcycle" in content_signals or "motorcycle" in summary_signals) else "medium"
         return VehicleSubtypeDecision(
             subtype="motorcycle",
             confidence=confidence,
@@ -1171,11 +1119,7 @@ def resolve_vehicle_insurance_subtype(
             },
         )
     if "car" in all_signals:
-        confidence = (
-            "high"
-            if ("car" in content_signals or "car" in summary_signals)
-            else "medium"
-        )
+        confidence = "high" if ("car" in content_signals or "car" in summary_signals) else "medium"
         return VehicleSubtypeDecision(
             subtype="car",
             confidence=confidence,
@@ -1277,13 +1221,9 @@ def normalize_vehicle_insurance_name(
     return _rewrite_vehicle_terms_to_generic(title_en, title_zh)
 
 
-def _should_keep_date_prefix_in_name(
-    *, category_path: str, summary_en: str, summary_zh: str, file_name: str
-) -> bool:
+def _should_keep_date_prefix_in_name(*, category_path: str, summary_en: str, summary_zh: str, file_name: str) -> bool:
     cp = str(category_path or "").strip().lower()
-    merged = "\n".join(
-        [str(summary_en or ""), str(summary_zh or ""), str(file_name or "")]
-    ).lower()
+    merged = "\n".join([str(summary_en or ""), str(summary_zh or ""), str(file_name or "")]).lower()
     if cp.startswith("finance/"):
         return True
     if cp.startswith("work/meeting_notes"):
@@ -1394,11 +1334,7 @@ def classify_category_from_summary(
     content_excerpt: str = "",
     db: Session | None = None,
 ) -> tuple[str, str, str] | None:
-    allowed = [
-        path
-        for path in leaf_category_paths(include_archive_misc=False)
-        if path != "archive/misc"
-    ]
+    allowed = [path for path in leaf_category_paths(include_archive_misc=False) if path != "archive/misc"]
     if not allowed:
         return None
     allowed_set = set(allowed)

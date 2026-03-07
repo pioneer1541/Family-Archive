@@ -39,9 +39,7 @@ def _is_within(path: str, root: str) -> bool:
         return p == r or p.startswith(r.rstrip("/\\") + os.sep)
 
 
-def _normalize_scan_paths(
-    paths: list[str] | None, *, root_path: str | None = None
-) -> tuple[str, list[str]]:
+def _normalize_scan_paths(paths: list[str] | None, *, root_path: str | None = None) -> tuple[str, list[str]]:
     root = _real(root_path) or _real(settings.nas_default_source_dir)
     raw_paths = [str(p or "").strip() for p in (paths or []) if str(p or "").strip()]
     if (not root) or (not raw_paths):
@@ -84,9 +82,7 @@ def run_nas_scan(
             "job_id": "",
         }
 
-    purged = purge_source_states_outside_root(
-        db, source_type=active_source_type, root=root
-    )
+    purged = purge_source_states_outside_root(db, source_type=active_source_type, root=root)
     photo_max_bytes = max(0, int(settings.photo_max_size_mb or 0)) * 1024 * 1024
 
     cap = int(max_files or settings.ingestion_scan_max_files_per_run)

@@ -88,18 +88,14 @@ def parse_retry_meta(error_code: str | None) -> tuple[int, int]:
         return (0, 0)
 
 
-def mark_job_retrying(
-    job_id: str, *, error_code: str, retry_count: int, max_retries: int
-) -> None:
+def mark_job_retrying(job_id: str, *, error_code: str, retry_count: int, max_retries: int) -> None:
     db = SessionLocal()
     try:
         job = db.get(IngestionJob, job_id)
         if job is None:
             return
         job.status = IngestionJobStatus.RETRYING.value
-        job.error_code = build_retry_error_code(
-            error_code, retry_count=retry_count, max_retries=max_retries
-        )
+        job.error_code = build_retry_error_code(error_code, retry_count=retry_count, max_retries=max_retries)
         db.commit()
         logger.warning(
             "ingestion_job_retrying",
@@ -141,9 +137,7 @@ def mark_job_terminal_failure(job_id: str, *, error_code: str) -> None:
         db.close()
 
 
-def enqueue_ingestion_job(
-    job_id: str, force_reprocess: bool = False, reprocess_doc_id: str | None = None
-) -> str:
+def enqueue_ingestion_job(job_id: str, force_reprocess: bool = False, reprocess_doc_id: str | None = None) -> str:
     if settings.celery_task_always_eager:
         try:
             process_ingestion_job(
@@ -179,17 +173,13 @@ def enqueue_ingestion_job(
         return "sync"
 
 
-def _status_after_run(
-    success_count: int, failed_count: int, duplicate_count: int
-) -> str:
+def _status_after_run(success_count: int, failed_count: int, duplicate_count: int) -> str:
     if success_count <= 0 and duplicate_count <= 0 and failed_count > 0:
         return IngestionJobStatus.FAILED.value
     return IngestionJobStatus.COMPLETED.value
 
 
-def _mark_doc_failed(
-    doc: Document, error_code: str, *, detail: str | None = None
-) -> None:
+def _mark_doc_failed(doc: Document, error_code: str, *, detail: str | None = None) -> None:
     doc.status = DocumentStatus.FAILED.value
     safe_code = compact_error_code(error_code)
     doc.error_code = safe_code[:120]
@@ -246,9 +236,7 @@ def _photo_max_bytes() -> int:
 
 
 def _is_photo_ext(ext: str) -> bool:
-    photo_exts = {
-        str(x or "").strip().lower().lstrip(".") for x in settings.photo_file_extensions
-    }
+    photo_exts = {str(x or "").strip().lower().lstrip(".") for x in settings.photo_file_extensions}
     return str(ext or "").strip().lower().lstrip(".") in photo_exts
 
 
@@ -263,11 +251,7 @@ def _is_photo_too_large(*, file_ext: str, file_size: int) -> bool:
 
 def _document_exists_by_sha(db, sha256: str) -> Document | None:
     return db.scalar(
-        select(Document)
-        .where(
-            Document.sha256 == sha256, Document.status == DocumentStatus.COMPLETED.value
-        )
-        .limit(1)
+        select(Document).where(Document.sha256 == sha256, Document.status == DocumentStatus.COMPLETED.value).limit(1)
     )
 
 
@@ -425,11 +409,7 @@ def _process_single_path(
             duplicate_count += 1
             return (success_count, failed_count, duplicate_count)
 
-        if (
-            bool(settings.ingestion_phash_dedup_enabled)
-            and image_phash
-            and (not force_reprocess)
-        ):
+        if bool(settings.ingestion_phash_dedup_enabled) and image_phash and (not force_reprocess):
             similar = _document_exists_by_phash(
                 db,
                 image_phash,
@@ -507,11 +487,7 @@ def _process_single_path(
         if reprocess_doc_id:
             old_chunk_ids = [
                 str(item)
-                for item in db.execute(
-                    select(Chunk.id).where(Chunk.document_id == document.id)
-                )
-                .scalars()
-                .all()
+                for item in db.execute(select(Chunk.id).where(Chunk.document_id == document.id)).scalars().all()
             ]
             db.execute(delete(Chunk).where(Chunk.document_id == document.id))
 
@@ -552,14 +528,8 @@ def _process_single_path(
             db=db,
         )
         summary_flags = detect_summary_quality_flags(summary_en, summary_zh)
-        document.summary_quality_state = (
-            "needs_regen" if is_low_quality_summary(summary_en, summary_zh) else "ok"
-        )
-        document.summary_last_error = (
-            ",".join(summary_flags)[:240]
-            if document.summary_quality_state != "ok"
-            else ""
-        )
+        document.summary_quality_state = "needs_regen" if is_low_quality_summary(summary_en, summary_zh) else "ok"
+        document.summary_last_error = ",".join(summary_flags)[:240] if document.summary_quality_state != "ok" else ""
         document.summary_model = str(get_model_setting("summary_model", db) or "")[:64]
         document.summary_version = "prompt-v2"
 
@@ -574,9 +544,7 @@ def _process_single_path(
         if classified is not None:
             category_label_en, category_label_zh, category_path = classified
             document.category_version = "taxonomy-v1"
-        safe_category_path, blocked_legacy_path = apply_legacy_category_guard(
-            category_path
-        )
+        safe_category_path, blocked_legacy_path = apply_legacy_category_guard(category_path)
         if blocked_legacy_path:
             logger.warning(
                 "legacy_category_blocked",
@@ -641,9 +609,7 @@ def _process_single_path(
             mail_from=mail_from,
             mail_subject=mail_subject,
         )
-        crud.sync_auto_tags_for_document(
-            db, document_id=document.id, auto_tag_keys=auto_tags
-        )
+        crud.sync_auto_tags_for_document(db, document_id=document.id, auto_tag_keys=auto_tags)
         document_tags = crud.get_document_tag_keys(db, document.id)
 
         chunk_rows: list[Chunk] = []
@@ -661,19 +627,13 @@ def _process_single_path(
         document.status = DocumentStatus.COMPLETED.value
         db.flush()
 
-        payload_records = _collect_payload_records(
-            document, chunk_rows, source_type=source_type, tags=document_tags
-        )
+        payload_records = _collect_payload_records(document, chunk_rows, source_type=source_type, tags=document_tags)
         try:
             upsert_records(payload_records, db=db)
             for c in chunk_rows:
                 c.embedding_status = "ready" if settings.qdrant_enable else "pending"
             if old_chunk_ids:
-                old_point_ids = [
-                    stable_point_id(document.id, chunk_id)
-                    for chunk_id in old_chunk_ids
-                    if chunk_id
-                ]
+                old_point_ids = [stable_point_id(document.id, chunk_id) for chunk_id in old_chunk_ids if chunk_id]
                 try:
                     delete_records_by_point_ids(old_point_ids, wait=True)
                 except Exception as exc:

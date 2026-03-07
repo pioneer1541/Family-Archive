@@ -15,18 +15,8 @@ _TAG_KEY_RE = re.compile(r"\b([a-z0-9][a-z0-9._-]{0,31}:[a-z0-9][a-z0-9._-]{0,95
 
 def _build_queue_bundle(db: Session, req: AgentExecuteRequest) -> dict[str, Any]:
     totals = crud.get_queue_totals(db)
-    jobs = (
-        db.execute(
-            select(IngestionJob).order_by(IngestionJob.created_at.desc()).limit(6)
-        )
-        .scalars()
-        .all()
-    )
-    docs = (
-        db.execute(select(Document).order_by(Document.updated_at.desc()).limit(10))
-        .scalars()
-        .all()
-    )
+    jobs = db.execute(select(IngestionJob).order_by(IngestionJob.created_at.desc()).limit(6)).scalars().all()
+    docs = db.execute(select(Document).order_by(Document.updated_at.desc()).limit(10)).scalars().all()
     docs = [item for item in docs if crud.source_path_available(item.source_path)]
 
     context_chunks: list[dict[str, Any]] = [
@@ -100,9 +90,7 @@ def _extract_tag_keys_from_query(query: str) -> list[str]:
     return out[:12]
 
 
-def _build_reprocess_bundle(
-    db: Session, req: AgentExecuteRequest, *, doc_ids: list[str]
-) -> dict[str, Any]:
+def _build_reprocess_bundle(db: Session, req: AgentExecuteRequest, *, doc_ids: list[str]) -> dict[str, Any]:
     target_ids = doc_ids[:3]
     if not target_ids:
         return {
@@ -163,9 +151,7 @@ def _build_reprocess_bundle(
             )
             continue
         job = crud.create_ingestion_job(db, [str(doc.source_path)])
-        mode = enqueue_ingestion_job(
-            job.id, force_reprocess=True, reprocess_doc_id=doc.id
-        )
+        mode = enqueue_ingestion_job(job.id, force_reprocess=True, reprocess_doc_id=doc.id)
         context_chunks.append(
             {
                 "doc_id": doc.id,
@@ -204,9 +190,7 @@ def _build_reprocess_bundle(
     }
 
 
-def _build_tag_update_bundle(
-    db: Session, req: AgentExecuteRequest, *, doc_ids: list[str]
-) -> dict[str, Any]:
+def _build_tag_update_bundle(db: Session, req: AgentExecuteRequest, *, doc_ids: list[str]) -> dict[str, Any]:
     target_ids = doc_ids[:3]
     tag_keys = _extract_tag_keys_from_query(req.query)
     context_chunks: list[dict[str, Any]] = []
@@ -231,9 +215,7 @@ def _build_tag_update_bundle(
                 }
             )
             continue
-        _rows, invalid = crud.patch_document_tags(
-            db, document_id=doc.id, add=tag_keys, remove=[]
-        )
+        _rows, invalid = crud.patch_document_tags(db, document_id=doc.id, add=tag_keys, remove=[])
         if invalid:
             context_chunks.append(
                 {

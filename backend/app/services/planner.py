@@ -232,19 +232,11 @@ def _build_fallback_plan(req: PlannerRequest) -> PlannerDecision:
         required_evidence_fields.append("amount")
     if any(token in text for token in ("什么时候", "到期", "日期", "date", "when")):
         required_evidence_fields.append("date")
-    if any(
-        token in text
-        for token in ("联系方式", "电话", "邮箱", "contact", "phone", "email")
-    ):
+    if any(token in text for token in ("联系方式", "电话", "邮箱", "contact", "phone", "email")):
         required_evidence_fields.append("contact")
-    if any(
-        token in text
-        for token in ("有没有", "是否", "有无", "do we have", "did we", "have we")
-    ):
+    if any(token in text for token in ("有没有", "是否", "有无", "do we have", "did we", "have we")):
         required_evidence_fields.append("explicit_presence_evidence")
-    spec = build_query_spec_from_query(
-        req.query, planner_intent=intent, doc_scope=req.doc_scope
-    )
+    spec = build_query_spec_from_query(req.query, planner_intent=intent, doc_scope=req.doc_scope)
     planner_payload = {
         "intent": intent,
         "confidence": round(confidence, 2),
@@ -261,9 +253,7 @@ def _build_fallback_plan(req: PlannerRequest) -> PlannerDecision:
     return PlannerDecision(**planner_payload)
 
 
-def _apply_intent_override(
-    req: PlannerRequest, plan: PlannerDecision
-) -> PlannerDecision:
+def _apply_intent_override(req: PlannerRequest, plan: PlannerDecision) -> PlannerDecision:
     heuristic_intent, heuristic_conf = _pick_intent_rule(req.query)
     if heuristic_intent not in {
         "detail_extract",
@@ -292,10 +282,7 @@ def _apply_intent_override(
             "list_recent",
         }
     )
-    if (
-        current_intent not in {"search_semantic", "search_keyword"}
-        and not low_conf_non_structured
-    ):
+    if current_intent not in {"search_semantic", "search_keyword"} and not low_conf_non_structured:
         return plan
     if heuristic_conf < 0.72:
         return plan
@@ -378,9 +365,7 @@ def _planner_prompt(req: PlannerRequest) -> list[dict[str, str]]:
     ]
 
 
-def _planner_from_llm(
-    req: PlannerRequest, db: Session | None = None
-) -> PlannerDecision | None:
+def _planner_from_llm(req: PlannerRequest, db: Session | None = None) -> PlannerDecision | None:
     url = settings.ollama_base_url.rstrip("/") + "/api/chat"
     payload = {
         "model": get_runtime_setting("planner_model", db),
@@ -419,9 +404,7 @@ def _planner_from_llm(
         if ui_lang not in {"zh", "en"}:
             ui_lang = "zh" if req.ui_lang == "zh" else "en"
 
-        query_lang = (
-            str(parsed.get("query_lang") or _safe_query_lang(req)).strip().lower()
-        )
+        query_lang = str(parsed.get("query_lang") or _safe_query_lang(req)).strip().lower()
         if query_lang not in {"zh", "en"}:
             query_lang = _safe_query_lang(req)
 
@@ -429,21 +412,13 @@ def _planner_from_llm(
         if not isinstance(scope, dict):
             scope = req.doc_scope
 
-        raw_required = [
-            str(x or "")
-            for x in (parsed.get("required_evidence_fields") or [])
-            if str(x or "").strip()
-        ][:8]
+        raw_required = [str(x or "") for x in (parsed.get("required_evidence_fields") or []) if str(x or "").strip()][
+            :8
+        ]
         refusal_candidate = bool(parsed.get("refusal_candidate", False))
-        query_spec = (
-            parsed.get("query_spec")
-            if isinstance(parsed.get("query_spec"), dict)
-            else {}
-        )
+        query_spec = parsed.get("query_spec") if isinstance(parsed.get("query_spec"), dict) else {}
         if not query_spec:
-            query_spec = build_query_spec_from_query(
-                req.query, planner_intent=intent, doc_scope=scope
-            )
+            query_spec = build_query_spec_from_query(req.query, planner_intent=intent, doc_scope=scope)
         planner_payload = {
             "intent": intent,
             "confidence": round(confidence, 2),
@@ -456,26 +431,18 @@ def _planner_from_llm(
             "required_evidence_fields": raw_required,
             "refusal_candidate": refusal_candidate,
         }
-        planner_payload = apply_query_spec_to_planner_fields(
-            query_spec, planner_payload
-        )
+        planner_payload = apply_query_spec_to_planner_fields(query_spec, planner_payload)
         # Backward-compatible pass-through if LLM returned convenience fields explicitly.
         if str(parsed.get("task_kind") or "").strip():
             planner_payload["task_kind"] = str(parsed.get("task_kind") or "").strip()
         if str(parsed.get("subject_domain") or "").strip():
-            planner_payload["subject_domain"] = str(
-                parsed.get("subject_domain") or ""
-            ).strip()
+            planner_payload["subject_domain"] = str(parsed.get("subject_domain") or "").strip()
         if isinstance(parsed.get("target_slots"), list):
             planner_payload["target_slots"] = [
-                str(x or "").strip()
-                for x in parsed.get("target_slots")
-                if str(x or "").strip()
+                str(x or "").strip() for x in parsed.get("target_slots") if str(x or "").strip()
             ][:12]
         if str(parsed.get("query_spec_version") or "").strip():
-            planner_payload["query_spec_version"] = str(
-                parsed.get("query_spec_version") or ""
-            ).strip()
+            planner_payload["query_spec_version"] = str(parsed.get("query_spec_version") or "").strip()
         return PlannerDecision(**planner_payload)
     except Exception:
         return None
@@ -488,9 +455,7 @@ def plan_from_request(req: PlannerRequest, db: Session | None = None) -> Planner
         if from_llm is not None
         else _apply_intent_override(req, _build_fallback_plan(req))
     )
-    if not isinstance(getattr(plan, "query_spec", None), dict) or not dict(
-        getattr(plan, "query_spec", {}) or {}
-    ):
+    if not isinstance(getattr(plan, "query_spec", None), dict) or not dict(getattr(plan, "query_spec", {}) or {}):
         spec = build_query_spec_from_query(
             req.query,
             planner_intent=str(plan.intent or ""),
@@ -690,9 +655,7 @@ def _router_heuristic(req: PlannerRequest) -> RouterDecision:
         "internet",
         "utilities",
     )
-    if any(p in q for p in _RELATIVE_MONTH_TOKENS) and any(
-        p in q for p in _MONTHLY_BILL_HINTS
-    ):
+    if any(p in q for p in _RELATIVE_MONTH_TOKENS) and any(p in q for p in _MONTHLY_BILL_HINTS):
         return RouterDecision(
             route="calculate",
             rewritten_query="",
@@ -700,9 +663,7 @@ def _router_heuristic(req: PlannerRequest) -> RouterDecision:
             sub_intent="bill_monthly_total",
             **base,
         )
-    if re.search(r"\d{4}年?\d{1,2}月|\d{1,2}月份?", q) and any(
-        p in q for p in ("账单", "bill", "缴费")
-    ):
+    if re.search(r"\d{4}年?\d{1,2}月|\d{1,2}月份?", q) and any(p in q for p in ("账单", "bill", "缴费")):
         return RouterDecision(
             route="calculate",
             rewritten_query="",
@@ -710,10 +671,7 @@ def _router_heuristic(req: PlannerRequest) -> RouterDecision:
             sub_intent="bill_monthly_total",
             **base,
         )
-    if any(
-        p in q
-        for p in ("账单", "bill", "待付", "未付", "缴费", "payment due", "due date")
-    ):
+    if any(p in q for p in ("账单", "bill", "待付", "未付", "缴费", "payment due", "due date")):
         return RouterDecision(
             route="calculate",
             rewritten_query="",
@@ -728,22 +686,13 @@ def _router_heuristic(req: PlannerRequest) -> RouterDecision:
         domain, sub = "insurance", "detail_extract"
     elif any(p in q for p in ("warranty", "保修", "质保", "保固")):
         domain, sub = "warranty", "detail_extract"
-    elif any(
-        p in q for p in ("家电", "appliance", "空调", "冰箱", "洗碗机", "品牌", "型号")
-    ):
+    elif any(p in q for p in ("家电", "appliance", "空调", "冰箱", "洗碗机", "品牌", "型号")):
         domain, sub = "appliances", "detail_extract"
-    elif any(
-        p in q for p in ("宠物", "pet", "疫苗", "vaccine", "兽医", "vet", "猫", "狗")
-    ):
+    elif any(p in q for p in ("宠物", "pet", "疫苗", "vaccine", "兽医", "vet", "猫", "狗")):
         domain, sub = "pets", "detail_extract"
-    elif any(
-        p in q
-        for p in ("水箱", "hvac", "电气", "hydraulic", "维护", "维修", "maintenance")
-    ):
+    elif any(p in q for p in ("水箱", "hvac", "电气", "hydraulic", "维护", "维修", "maintenance")):
         domain, sub = "home", "search_semantic"
-    return RouterDecision(
-        route="lookup", rewritten_query=req.query, domain=domain, sub_intent=sub, **base
-    )
+    return RouterDecision(route="lookup", rewritten_query=req.query, domain=domain, sub_intent=sub, **base)
 
 
 def route_and_rewrite(req: PlannerRequest, db: Session | None = None) -> RouterDecision:

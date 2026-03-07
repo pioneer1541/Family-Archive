@@ -43,9 +43,7 @@ def document_source_available_cached(doc: models.Document | None) -> bool:
     return bool(getattr(doc, "source_available_cached", True))
 
 
-def set_document_source_available_cached(
-    db: Session, doc: models.Document, *, available: bool
-) -> None:
+def set_document_source_available_cached(db: Session, doc: models.Document, *, available: bool) -> None:
     doc.source_available_cached = bool(available)
     doc.source_checked_at = dt.datetime.now(dt.UTC)
     db.flush()
@@ -59,13 +57,7 @@ def refresh_document_source_available_cached(db: Session, doc: models.Document) 
 
 def _reconcile_unchecked_document_sources(db: Session) -> None:
     # Legacy rows or test inserts may leave source cache unset; refresh before cache-based filtering.
-    rows = (
-        db.execute(
-            select(models.Document).where(models.Document.source_checked_at.is_(None))
-        )
-        .scalars()
-        .all()
-    )
+    rows = db.execute(select(models.Document).where(models.Document.source_checked_at.is_(None))).scalars().all()
     for doc in rows:
         refresh_document_source_available_cached(db, doc)
 
@@ -101,9 +93,7 @@ def _task_anchor_from_docset(db: Session, doc_set: list[str]) -> str:
     return ""
 
 
-def _build_task_id(
-    db: Session, *, title: str, task_type: str, doc_set: list[str]
-) -> str:
+def _build_task_id(db: Session, *, title: str, task_type: str, doc_set: list[str]) -> str:
     anchor = _task_anchor_from_docset(db, doc_set) or str(title or "").strip() or "task"
     prefix = _slug_token(anchor, max_len=22)
     seed = f"{anchor}|{task_type}|{time.time_ns()}"
@@ -138,9 +128,7 @@ def delete_ingestion_job(db: Session, job: models.IngestionJob) -> None:
     db.commit()
 
 
-def upsert_ignored_paths(
-    db: Session, paths: list[str], *, reason: str = "queue_deleted"
-) -> int:
+def upsert_ignored_paths(db: Session, paths: list[str], *, reason: str = "queue_deleted") -> int:
     now = dt.datetime.now(dt.UTC)
     safe_reason = str(reason or "queue_deleted").strip()[:120] or "queue_deleted"
     created = 0
@@ -152,9 +140,7 @@ def upsert_ignored_paths(
         seen.add(rp)
         row = db.get(models.IgnoredIngestionPath, rp)
         if row is None:
-            db.add(
-                models.IgnoredIngestionPath(path=rp, reason=safe_reason, created_at=now)
-            )
+            db.add(models.IgnoredIngestionPath(path=rp, reason=safe_reason, created_at=now))
             created += 1
         else:
             row.reason = safe_reason
@@ -201,18 +187,11 @@ def get_task(db: Session, task_id: str) -> models.Task | None:
     return db.get(models.Task, task_id)
 
 
-def list_tasks(
-    db: Session, *, limit: int = 50, offset: int = 0
-) -> tuple[list[models.Task], int]:
+def list_tasks(db: Session, *, limit: int = 50, offset: int = 0) -> tuple[list[models.Task], int]:
     safe_limit = max(1, min(200, int(limit)))
     safe_offset = max(0, int(offset))
     rows = (
-        db.execute(
-            select(models.Task)
-            .order_by(models.Task.updated_time.desc())
-            .offset(safe_offset)
-            .limit(safe_limit)
-        )
+        db.execute(select(models.Task).order_by(models.Task.updated_time.desc()).offset(safe_offset).limit(safe_limit))
         .scalars()
         .all()
     )
@@ -259,24 +238,18 @@ def list_documents(
         count_stmt = count_stmt.where(models.Document.source_available_cached.is_(True))
     elif normalized_source_state == "missing":
         stmt = stmt.where(models.Document.source_available_cached.is_(False))
-        count_stmt = count_stmt.where(
-            models.Document.source_available_cached.is_(False)
-        )
+        count_stmt = count_stmt.where(models.Document.source_available_cached.is_(False))
 
     tags_all_norm, _ = normalize_tag_list(tags_all or [])
     tags_any_norm, _ = normalize_tag_list(tags_any or [])
 
     for tag in tags_all_norm:
-        doc_ids_for_tag = select(models.DocumentTag.document_id).where(
-            models.DocumentTag.tag_key == tag
-        )
+        doc_ids_for_tag = select(models.DocumentTag.document_id).where(models.DocumentTag.tag_key == tag)
         stmt = stmt.where(models.Document.id.in_(doc_ids_for_tag))
         count_stmt = count_stmt.where(models.Document.id.in_(doc_ids_for_tag))
 
     if tags_any_norm:
-        doc_ids_any = select(models.DocumentTag.document_id).where(
-            models.DocumentTag.tag_key.in_(tags_any_norm)
-        )
+        doc_ids_any = select(models.DocumentTag.document_id).where(models.DocumentTag.tag_key.in_(tags_any_norm))
         stmt = stmt.where(models.Document.id.in_(doc_ids_any))
         count_stmt = count_stmt.where(models.Document.id.in_(doc_ids_any))
 
@@ -291,9 +264,7 @@ def list_documents(
             models.Document.summary_zh.ilike(pattern),
             models.Document.category_path.ilike(pattern),
             models.Document.id.in_(
-                select(models.DocumentTag.document_id).where(
-                    models.DocumentTag.tag_key.ilike(pattern)
-                )
+                select(models.DocumentTag.document_id).where(models.DocumentTag.tag_key.ilike(pattern))
             ),
         )
         stmt = stmt.where(q_clause)
@@ -302,11 +273,7 @@ def list_documents(
     safe_limit = max(1, min(200, int(limit)))
     safe_offset = max(0, int(offset))
     rows = (
-        db.execute(
-            stmt.order_by(models.Document.updated_at.desc())
-            .offset(safe_offset)
-            .limit(safe_limit)
-        )
+        db.execute(stmt.order_by(models.Document.updated_at.desc()).offset(safe_offset).limit(safe_limit))
         .scalars()
         .all()
     )
@@ -314,9 +281,7 @@ def list_documents(
     return (rows, total)
 
 
-def list_categories(
-    db: Session, *, limit: int = 100, include_missing: bool = False
-) -> list[dict[str, Any]]:
+def list_categories(db: Session, *, limit: int = 100, include_missing: bool = False) -> list[dict[str, Any]]:
     _reconcile_unchecked_document_sources(db)
     safe_limit = max(1, min(500, int(limit)))
     stmt = (
@@ -335,11 +300,7 @@ def list_categories(
     )
     if not include_missing:
         stmt = stmt.where(models.Document.source_available_cached.is_(True))
-    rows = db.execute(
-        stmt.order_by(func.count().desc(), models.Document.category_path.asc()).limit(
-            safe_limit
-        )
-    ).all()
+    rows = db.execute(stmt.order_by(func.count().desc(), models.Document.category_path.asc()).limit(safe_limit)).all()
     out: list[dict[str, Any]] = []
     for category_path, label_en, label_zh, doc_count in rows:
         out.append(
@@ -365,11 +326,7 @@ def get_queue_totals(db: Session) -> dict[str, int]:
     )
     jobs_total = db.scalar(select(func.count()).select_from(models.IngestionJob)) or 0
     running_jobs = (
-        db.scalar(
-            select(func.count())
-            .select_from(models.IngestionJob)
-            .where(models.IngestionJob.status == "running")
-        )
+        db.scalar(select(func.count()).select_from(models.IngestionJob).where(models.IngestionJob.status == "running"))
         or 0
     )
     return {
@@ -435,9 +392,7 @@ def serialize_document_tags(rows: list[models.DocumentTag]) -> list[dict[str, st
     return out
 
 
-def _new_tag_row(
-    document_id: str, tag_key: str, *, origin: str
-) -> models.DocumentTag | None:
+def _new_tag_row(document_id: str, tag_key: str, *, origin: str) -> models.DocumentTag | None:
     family, value = split_tag_key(tag_key)
     if (not family) or (not value):
         return None
@@ -450,15 +405,11 @@ def _new_tag_row(
     )
 
 
-def sync_auto_tags_for_document(
-    db: Session, *, document_id: str, auto_tag_keys: list[str]
-) -> list[models.DocumentTag]:
+def sync_auto_tags_for_document(db: Session, *, document_id: str, auto_tag_keys: list[str]) -> list[models.DocumentTag]:
     normalized, _ = normalize_tag_list(auto_tag_keys or [])
     rows = get_document_tag_rows(db, document_id)
     by_key = {str(row.tag_key): row for row in rows}
-    manual_keys = {
-        str(row.tag_key) for row in rows if str(row.origin or "").lower() == "manual"
-    }
+    manual_keys = {str(row.tag_key) for row in rows if str(row.origin or "").lower() == "manual"}
     target_keys = [key for key in normalized if key not in manual_keys]
 
     for row in rows:
@@ -544,9 +495,7 @@ def patch_document_tags(
     return (get_document_tag_rows(db, document_id), [])
 
 
-def list_tag_catalog(
-    db: Session, *, family: str | None = None, limit: int = 200
-) -> list[dict[str, Any]]:
+def list_tag_catalog(db: Session, *, family: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
     safe_limit = max(1, min(500, int(limit)))
     stmt = (
         select(
@@ -564,9 +513,7 @@ def list_tag_catalog(
         .limit(safe_limit)
     )
     if family:
-        stmt = stmt.where(
-            models.DocumentTag.family == str(family or "").strip().lower()
-        )
+        stmt = stmt.where(models.DocumentTag.family == str(family or "").strip().lower())
 
     rows = db.execute(stmt).all()
     out: list[dict[str, Any]] = []
@@ -604,15 +551,11 @@ def select_document_ids_for_filters(
     tags_all_norm, _ = normalize_tag_list(tags_all or [])
     tags_any_norm, _ = normalize_tag_list(tags_any or [])
     for tag in tags_all_norm:
-        sub = select(models.DocumentTag.document_id).where(
-            models.DocumentTag.tag_key == tag
-        )
+        sub = select(models.DocumentTag.document_id).where(models.DocumentTag.tag_key == tag)
         stmt = stmt.where(models.Document.id.in_(sub))
 
     if tags_any_norm:
-        sub_any = select(models.DocumentTag.document_id).where(
-            models.DocumentTag.tag_key.in_(tags_any_norm)
-        )
+        sub_any = select(models.DocumentTag.document_id).where(models.DocumentTag.tag_key.in_(tags_any_norm))
         stmt = stmt.where(models.Document.id.in_(sub_any))
 
     if not include_missing:
@@ -638,9 +581,7 @@ def replace_document_tags_manual(
     if not ok:
         return ([], [reason])
 
-    db.execute(
-        delete(models.DocumentTag).where(models.DocumentTag.document_id == document_id)
-    )
+    db.execute(delete(models.DocumentTag).where(models.DocumentTag.document_id == document_id))
     for key in normalized:
         row = _new_tag_row(document_id, key, origin="manual")
         if row is not None:

@@ -20,9 +20,7 @@ def _dedupe_hits_by_chunk(hits: list[Any]) -> list[Any]:
     return out
 
 
-def _build_related_docs(
-    db: Session, doc_ids: list[str], *, cap: int = 6
-) -> list[AgentRelatedDoc]:
+def _build_related_docs(db: Session, doc_ids: list[str], *, cap: int = 6) -> list[AgentRelatedDoc]:
     unique_ids: list[str] = []
     seen: set[str] = set()
     for raw in doc_ids:
@@ -113,11 +111,7 @@ def _collect_evidence_backed_doc_ids(bundle: dict[str, Any]) -> list[str]:
     if out:
         return out
 
-    explicit = [
-        str(x or "").strip()
-        for x in (bundle.get("evidence_backed_doc_ids") or [])
-        if str(x or "").strip()
-    ]
+    explicit = [str(x or "").strip() for x in (bundle.get("evidence_backed_doc_ids") or []) if str(x or "").strip()]
     for doc_id in explicit:
         if doc_id not in seen:
             seen.add(doc_id)
@@ -151,11 +145,7 @@ def _apply_related_docs_selection(bundle: dict[str, Any]) -> tuple[str, int]:
     evidence_doc_ids = _collect_evidence_backed_doc_ids(bundle)
     evidence_set = {doc_id for doc_id in evidence_doc_ids if doc_id}
     if evidence_set:
-        related_docs = [
-            doc
-            for doc in related_docs
-            if str(getattr(doc, "doc_id", "") or "") in evidence_set
-        ]
+        related_docs = [doc for doc in related_docs if str(getattr(doc, "doc_id", "") or "") in evidence_set]
     else:
         related_docs = []
     bundle["related_docs"] = related_docs
@@ -186,12 +176,7 @@ def _fill_chunks_from_doc_scope(
         if not crud.source_path_available(doc.source_path):
             continue
         rows = (
-            db.execute(
-                select(Chunk)
-                .where(Chunk.document_id == doc.id)
-                .order_by(Chunk.chunk_index.asc())
-                .limit(3)
-            )
+            db.execute(select(Chunk).where(Chunk.document_id == doc.id).order_by(Chunk.chunk_index.asc()).limit(3))
             .scalars()
             .all()
         )

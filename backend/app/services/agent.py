@@ -573,18 +573,10 @@ def _evidence_match(field: str, text: str) -> bool:
     if field == "date":
         _mo_lo = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*"
         return bool(
-            re.search(
-                r"20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?", lowered
-            )  # 2024-11-04
-            or re.search(
-                r"\b\d{1,2}\s+" + _mo_lo + r"\s+20\d{2}\b", lowered
-            )  # 2 December 2025
-            or re.search(
-                _mo_lo + r"\s+\d{1,2},?\s+20\d{2}\b", lowered
-            )  # December 2, 2025
-            or re.search(
-                r"\b\d{1,2}[-/]\d{1,2}[-/]20\d{2}\b", lowered
-            )  # 04-11-2024 or 04/11/2024
+            re.search(r"20\d{2}[-/年\.]\d{1,2}[-/月\.]\d{1,2}日?", lowered)  # 2024-11-04
+            or re.search(r"\b\d{1,2}\s+" + _mo_lo + r"\s+20\d{2}\b", lowered)  # 2 December 2025
+            or re.search(_mo_lo + r"\s+\d{1,2},?\s+20\d{2}\b", lowered)  # December 2, 2025
+            or re.search(r"\b\d{1,2}[-/]\d{1,2}[-/]20\d{2}\b", lowered)  # 04-11-2024 or 04/11/2024
         )
     if field == "contact":
         return ("@" in lowered) or bool(re.search(r"\b\d{8,12}\b", lowered))
@@ -606,9 +598,7 @@ def _evidence_match(field: str, text: str) -> bool:
     return False
 
 
-def _build_evidence_map(
-    fields: list[str], chunks: list[dict[str, Any]]
-) -> dict[str, list[dict[str, str]]]:
+def _build_evidence_map(fields: list[str], chunks: list[dict[str, Any]]) -> dict[str, list[dict[str, str]]]:
     out: dict[str, list[dict[str, str]]] = {}
     for field in fields:  # noqa: F402
         refs: list[dict[str, str]] = []
@@ -629,9 +619,7 @@ def _build_evidence_map(
     return out
 
 
-def _coverage_from_map(
-    fields: list[str], evidence_map: dict[str, list[dict[str, str]]]
-) -> tuple[float, list[str]]:
+def _coverage_from_map(fields: list[str], evidence_map: dict[str, list[dict[str, str]]]) -> tuple[float, list[str]]:
     if not fields:
         return (1.0, [])
     hit = 0
@@ -719,11 +707,7 @@ def _build_bill_attention_bundle(
 ) -> dict[str, Any]:
     allowed_ids = set(doc_ids)
     facet = _detect_query_facet(req.query)
-    strict_categories = {
-        str(item or "").strip().lower()
-        for item in facet.strict_categories
-        if str(item or "").strip()
-    }
+    strict_categories = {str(item or "").strip().lower() for item in facet.strict_categories if str(item or "").strip()}
     rows = list_recent_bill_facts(db, limit=30)
     pending: list[dict[str, Any]] = []
     paid: list[dict[str, Any]] = []
@@ -736,10 +720,7 @@ def _build_bill_attention_bundle(
             continue
         if category_path and str(doc.category_path or "") != category_path:
             continue
-        if (
-            strict_categories
-            and str(doc.category_path or "").strip().lower() not in strict_categories
-        ):
+        if strict_categories and str(doc.category_path or "").strip().lower() not in strict_categories:
             continue
         item = {
             "doc_id": doc.id,
@@ -763,14 +744,12 @@ def _build_bill_attention_bundle(
         pending,
         key=lambda item: (
             0 if str(item.get("payment_status") or "").lower() == "overdue" else 1,
-            _as_utc_datetime(item.get("due_date"))
-            or dt.datetime.max.replace(tzinfo=dt.UTC),
+            _as_utc_datetime(item.get("due_date")) or dt.datetime.max.replace(tzinfo=dt.UTC),
         ),
     )
     paid = sorted(
         paid,
-        key=lambda item: _as_utc_datetime(item.get("due_date"))
-        or dt.datetime.max.replace(tzinfo=dt.UTC),
+        key=lambda item: _as_utc_datetime(item.get("due_date")) or dt.datetime.max.replace(tzinfo=dt.UTC),
     )
     selected = (pending + paid)[:10]
 
@@ -783,9 +762,7 @@ def _build_bill_attention_bundle(
             ui_lang=req.ui_lang,
         )
         due_date = _format_due_date(item.get("due_date"), ui_lang=req.ui_lang)
-        status = _bill_status_label(
-            str(item.get("payment_status") or ""), ui_lang=req.ui_lang
-        )
+        status = _bill_status_label(str(item.get("payment_status") or ""), ui_lang=req.ui_lang)
         if req.ui_lang == "zh":
             text = f"账单：{item.get('title_zh') or item.get('title_en')}；金额：{amount or '未提取'}；截止：{due_date or '未提取'}；状态：{status}"
             label = str(item.get("title_zh") or item.get("title_en") or "账单")
@@ -807,11 +784,7 @@ def _build_bill_attention_bundle(
                 "text": text,
             }
         )
-        sources.append(
-            ResultCardSource(
-                doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label
-            )
-        )
+        sources.append(ResultCardSource(doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label))
 
     related_docs = _build_related_docs(db, all_doc_ids, cap=6)
     return {
@@ -838,9 +811,7 @@ def _build_bill_attention_bundle(
         "fact_month": "",
         "related_doc_selection_mode": "evidence_only",
         "evidence_backed_doc_ids": [
-            str(item.get("doc_id") or "")
-            for item in selected
-            if str(item.get("doc_id") or "").strip()
+            str(item.get("doc_id") or "") for item in selected if str(item.get("doc_id") or "").strip()
         ],
     }
 
@@ -858,17 +829,13 @@ def _build_bill_monthly_total_bundle(
         db,
         limit=60,
         target_month=target_month if target_month is not None else None,
-        target_year=target_year
-        if target_month is not None and target_year is not None
-        else None,
+        target_year=target_year if target_month is not None and target_year is not None else None,
     )
     explicit_selected_doc_ids = []
     if isinstance(req.client_context, dict):
         selected = req.client_context.get("selected_doc_ids")
         if isinstance(selected, list):
-            explicit_selected_doc_ids = [
-                str(item or "").strip() for item in selected if str(item or "").strip()
-            ]
+            explicit_selected_doc_ids = [str(item or "").strip() for item in selected if str(item or "").strip()]
     allowed_doc_ids = set(explicit_selected_doc_ids)
 
     if target_month is not None and target_year is None:
@@ -956,9 +923,7 @@ def _build_bill_monthly_total_bundle(
             ui_lang=req.ui_lang,
         )
         due_date = _format_due_date(item.get("due_date"), ui_lang=req.ui_lang)
-        status_label = _bill_status_label(
-            str(item.get("payment_status") or ""), ui_lang=req.ui_lang
-        )
+        status_label = _bill_status_label(str(item.get("payment_status") or ""), ui_lang=req.ui_lang)
         label = str(item.get("title_zh") or item.get("title_en") or "账单")
         text = (
             f"账单：{label}；金额：{amount or '未提取'}；截止：{due_date or '未提取'}；状态：{status_label}"
@@ -977,11 +942,7 @@ def _build_bill_monthly_total_bundle(
                 "text": text,
             }
         )
-        sources.append(
-            ResultCardSource(
-                doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label
-            )
-        )
+        sources.append(ResultCardSource(doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label))
 
     related_docs = _build_related_docs(db, related_doc_ids, cap=6)
     month_txt = _month_label(year=target_year, month=target_month)
@@ -1062,11 +1023,7 @@ def _build_period_aggregate_bundle(
     # Prefer structured bill facts for period aggregate questions.
     months = _extract_period_months(req.query)
     facet = _detect_query_facet(req.query)
-    strict_categories = {
-        str(item or "").strip().lower()
-        for item in facet.strict_categories
-        if str(item or "").strip()
-    }
+    strict_categories = {str(item or "").strip().lower() for item in facet.strict_categories if str(item or "").strip()}
     now = dt.datetime.now(dt.UTC)
     window_start = now - dt.timedelta(days=31 * max(1, months))
     rows = list_recent_bill_facts(db, limit=max(60, months * 12), since=window_start)
@@ -1079,10 +1036,7 @@ def _build_period_aggregate_bundle(
             continue
         if category_path and str(doc.category_path or "") != category_path:
             continue
-        if (
-            strict_categories
-            and str(doc.category_path or "").strip().lower() not in strict_categories
-        ):
+        if strict_categories and str(doc.category_path or "").strip().lower() not in strict_categories:
             continue
         if not crud.source_path_available(doc.source_path):
             continue
@@ -1126,9 +1080,7 @@ def _build_period_aggregate_bundle(
             ui_lang=req.ui_lang,
         )
         due_txt = _format_due_date(item.get("due_date"), ui_lang=req.ui_lang)
-        status_txt = _bill_status_label(
-            str(item.get("payment_status") or ""), ui_lang=req.ui_lang
-        )
+        status_txt = _bill_status_label(str(item.get("payment_status") or ""), ui_lang=req.ui_lang)
         label = str(item.get("title_zh") or item.get("title_en") or "账单")
         text = (
             f"周期聚合账单：{label}；金额：{amount_txt or '未提取'}；日期：{due_txt or '未提取'}；状态：{status_txt}"
@@ -1147,11 +1099,7 @@ def _build_period_aggregate_bundle(
                 "text": text,
             }
         )
-        sources.append(
-            ResultCardSource(
-                doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label
-            )
-        )
+        sources.append(ResultCardSource(doc_id=str(item.get("doc_id") or ""), chunk_id=chunk_id, label=label))
 
     related_docs = _build_related_docs(db, related_doc_ids, cap=6)
     if not items:
@@ -1255,22 +1203,16 @@ def _build_period_aggregate_bundle(
         "facet_keys": list(facet.facet_keys),
         "related_doc_selection_mode": "evidence_only",
         "evidence_backed_doc_ids": [
-            str(item.get("doc_id") or "")
-            for item in items
-            if str(item.get("doc_id") or "").strip()
+            str(item.get("doc_id") or "") for item in items if str(item.get("doc_id") or "").strip()
         ],
     }
 
 
-def _execute_plan(
-    db: Session, req: AgentExecuteRequest, planner: PlannerDecision
-) -> dict[str, Any]:
+def _execute_plan(db: Session, req: AgentExecuteRequest, planner: PlannerDecision) -> dict[str, Any]:
     scope = planner.doc_scope if isinstance(planner.doc_scope, dict) else {}
     doc_ids = _doc_ids_from_scope(
         scope,
-        client_context=(
-            req.client_context if isinstance(req.client_context, dict) else {}
-        ),
+        client_context=(req.client_context if isinstance(req.client_context, dict) else {}),
     )
     category_path = _category_from_scope(scope)
 
@@ -1293,47 +1235,32 @@ def _execute_plan(
         out["route_reason"] = "planner_tag_update"
         return out
     if planner.intent == "detail_extract":
-        out = _build_detail_extract_bundle(
-            db, req, planner, doc_ids=doc_ids, category_path=category_path
-        )
+        out = _build_detail_extract_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
         out["fact_route"] = "none"
         out["fact_month"] = ""
         out["route_reason"] = "planner_detail_extract"
         return out
     if planner.intent == "entity_fact_lookup":
-        out = _build_entity_fact_lookup_bundle(
-            db, req, planner, doc_ids=doc_ids, category_path=category_path
-        )
+        out = _build_entity_fact_lookup_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
         return out
     if planner.intent == "period_aggregate":
-        out = _build_period_aggregate_bundle(
-            db, req, planner, doc_ids=doc_ids, category_path=category_path
-        )
+        out = _build_period_aggregate_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
         return out
     # V2 router sets planner.intent="bill_monthly_total" directly; legacy path uses query detection.
     # V2 intent path requires a specific month in the query — prevents "last water bill" (no month)
     # from being routed to the monthly bundle.
-    _v2_has_month = (
-        planner.intent == "bill_monthly_total"
-        and _extract_month_scope(req.query)[1] is not None
-    )
+    _v2_has_month = planner.intent == "bill_monthly_total" and _extract_month_scope(req.query)[1] is not None
     if _v2_has_month or _is_bill_monthly_total_query(req.query):
-        month_bundle = _build_bill_monthly_total_bundle(
-            db, req, planner, doc_ids=doc_ids, category_path=category_path
-        )
+        month_bundle = _build_bill_monthly_total_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
         if int(month_bundle.get("hit_count") or 0) > 0:
             route_reason = (
-                "v2_bill_monthly_intent"
-                if planner.intent == "bill_monthly_total"
-                else "monthly_total_structured_match"
+                "v2_bill_monthly_intent" if planner.intent == "bill_monthly_total" else "monthly_total_structured_match"
             )
             month_bundle["route_reason"] = route_reason
             return month_bundle
         month_bundle["fallback_reason"] = "bill_monthly_empty"
         month_bundle["fact_route"] = "bill_monthly_total"
-        month_bundle["fact_month"] = str(
-            (month_bundle.get("bill_monthly") or {}).get("month") or ""
-        )
+        month_bundle["fact_month"] = str((month_bundle.get("bill_monthly") or {}).get("month") or "")
         month_bundle["route_reason"] = (
             "v2_bill_monthly_intent_empty"
             if planner.intent == "bill_monthly_total"
@@ -1342,19 +1269,13 @@ def _execute_plan(
         return month_bundle
     if planner.intent == "list_recent" and _is_bill_attention_query(req.query):
         try:
-            bundle = _build_bill_attention_bundle(
-                db, req, planner, doc_ids=doc_ids, category_path=category_path
-            )
+            bundle = _build_bill_attention_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
         except Exception as exc:
             logger.warning(
                 "bill_facts_unavailable",
-                extra=sanitize_log_context(
-                    {"error_code": "bill_facts_unavailable", "detail": str(exc)}
-                ),
+                extra=sanitize_log_context({"error_code": "bill_facts_unavailable", "detail": str(exc)}),
             )
-            fallback = _build_search_bundle(
-                db, req, planner, doc_ids=doc_ids, category_path=category_path
-            )
+            fallback = _build_search_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
             fallback["fallback_reason"] = "bill_facts_unavailable"
             fallback["fact_route"] = "bill_attention"
             fallback["fact_month"] = ""
@@ -1362,17 +1283,13 @@ def _execute_plan(
         if bundle.get("hit_count", 0):
             bundle["route_reason"] = "bill_attention_structured_match"
             return bundle
-        fallback = _build_search_bundle(
-            db, req, planner, doc_ids=doc_ids, category_path=category_path
-        )
+        fallback = _build_search_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
         fallback["fallback_reason"] = "bill_facts_empty"
         fallback["fact_route"] = "bill_attention"
         fallback["fact_month"] = ""
         fallback["route_reason"] = "bill_attention_structured_empty_fallback"
         return fallback
-    out = _build_search_bundle(
-        db, req, planner, doc_ids=doc_ids, category_path=category_path
-    )
+    out = _build_search_bundle(db, req, planner, doc_ids=doc_ids, category_path=category_path)
     out["fact_route"] = "none"
     out["fact_month"] = ""
     out["route_reason"] = "planner_search_bundle"
@@ -1448,9 +1365,7 @@ def _synth_prompt(
                 "(e.g. a pet insurance date when asked about car insurance; a payment date when asked about an AGM), "
                 "do NOT report it — list the field in missing_fields instead.\n"
                 "- Higher score = more relevant; treat the top-scored chunk's document as the primary source.\n"
-                "\nOUTPUT RULES:\n"
-                + lang_rule
-                + "- key_points: 2-4 bilingual bullet points with concrete facts.\n"
+                "\nOUTPUT RULES:\n" + lang_rule + "- key_points: 2-4 bilingual bullet points with concrete facts.\n"
                 "- NEVER copy raw boilerplate text (BPAY codes, usage details, plan features) into short_summary.\n"
                 "- Do not mention 'chunks', 'pipeline', 'model', or internal system words.\n\n"
                 + route_rules
@@ -1477,28 +1392,16 @@ def _synth_prompt(
                         "doc_count": int(bundle.get("doc_count") or 0),
                         "bilingual_search": bool(bundle.get("bilingual_search")),
                     },
-                    "bill_attention": _json_safe_value(
-                        bundle.get("bill_attention") or {}
-                    ),
+                    "bill_attention": _json_safe_value(bundle.get("bill_attention") or {}),
                     "bill_monthly": _json_safe_value(bundle.get("bill_monthly") or {}),
                     "detail_topic": str(bundle.get("detail_topic") or ""),
-                    "detail_sections": _json_safe_value(
-                        _cap_detail_sections(bundle.get("detail_sections") or [])
-                    ),
-                    "missing_fields": _json_safe_value(
-                        bundle.get("missing_fields") or []
-                    ),
-                    "coverage_stats": _json_safe_value(
-                        bundle.get("coverage_stats") or {}
-                    ),
+                    "detail_sections": _json_safe_value(_cap_detail_sections(bundle.get("detail_sections") or [])),
+                    "missing_fields": _json_safe_value(bundle.get("missing_fields") or []),
+                    "coverage_stats": _json_safe_value(bundle.get("coverage_stats") or {}),
                     "answerability": str(bundle.get("answerability") or "sufficient"),
-                    "required_evidence_fields": _json_safe_value(
-                        bundle.get("required_evidence_fields") or []
-                    ),
+                    "required_evidence_fields": _json_safe_value(bundle.get("required_evidence_fields") or []),
                     "coverage_ratio": float(bundle.get("coverage_ratio") or 1.0),
-                    "field_coverage_ratio": float(
-                        bundle.get("field_coverage_ratio") or 1.0
-                    ),
+                    "field_coverage_ratio": float(bundle.get("field_coverage_ratio") or 1.0),
                     "conversation": conversation,
                     "chunks": context_payload,
                 },
@@ -1537,9 +1440,7 @@ def _synthesize_with_model(
         logger.warning("agent_synth_failed", extra=sanitize_log_context(payload))
 
     try:
-        resp = requests.post(
-            url, json=payload, timeout=int(settings.agent_synth_timeout_sec)
-        )
+        resp = requests.post(url, json=payload, timeout=int(settings.agent_synth_timeout_sec))
         resp.raise_for_status()
         body = resp.json() if hasattr(resp, "json") else {}
         text = str((body.get("message") or {}).get("content") or "")
@@ -1584,18 +1485,14 @@ def _synthesize_with_model(
                 continue
             label_en = str(item.get("label_en") or "").strip()
             label_zh = str(item.get("label_zh") or "").strip()
-            default_en, default_zh = _ACTION_LABELS.get(
-                key, (key.replace("_", " ").title(), key)
-            )
+            default_en, default_zh = _ACTION_LABELS.get(key, (key.replace("_", " ").title(), key))
             actions.append(
                 ResultCardAction(
                     key=key,
                     label_en=label_en or default_en,
                     label_zh=label_zh or default_zh,
                     action_type=str(
-                        item.get("action_type")
-                        or _ACTION_META.get(key, {}).get("action_type")
-                        or "suggestion"
+                        item.get("action_type") or _ACTION_META.get(key, {}).get("action_type") or "suggestion"
                     ),
                     payload=item.get("payload")
                     if isinstance(item.get("payload"), dict)
@@ -1614,9 +1511,7 @@ def _synthesize_with_model(
             for section in parsed_sections[:4]:
                 if not isinstance(section, dict):
                     continue
-                section_name = (
-                    str(section.get("section_name") or "").strip() or "details"
-                )
+                section_name = str(section.get("section_name") or "").strip() or "details"
                 rows: list[DetailRow] = []
                 for row in (section.get("rows") or [])[:30]:
                     if not isinstance(row, dict):
@@ -1643,44 +1538,20 @@ def _synthesize_with_model(
                         )
                     )
                 if rows:
-                    detail_sections.append(
-                        DetailSection(section_name=section_name, rows=rows)
-                    )
+                    detail_sections.append(DetailSection(section_name=section_name, rows=rows))
         if not detail_sections:
             detail_sections = list(bundle.get("detail_sections") or [])
-        missing_fields = [
-            str(item or "")
-            for item in (parsed.get("missing_fields") or [])
-            if str(item or "").strip()
-        ]
+        missing_fields = [str(item or "") for item in (parsed.get("missing_fields") or []) if str(item or "").strip()]
         if not missing_fields:
             missing_fields = [
-                str(item or "")
-                for item in (bundle.get("missing_fields") or [])
-                if str(item or "").strip()
+                str(item or "") for item in (bundle.get("missing_fields") or []) if str(item or "").strip()
             ]
-        coverage_raw = (
-            parsed.get("coverage_stats")
-            if isinstance(parsed.get("coverage_stats"), dict)
-            else {}
-        )
+        coverage_raw = parsed.get("coverage_stats") if isinstance(parsed.get("coverage_stats"), dict) else {}
         bundle_cov = bundle.get("coverage_stats")
         coverage_stats = DetailCoverageStats(
-            docs_scanned=int(
-                coverage_raw.get("docs_scanned")
-                or getattr(bundle_cov, "docs_scanned", 0)
-                or 0
-            ),
-            docs_matched=int(
-                coverage_raw.get("docs_matched")
-                or getattr(bundle_cov, "docs_matched", 0)
-                or 0
-            ),
-            fields_filled=int(
-                coverage_raw.get("fields_filled")
-                or getattr(bundle_cov, "fields_filled", 0)
-                or 0
-            ),
+            docs_scanned=int(coverage_raw.get("docs_scanned") or getattr(bundle_cov, "docs_scanned", 0) or 0),
+            docs_matched=int(coverage_raw.get("docs_matched") or getattr(bundle_cov, "docs_matched", 0) or 0),
+            fields_filled=int(coverage_raw.get("fields_filled") or getattr(bundle_cov, "fields_filled", 0) or 0),
         )
 
         return (
@@ -1710,9 +1581,7 @@ def _synthesize_with_model(
         return (None, "synth_parse_error")
 
 
-def _synthesize_fallback(
-    req: AgentExecuteRequest, planner: PlannerDecision, bundle: dict[str, Any]
-) -> ResultCard:
+def _synthesize_fallback(req: AgentExecuteRequest, planner: PlannerDecision, bundle: dict[str, Any]) -> ResultCard:
     route = str(bundle.get("route") or "")
     context_chunks = bundle.get("context_chunks") or []
     doc_count = int(bundle.get("doc_count") or 0)
@@ -1724,15 +1593,15 @@ def _synthesize_fallback(
         total_amount = monthly.get("total_amount")
         currency = str(monthly.get("currency") or "AUD")
         total_text = (
-            _format_amount(total_amount, currency, ui_lang=req.ui_lang)
-            if total_amount is not None
-            else "金额未提取"
+            _format_amount(total_amount, currency, ui_lang=req.ui_lang) if total_amount is not None else "金额未提取"
         )
 
         if (not pending) and (not paid):
             if req.ui_lang == "zh":
                 short_zh = f"未找到 {month or '该月'} 的账单记录。请尝试指定年份（例如：2026年2月账单情况）或先完成账单事实回填。"
-                short_en = "No bill records found for the selected month. Try specifying a year (for example: Feb 2026 bills)."
+                short_en = (
+                    "No bill records found for the selected month. Try specifying a year (for example: Feb 2026 bills)."
+                )
             else:
                 short_en = (
                     f"No bill records found for {month or 'the selected month'}. "
@@ -1765,9 +1634,7 @@ def _synthesize_fallback(
                 ui_lang=req.ui_lang,
             )
             due_date = _format_due_date(item.get("due_date"), ui_lang=req.ui_lang)
-            lines_pending.append(
-                f"- {title}：{amount or '金额未提取'}；截止{due_date or '未提取'}"
-            )
+            lines_pending.append(f"- {title}：{amount or '金额未提取'}；截止{due_date or '未提取'}")
 
         lines_paid = []
         for item in paid[:6]:
@@ -1805,15 +1672,9 @@ def _synthesize_fallback(
             title="Monthly Bill Summary",
             short_summary=BilingualText(en=short_en, zh=short_zh),
             key_points=[
-                BilingualText(
-                    en=f"Total amount: {total_text}", zh=f"总金额：{total_text}"
-                ),
-                BilingualText(
-                    en=f"Pending bills: {len(pending)}", zh=f"待缴账单：{len(pending)}"
-                ),
-                BilingualText(
-                    en=f"Paid bills: {len(paid)}", zh=f"已缴账单：{len(paid)}"
-                ),
+                BilingualText(en=f"Total amount: {total_text}", zh=f"总金额：{total_text}"),
+                BilingualText(en=f"Pending bills: {len(pending)}", zh=f"待缴账单：{len(pending)}"),
+                BilingualText(en=f"Paid bills: {len(paid)}", zh=f"已缴账单：{len(paid)}"),
             ],
             sources=bundle.get("sources") or [],
             actions=_default_actions(planner),
@@ -1832,12 +1693,8 @@ def _synthesize_fallback(
                 ui_lang=req.ui_lang,
             )
             due_date = _format_due_date(item.get("due_date"), ui_lang=req.ui_lang)
-            status = _bill_status_label(
-                str(item.get("payment_status") or ""), ui_lang=req.ui_lang
-            )
-            lines_pending.append(
-                f"- {title}：{amount or '金额未提取'}；截止{due_date or '未提取'}；{status}"
-            )
+            status = _bill_status_label(str(item.get("payment_status") or ""), ui_lang=req.ui_lang)
+            lines_pending.append(f"- {title}：{amount or '金额未提取'}；截止{due_date or '未提取'}；{status}")
         lines_paid = []
         for item in paid[:4]:
             title = str(item.get("title_zh") or item.get("title_en") or "账单")
@@ -1862,13 +1719,9 @@ def _synthesize_fallback(
         )
         short_en = "Recent bills were grouped into unpaid and paid sections with priority recommendations."
         key_points = [
-            BilingualText(
-                en=f"Pending bills: {len(pending)}", zh=f"待缴账单：{len(pending)}"
-            ),
+            BilingualText(en=f"Pending bills: {len(pending)}", zh=f"待缴账单：{len(pending)}"),
             BilingualText(en=f"Paid bills: {len(paid)}", zh=f"已缴账单：{len(paid)}"),
-            BilingualText(
-                en=f"Documents involved: {doc_count}", zh=f"涉及文档数：{doc_count}"
-            ),
+            BilingualText(en=f"Documents involved: {doc_count}", zh=f"涉及文档数：{doc_count}"),
         ]
         return ResultCard(
             title="Bill Attention Summary",
@@ -1880,11 +1733,7 @@ def _synthesize_fallback(
 
     if route == "detail_extract":
         detail_sections = list(bundle.get("detail_sections") or [])
-        missing_fields = [
-            str(item or "")
-            for item in (bundle.get("missing_fields") or [])
-            if str(item or "").strip()
-        ]
+        missing_fields = [str(item or "") for item in (bundle.get("missing_fields") or []) if str(item or "").strip()]
         coverage_stats = bundle.get("coverage_stats") or DetailCoverageStats()
         topic = str(bundle.get("detail_topic") or "generic")
         total_rows = 0
@@ -1937,9 +1786,7 @@ def _synthesize_fallback(
             actions=_default_actions(planner),
             detail_sections=detail_sections,
             missing_fields=missing_fields,
-            coverage_stats=coverage_stats
-            if isinstance(coverage_stats, DetailCoverageStats)
-            else DetailCoverageStats(),
+            coverage_stats=coverage_stats if isinstance(coverage_stats, DetailCoverageStats) else DetailCoverageStats(),
         )
 
     detail_sections_any = list(bundle.get("detail_sections") or [])
@@ -1969,9 +1816,7 @@ def _synthesize_fallback(
             "contract": "Contract Details",
             "generic": "Document Evidence",
         }
-        _fb_title = (_EFL_ZH if _zh_mode else _EFL_EN).get(
-            _topic, "Knowledge Search Result"
-        )
+        _fb_title = (_EFL_ZH if _zh_mode else _EFL_EN).get(_topic, "Knowledge Search Result")
         return ResultCard(
             title=_fb_title,
             short_summary=BilingualText(
@@ -1994,33 +1839,21 @@ def _synthesize_fallback(
     if answerability != "none" and (detail_sections_any or slot_results_any):
         missing_fields = [
             str(x or "")
-            for x in (
-                bundle.get("missing_fields")
-                or bundle.get("coverage_missing_fields")
-                or []
-            )
+            for x in (bundle.get("missing_fields") or bundle.get("coverage_missing_fields") or [])
             if str(x or "").strip()
         ]
         coverage_stats = bundle.get("coverage_stats")
         if not isinstance(coverage_stats, DetailCoverageStats):
             coverage_stats = DetailCoverageStats(
-                docs_scanned=int(getattr(coverage_stats, "docs_scanned", 0) or 0)
-                if coverage_stats
-                else 0,
-                docs_matched=int(getattr(coverage_stats, "docs_matched", 0) or 0)
-                if coverage_stats
-                else 0,
-                fields_filled=int(getattr(coverage_stats, "fields_filled", 0) or 0)
-                if coverage_stats
-                else 0,
+                docs_scanned=int(getattr(coverage_stats, "docs_scanned", 0) or 0) if coverage_stats else 0,
+                docs_matched=int(getattr(coverage_stats, "docs_matched", 0) or 0) if coverage_stats else 0,
+                fields_filled=int(getattr(coverage_stats, "fields_filled", 0) or 0) if coverage_stats else 0,
             )
         points: list[BilingualText] = []
         added = 0
         for section in detail_sections_any[:3]:
             rows = list(
-                getattr(section, "rows", [])
-                or (section.get("rows") if isinstance(section, dict) else [])
-                or []
+                getattr(section, "rows", []) or (section.get("rows") if isinstance(section, dict) else []) or []
             )
             for row in rows[:3]:
                 label_zh = str(
@@ -2031,9 +1864,7 @@ def _synthesize_fallback(
                     or "字段"
                 )
                 label_en = str(
-                    getattr(row, "label_en", "")
-                    or (row.get("label_en") if isinstance(row, dict) else "")
-                    or label_zh
+                    getattr(row, "label_en", "") or (row.get("label_en") if isinstance(row, dict) else "") or label_zh
                 )
                 value_zh = str(
                     getattr(row, "value_zh", "")
@@ -2043,17 +1874,11 @@ def _synthesize_fallback(
                     or ""
                 )
                 value_en = str(
-                    getattr(row, "value_en", "")
-                    or (row.get("value_en") if isinstance(row, dict) else "")
-                    or value_zh
+                    getattr(row, "value_en", "") or (row.get("value_en") if isinstance(row, dict) else "") or value_zh
                 )
                 if not value_zh.strip():
                     continue
-                points.append(
-                    BilingualText(
-                        en=f"{label_en}: {value_en}", zh=f"{label_zh}：{value_zh}"
-                    )
-                )
+                points.append(BilingualText(en=f"{label_en}: {value_en}", zh=f"{label_zh}：{value_zh}"))
                 added += 1
                 if added >= 4:
                     break
@@ -2061,17 +1886,12 @@ def _synthesize_fallback(
                 break
         if added == 0:
             for row in slot_results_any[:4]:
-                if (
-                    str(row.get("status") or "") not in {"found", "derived"}
-                    or not str(row.get("value") or "").strip()
-                ):
+                if str(row.get("status") or "") not in {"found", "derived"} or not str(row.get("value") or "").strip():
                     continue
                 label_zh = str(row.get("label_zh") or row.get("slot") or "字段")
                 label_en = str(row.get("label_en") or row.get("slot") or label_zh)
                 value = str(row.get("value") or "")
-                points.append(
-                    BilingualText(en=f"{label_en}: {value}", zh=f"{label_zh}：{value}")
-                )
+                points.append(BilingualText(en=f"{label_en}: {value}", zh=f"{label_zh}：{value}"))
                 added += 1
         if missing_fields:
             points.append(
@@ -2109,17 +1929,13 @@ def _synthesize_fallback(
                 "contract": "Contract Details",
                 "generic": "Document Evidence",
             }
-            _fb_title = (_EFL_ZH if _zh_mode else _EFL_EN).get(
-                _topic, "Knowledge Search Result"
-            )
+            _fb_title = (_EFL_ZH if _zh_mode else _EFL_EN).get(_topic, "Knowledge Search Result")
             # Rebuild points from ALL rows (not capped at first 3) so every filled field is reachable
             _efl_filled_zh: list[str] = []
             _efl_filled_en: list[str] = []
             for _sec in detail_sections_any[:3]:
                 _sec_rows = list(
-                    getattr(_sec, "rows", None)
-                    or (_sec.get("rows") if isinstance(_sec, dict) else None)
-                    or []
+                    getattr(_sec, "rows", None) or (_sec.get("rows") if isinstance(_sec, dict) else None) or []
                 )
                 for _row in _sec_rows:  # all rows, no cap
                     _vz = str(
@@ -2150,10 +1966,7 @@ def _synthesize_fallback(
             if _efl_filled_zh:
                 short_zh = "；".join(_efl_filled_zh[:4]) + "。"
                 short_en = "; ".join(_efl_filled_en[:4]) + "."
-                points = [
-                    BilingualText(zh=z, en=e)
-                    for z, e in zip(_efl_filled_zh, _efl_filled_en)
-                ]
+                points = [BilingualText(zh=z, en=e) for z, e in zip(_efl_filled_zh, _efl_filled_en)]
             else:
                 # No evidence found — early return as refusal so answer_mode can be set correctly
                 return ResultCard(
@@ -2178,25 +1991,16 @@ def _synthesize_fallback(
         elif route == "period_aggregate":
             _pa = bundle.get("period_aggregate") or {}
             _months = int(_pa.get("months") or 3)
-            _fb_title = (
-                f"过去{_months}个月账单统计"
-                if _zh_mode
-                else f"Bill Summary: Past {_months} Months"
-            )
+            _fb_title = f"过去{_months}个月账单统计" if _zh_mode else f"Bill Summary: Past {_months} Months"
         else:
             _fb_title = "Knowledge Search Result"
         return ResultCard(
             title=_fb_title,
             short_summary=BilingualText(en=short_en, zh=short_zh),
-            key_points=points[:6]
-            or [
-                BilingualText(en="Relevant evidence was found.", zh="已找到相关证据。")
-            ],
+            key_points=points[:6] or [BilingualText(en="Relevant evidence was found.", zh="已找到相关证据。")],
             sources=bundle.get("sources") or [],
             actions=_default_actions(planner),
-            detail_sections=detail_sections_any
-            if isinstance(detail_sections_any, list)
-            else [],
+            detail_sections=detail_sections_any if isinstance(detail_sections_any, list) else [],
             missing_fields=missing_fields,
             coverage_stats=coverage_stats,
             insufficient_evidence=False,
@@ -2223,28 +2027,15 @@ def _synthesize_fallback(
             actions=_default_actions(planner),
         )
 
-    preview_zh_lines = [
-        _clean_search_fallback_snippet(item.get("text"), cap=72)
-        for item in context_chunks[:2]
-    ]
-    preview_en_lines = [
-        _clean_search_fallback_snippet(item.get("text"), cap=96)
-        for item in context_chunks[:2]
-    ]
-    preview_zh = (
-        "；".join(line for line in preview_zh_lines if line) or "已命中相关文档片段。"
-    )
-    preview_en = (
-        "; ".join(line for line in preview_en_lines if line)
-        or "Relevant document snippets were found."
-    )
+    preview_zh_lines = [_clean_search_fallback_snippet(item.get("text"), cap=72) for item in context_chunks[:2]]
+    preview_en_lines = [_clean_search_fallback_snippet(item.get("text"), cap=96) for item in context_chunks[:2]]
+    preview_zh = "；".join(line for line in preview_zh_lines if line) or "已命中相关文档片段。"
+    preview_en = "; ".join(line for line in preview_en_lines if line) or "Relevant document snippets were found."
 
     key_points = []
     for item in context_chunks[:3]:
         title_zh = str(item.get("title_zh") or item.get("title_en") or "相关文档")
-        title_en = str(
-            item.get("title_en") or item.get("title_zh") or "Related document"
-        )
+        title_en = str(item.get("title_en") or item.get("title_zh") or "Related document")
         key_points.append(
             BilingualText(
                 en=f"{title_en}: {_clean_search_fallback_snippet(item.get('text'), cap=80)}",
@@ -2254,12 +2045,12 @@ def _synthesize_fallback(
 
     answerability = str(bundle.get("answerability") or "sufficient")
     coverage_missing_fields = [
-        str(x or "")
-        for x in (bundle.get("coverage_missing_fields") or [])
-        if str(x or "").strip()
+        str(x or "") for x in (bundle.get("coverage_missing_fields") or []) if str(x or "").strip()
     ]
     if req.ui_lang == "en" and answerability != "sufficient":
-        short_en = "I found potentially related documents, but I do not have enough evidence to answer this question directly."
+        short_en = (
+            "I found potentially related documents, but I do not have enough evidence to answer this question directly."
+        )
         if coverage_missing_fields:
             short_en += f" Missing evidence: {', '.join(coverage_missing_fields[:4])}."
     else:
@@ -2339,23 +2130,15 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
 
     # ── 3. Lookup: swap in rewritten query for retrieval ─────────────
     retrieval_req = req
-    if (
-        router is not None
-        and router.route == "lookup"
-        and (router.rewritten_query or "").strip()
-    ):
+    if router is not None and router.route == "lookup" and (router.rewritten_query or "").strip():
         retrieval_req = req.model_copy(update={"query": router.rewritten_query})
 
     # ── 4–7. Bundle, coverage, synthesis, response (same as legacy) ──
     context_policy = _context_policy_for_query(
         req.query,
-        client_context=(
-            req.client_context if isinstance(req.client_context, dict) else {}
-        ),
+        client_context=(req.client_context if isinstance(req.client_context, dict) else {}),
     )
-    synth_conversation = _normalize_conversation_messages(
-        req, context_policy=context_policy
-    )
+    synth_conversation = _normalize_conversation_messages(req, context_policy=context_policy)
     executor_started = time.perf_counter()
     bundle = _execute_plan(db, retrieval_req, planner)
     executor_latency_ms = int((time.perf_counter() - executor_started) * 1000)
@@ -2387,9 +2170,7 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
         required_fields = _required_evidence_fields(req.query, planner)
         query_required_terms = [
             str(x or "").strip()
-            for x in (
-                bundle.get("query_required_terms") or _query_required_terms(req.query)
-            )
+            for x in (bundle.get("query_required_terms") or _query_required_terms(req.query))
             if str(x or "").strip()
         ]
         query_required_terms = query_required_terms[:8]
@@ -2401,19 +2182,13 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
         if router is not None and (router.rewritten_query or "").strip():
             _extra_anchors = _subject_anchor_terms(router.rewritten_query)
             _seen_anchors = set(subject_anchor_terms)
-            subject_anchor_terms = subject_anchor_terms + [
-                t for t in _extra_anchors if t not in _seen_anchors
-            ]
+            subject_anchor_terms = subject_anchor_terms + [t for t in _extra_anchors if t not in _seen_anchors]
             subject_anchor_terms = subject_anchor_terms[:12]
         target_field_terms = _target_field_terms(req.query)
         evidence_map = _build_evidence_map(required_fields, context_chunks)
-        field_coverage_ratio, coverage_missing_fields = _coverage_from_map(
-            required_fields, evidence_map
-        )
+        field_coverage_ratio, coverage_missing_fields = _coverage_from_map(required_fields, evidence_map)
         subject_coverage_ok = _subject_coverage_ok(subject_anchor_terms, context_chunks)
-        target_field_coverage_ok = _target_field_coverage_ok(
-            target_field_terms, context_chunks
-        )
+        target_field_coverage_ok = _target_field_coverage_ok(target_field_terms, context_chunks)
         refusal_candidate = bool(getattr(planner, "refusal_candidate", False)) or (
             "explicit_presence_evidence" in required_fields
         )
@@ -2425,11 +2200,7 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
         )
         if (not subject_coverage_ok) and int(bundle.get("hit_count") or 0) > 0:
             answerability = "none" if refusal_candidate else "insufficient"
-        if (
-            (not target_field_coverage_ok)
-            and int(bundle.get("hit_count") or 0) > 0
-            and target_field_terms
-        ):
+        if (not target_field_coverage_ok) and int(bundle.get("hit_count") or 0) > 0 and target_field_terms:
             answerability = "none" if refusal_candidate else "insufficient"
             if "target_field" not in coverage_missing_fields:
                 coverage_missing_fields.append("target_field")
@@ -2444,11 +2215,7 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
     bundle["query_required_terms"] = query_required_terms
     bundle["target_field_terms"] = target_field_terms
     bundle["evidence_map"] = evidence_map
-    effective_coverage_ratio = (
-        field_coverage_ratio
-        if (subject_coverage_ok and target_field_coverage_ok)
-        else 0.0
-    )
+    effective_coverage_ratio = field_coverage_ratio if (subject_coverage_ok and target_field_coverage_ok) else 0.0
     bundle["coverage_ratio"] = float(effective_coverage_ratio)
     bundle["field_coverage_ratio"] = float(field_coverage_ratio)
     bundle["coverage_missing_fields"] = coverage_missing_fields
@@ -2457,9 +2224,7 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
     bundle["target_field_coverage_ok"] = bool(target_field_coverage_ok)
     bundle["answerability"] = answerability
     bundle["refusal_candidate"] = refusal_candidate
-    related_doc_selection_mode, evidence_backed_doc_count = (
-        _apply_related_docs_selection(bundle)
-    )
+    related_doc_selection_mode, evidence_backed_doc_count = _apply_related_docs_selection(bundle)
     subject_entity = _infer_subject_entity(
         req.query,
         detail_topic=str(bundle.get("detail_topic") or ""),
@@ -2480,17 +2245,13 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
                 "vector_hit_count": int(bundle.get("vector_hit_count") or 0),
                 "answerability": answerability,
                 "coverage_ratio": float(bundle.get("coverage_ratio") or 0.0),
-                "route_reason": str(
-                    bundle.get("route_reason") or getattr(planner, "route_reason", "")
-                ),
+                "route_reason": str(bundle.get("route_reason") or getattr(planner, "route_reason", "")),
             }
         ),
     )
     route_name = str(bundle.get("route") or "")
     force_structured = route_name in {"bill_monthly_total", "entity_fact_lookup"}
-    detail_zero_hit = (
-        route_name == "detail_extract" and int(bundle.get("hit_count") or 0) <= 0
-    )
+    detail_zero_hit = route_name == "detail_extract" and int(bundle.get("hit_count") or 0) <= 0
     qualifier_gated = bool(query_required_terms) and answerability != "sufficient"
     subject_gated = (not subject_coverage_ok) and bool(subject_anchor_terms)
     target_field_gated = (not target_field_coverage_ok) and bool(target_field_terms)
@@ -2595,19 +2356,13 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
             "bill_attention",
             "bill_monthly_total",
         }:
-            answer_mode = (
-                "structured" if answerability == "sufficient" else "partial_structured"
-            )
+            answer_mode = "structured" if answerability == "sufficient" else "partial_structured"
         else:
             answer_mode = "search_summary"
         card.insufficient_evidence = False
-        card.evidence_summary = [
-            f"{field}:{len(evidence_map.get(field) or [])}"
-            for field in required_fields[:8]
-        ]
+        card.evidence_summary = [f"{field}:{len(evidence_map.get(field) or [])}" for field in required_fields[:8]]
         if (answerability == "none" or refusal_candidate) and _contains_specific_claim(
-            f"{card.short_summary.zh}\n{card.short_summary.en}\n"
-            + "\n".join(item.zh for item in card.key_points[:5])
+            f"{card.short_summary.zh}\n{card.short_summary.en}\n" + "\n".join(item.zh for item in card.key_points[:5])
         ):
             synth_fallback_used = True
             synth_error_code = "refusal_policy_violation"
@@ -2629,9 +2384,7 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
                 ],
                 sources=bundle.get("sources") or [],
                 actions=_default_actions(planner),
-                evidence_summary=[
-                    f"{field}:0" for field in coverage_missing_fields[:8]
-                ],
+                evidence_summary=[f"{field}:0" for field in coverage_missing_fields[:8]],
                 insufficient_evidence=True,
             )
     total_latency_ms = int((time.perf_counter() - total_started) * 1000)
@@ -2652,17 +2405,9 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
         ),
     )
     if req.ui_lang == "en":
-        locale_response_mode = (
-            "en_native"
-            if str(card.short_summary.en or "").strip()
-            else "bilingual_fallback"
-        )
+        locale_response_mode = "en_native" if str(card.short_summary.en or "").strip() else "bilingual_fallback"
     else:
-        locale_response_mode = (
-            "zh_native"
-            if str(card.short_summary.zh or "").strip()
-            else "bilingual_fallback"
-        )
+        locale_response_mode = "zh_native" if str(card.short_summary.zh or "").strip() else "bilingual_fallback"
     return AgentExecuteResponse(
         planner=planner,
         card=card,
@@ -2680,21 +2425,14 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
             lexical_hit_count=int(bundle.get("lexical_hit_count") or 0),
             fallback_reason=str(bundle.get("fallback_reason") or ""),
             facet_mode=str(bundle.get("facet_mode") or "none"),
-            facet_keys=[
-                str(item)
-                for item in (bundle.get("facet_keys") or [])
-                if str(item or "").strip()
-            ],
+            facet_keys=[str(item) for item in (bundle.get("facet_keys") or []) if str(item or "").strip()],
             context_policy=context_policy,
             fact_route=str(bundle.get("fact_route") or "none"),
             fact_month=str(bundle.get("fact_month") or ""),
             synth_fallback_used=bool(synth_fallback_used),
             synth_error_code=str(synth_error_code or ""),
             detail_topic=str(bundle.get("detail_topic") or ""),
-            detail_mode=str(
-                bundle.get("detail_mode")
-                or ("fallback" if synth_fallback_used else "structured")
-            ),
+            detail_mode=str(bundle.get("detail_mode") or ("fallback" if synth_fallback_used else "structured")),
             detail_rows_count=int(bundle.get("detail_rows_count") or 0),
             answerability=answerability,
             coverage_ratio=float(bundle.get("coverage_ratio") or 0.0),
@@ -2705,17 +2443,13 @@ def execute_agent_v2(db: Session, req: AgentExecuteRequest) -> AgentExecuteRespo
             subject_coverage_ok=bool(subject_coverage_ok),
             target_field_terms=target_field_terms,
             target_field_coverage_ok=bool(target_field_coverage_ok),
-            infra_guard_applied=bool(
-                qualifier_gated or subject_gated or target_field_gated
-            ),
+            infra_guard_applied=bool(qualifier_gated or subject_gated or target_field_gated),
             locale_response_mode=locale_response_mode,
             answer_mode=answer_mode,
             evidence_backed_doc_count=int(evidence_backed_doc_count),
             related_doc_selection_mode=related_doc_selection_mode,
             subject_entity=subject_entity,
-            route_reason=str(
-                bundle.get("route_reason") or getattr(planner, "route_reason", "")
-            ),
+            route_reason=str(bundle.get("route_reason") or getattr(planner, "route_reason", "")),
             planner_latency_ms=planner_latency_ms,
             executor_latency_ms=executor_latency_ms,
             synth_latency_ms=synth_latency_ms,
@@ -2742,11 +2476,7 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
         )
     else:
         planner = req.planner
-        if (
-            (not planner.doc_scope)
-            and isinstance(req.doc_scope, dict)
-            and req.doc_scope
-        ):
+        if (not planner.doc_scope) and isinstance(req.doc_scope, dict) and req.doc_scope:
             planner = PlannerDecision(
                 intent=planner.intent,
                 confidence=planner.confidence,
@@ -2761,22 +2491,16 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
     trace_id = f"agt-{uuid.uuid4().hex[:12]}"
     context_policy = _context_policy_for_query(
         req.query,
-        client_context=(
-            req.client_context if isinstance(req.client_context, dict) else {}
-        ),
+        client_context=(req.client_context if isinstance(req.client_context, dict) else {}),
     )
-    synth_conversation = _normalize_conversation_messages(
-        req, context_policy=context_policy
-    )
+    synth_conversation = _normalize_conversation_messages(req, context_policy=context_policy)
     executor_started = time.perf_counter()
     bundle = _execute_plan(db, req, planner)
     executor_latency_ms = int((time.perf_counter() - executor_started) * 1000)
     required_fields = _required_evidence_fields(req.query, planner)
     query_required_terms = [
         str(x or "").strip()
-        for x in (
-            bundle.get("query_required_terms") or _query_required_terms(req.query)
-        )
+        for x in (bundle.get("query_required_terms") or _query_required_terms(req.query))
         if str(x or "").strip()
     ]
     query_required_terms = query_required_terms[:8]
@@ -2784,13 +2508,9 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
     subject_anchor_terms = _subject_anchor_terms(req.query)
     target_field_terms = _target_field_terms(req.query)
     evidence_map = _build_evidence_map(required_fields, context_chunks)
-    field_coverage_ratio, coverage_missing_fields = _coverage_from_map(
-        required_fields, evidence_map
-    )
+    field_coverage_ratio, coverage_missing_fields = _coverage_from_map(required_fields, evidence_map)
     subject_coverage_ok = _subject_coverage_ok(subject_anchor_terms, context_chunks)
-    target_field_coverage_ok = _target_field_coverage_ok(
-        target_field_terms, context_chunks
-    )
+    target_field_coverage_ok = _target_field_coverage_ok(target_field_terms, context_chunks)
     refusal_candidate = bool(getattr(planner, "refusal_candidate", False)) or (
         "explicit_presence_evidence" in required_fields
     )
@@ -2802,11 +2522,7 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
     )
     if (not subject_coverage_ok) and int(bundle.get("hit_count") or 0) > 0:
         answerability = "none" if refusal_candidate else "insufficient"
-    if (
-        (not target_field_coverage_ok)
-        and int(bundle.get("hit_count") or 0) > 0
-        and target_field_terms
-    ):
+    if (not target_field_coverage_ok) and int(bundle.get("hit_count") or 0) > 0 and target_field_terms:
         answerability = "none" if refusal_candidate else "insufficient"
         if "target_field" not in coverage_missing_fields:
             coverage_missing_fields.append("target_field")
@@ -2821,11 +2537,7 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
     bundle["query_required_terms"] = query_required_terms
     bundle["target_field_terms"] = target_field_terms
     bundle["evidence_map"] = evidence_map
-    effective_coverage_ratio = (
-        field_coverage_ratio
-        if (subject_coverage_ok and target_field_coverage_ok)
-        else 0.0
-    )
+    effective_coverage_ratio = field_coverage_ratio if (subject_coverage_ok and target_field_coverage_ok) else 0.0
     bundle["coverage_ratio"] = float(effective_coverage_ratio)
     bundle["field_coverage_ratio"] = float(field_coverage_ratio)
     bundle["coverage_missing_fields"] = coverage_missing_fields
@@ -2834,9 +2546,7 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
     bundle["target_field_coverage_ok"] = bool(target_field_coverage_ok)
     bundle["answerability"] = answerability
     bundle["refusal_candidate"] = refusal_candidate
-    related_doc_selection_mode, evidence_backed_doc_count = (
-        _apply_related_docs_selection(bundle)
-    )
+    related_doc_selection_mode, evidence_backed_doc_count = _apply_related_docs_selection(bundle)
     subject_entity = _infer_subject_entity(
         req.query,
         detail_topic=str(bundle.get("detail_topic") or ""),
@@ -2849,11 +2559,7 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
                 "trace_id": trace_id,
                 "route": str(bundle.get("route") or ""),
                 "facet_mode": str(bundle.get("facet_mode") or "none"),
-                "facet_keys": [
-                    str(item)
-                    for item in (bundle.get("facet_keys") or [])
-                    if str(item or "").strip()
-                ],
+                "facet_keys": [str(item) for item in (bundle.get("facet_keys") or []) if str(item or "").strip()],
                 "qdrant_used": bool(bundle.get("qdrant_used")),
                 "retrieval_mode": str(bundle.get("retrieval_mode") or ""),
                 "vector_hit_count": int(bundle.get("vector_hit_count") or 0),
@@ -2877,17 +2583,13 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
                 "related_doc_selection_mode": related_doc_selection_mode,
                 "evidence_backed_doc_count": int(evidence_backed_doc_count),
                 "subject_entity": subject_entity,
-                "route_reason": str(
-                    bundle.get("route_reason") or getattr(planner, "route_reason", "")
-                ),
+                "route_reason": str(bundle.get("route_reason") or getattr(planner, "route_reason", "")),
             }
         ),
     )
     route_name = str(bundle.get("route") or "")
     force_structured = route_name in {"bill_monthly_total", "entity_fact_lookup"}
-    detail_zero_hit = (
-        route_name == "detail_extract" and int(bundle.get("hit_count") or 0) <= 0
-    )
+    detail_zero_hit = route_name == "detail_extract" and int(bundle.get("hit_count") or 0) <= 0
     qualifier_gated = bool(query_required_terms) and answerability != "sufficient"
     subject_gated = (not subject_coverage_ok) and bool(subject_anchor_terms)
     target_field_gated = (not target_field_coverage_ok) and bool(target_field_terms)
@@ -2986,19 +2688,13 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
             "bill_attention",
             "bill_monthly_total",
         }:
-            answer_mode = (
-                "structured" if answerability == "sufficient" else "partial_structured"
-            )
+            answer_mode = "structured" if answerability == "sufficient" else "partial_structured"
         else:
             answer_mode = "search_summary"
         card.insufficient_evidence = False
-        card.evidence_summary = [
-            f"{field}:{len(evidence_map.get(field) or [])}"
-            for field in required_fields[:8]
-        ]
+        card.evidence_summary = [f"{field}:{len(evidence_map.get(field) or [])}" for field in required_fields[:8]]
         if (answerability == "none" or refusal_candidate) and _contains_specific_claim(
-            f"{card.short_summary.zh}\n{card.short_summary.en}\n"
-            + "\n".join(item.zh for item in card.key_points[:5])
+            f"{card.short_summary.zh}\n{card.short_summary.en}\n" + "\n".join(item.zh for item in card.key_points[:5])
         ):
             synth_fallback_used = True
             synth_error_code = "refusal_policy_violation"
@@ -3020,9 +2716,7 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
                 ],
                 sources=bundle.get("sources") or [],
                 actions=_default_actions(planner),
-                evidence_summary=[
-                    f"{field}:0" for field in coverage_missing_fields[:8]
-                ],
+                evidence_summary=[f"{field}:0" for field in coverage_missing_fields[:8]],
                 insufficient_evidence=True,
             )
 
@@ -3045,17 +2739,9 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
     )
 
     if req.ui_lang == "en":
-        locale_response_mode = (
-            "en_native"
-            if str(card.short_summary.en or "").strip()
-            else "bilingual_fallback"
-        )
+        locale_response_mode = "en_native" if str(card.short_summary.en or "").strip() else "bilingual_fallback"
     else:
-        locale_response_mode = (
-            "zh_native"
-            if str(card.short_summary.zh or "").strip()
-            else "bilingual_fallback"
-        )
+        locale_response_mode = "zh_native" if str(card.short_summary.zh or "").strip() else "bilingual_fallback"
 
     return AgentExecuteResponse(
         planner=planner,
@@ -3074,21 +2760,14 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
             lexical_hit_count=int(bundle.get("lexical_hit_count") or 0),
             fallback_reason=str(bundle.get("fallback_reason") or ""),
             facet_mode=str(bundle.get("facet_mode") or "none"),
-            facet_keys=[
-                str(item)
-                for item in (bundle.get("facet_keys") or [])
-                if str(item or "").strip()
-            ],
+            facet_keys=[str(item) for item in (bundle.get("facet_keys") or []) if str(item or "").strip()],
             context_policy=context_policy,
             fact_route=str(bundle.get("fact_route") or "none"),
             fact_month=str(bundle.get("fact_month") or ""),
             synth_fallback_used=bool(synth_fallback_used),
             synth_error_code=str(synth_error_code or ""),
             detail_topic=str(bundle.get("detail_topic") or ""),
-            detail_mode=str(
-                bundle.get("detail_mode")
-                or ("fallback" if synth_fallback_used else "structured")
-            ),
+            detail_mode=str(bundle.get("detail_mode") or ("fallback" if synth_fallback_used else "structured")),
             detail_rows_count=int(bundle.get("detail_rows_count") or 0),
             answerability=answerability,
             coverage_ratio=float(bundle.get("coverage_ratio") or 0.0),
@@ -3099,17 +2778,13 @@ def execute_agent_legacy(db: Session, req: AgentExecuteRequest) -> AgentExecuteR
             subject_coverage_ok=bool(subject_coverage_ok),
             target_field_terms=target_field_terms,
             target_field_coverage_ok=bool(target_field_coverage_ok),
-            infra_guard_applied=bool(
-                qualifier_gated or subject_gated or target_field_gated
-            ),
+            infra_guard_applied=bool(qualifier_gated or subject_gated or target_field_gated),
             locale_response_mode=locale_response_mode,
             answer_mode=answer_mode,
             evidence_backed_doc_count=int(evidence_backed_doc_count),
             related_doc_selection_mode=related_doc_selection_mode,
             subject_entity=subject_entity,
-            route_reason=str(
-                bundle.get("route_reason") or getattr(planner, "route_reason", "")
-            ),
+            route_reason=str(bundle.get("route_reason") or getattr(planner, "route_reason", "")),
         ),
     )
 
@@ -3130,20 +2805,10 @@ def execute_agent(db: Session, req: AgentExecuteRequest) -> AgentExecuteResponse
                         "agent_graph_shadow_compare",
                         extra=sanitize_log_context(
                             {
-                                "legacy_route": str(
-                                    getattr(resp.executor_stats, "route", "") or ""
-                                ),
-                                "graph_route": str(
-                                    getattr(shadow.executor_stats, "route", "") or ""
-                                ),
-                                "legacy_answer_mode": str(
-                                    getattr(resp.executor_stats, "answer_mode", "")
-                                    or ""
-                                ),
-                                "graph_answer_mode": str(
-                                    getattr(shadow.executor_stats, "answer_mode", "")
-                                    or ""
-                                ),
+                                "legacy_route": str(getattr(resp.executor_stats, "route", "") or ""),
+                                "graph_route": str(getattr(shadow.executor_stats, "route", "") or ""),
+                                "legacy_answer_mode": str(getattr(resp.executor_stats, "answer_mode", "") or ""),
+                                "graph_answer_mode": str(getattr(shadow.executor_stats, "answer_mode", "") or ""),
                             }
                         ),
                     )

@@ -49,16 +49,12 @@ def _embed_text(text: str, db: Session | None = None) -> list[float]:
     return _embed_texts([text], db=db)[0]
 
 
-def _embed_texts(
-    texts: list[str], db: Session | None = None
-) -> list[list[float]]:
+def _embed_texts(texts: list[str], db: Session | None = None) -> list[list[float]]:
     clean = [str(t or "") for t in texts]
     if not clean:
         return []
     url = settings.ollama_base_url.rstrip("/") + "/api/embed"
-    input_payload: Any = (
-        clean if (settings.qdrant_embed_batch_enable and len(clean) > 1) else clean[0]
-    )
+    input_payload: Any = clean if (settings.qdrant_embed_batch_enable and len(clean) > 1) else clean[0]
     r = requests.post(
         url,
         json={
@@ -103,9 +99,7 @@ def _embed_query_cached(query: str, db: Session | None = None) -> list[float]:
     vec = _embed_text(query, db=db)
     _query_embedding_cache[key] = (now, vec)
     if len(_query_embedding_cache) > _QUERY_CACHE_MAX:
-        oldest_key = min(
-            _query_embedding_cache, key=lambda k: _query_embedding_cache[k][0]
-        )
+        oldest_key = min(_query_embedding_cache, key=lambda k: _query_embedding_cache[k][0])
         _query_embedding_cache.pop(oldest_key, None)
     return vec
 
@@ -134,9 +128,7 @@ def ensure_collection_exists(force: bool = False) -> None:
         raise RuntimeError(f"qdrant_collection_check_failed:{r.status_code}")
 
     create_url = f"{base}/collections/{name}"
-    payload = {
-        "vectors": {"size": int(settings.qdrant_vector_size), "distance": "Cosine"}
-    }
+    payload = {"vectors": {"size": int(settings.qdrant_vector_size), "distance": "Cosine"}}
     cr = requests.put(create_url, json=payload, timeout=15)
     if int(getattr(cr, "status_code", 0) or 0) >= 400:
         raise RuntimeError(f"qdrant_collection_create_failed:{cr.status_code}")
@@ -163,17 +155,12 @@ def upsert_records(records: list[dict[str, Any]], db: Session | None = None) -> 
     points: list[dict[str, Any]] = []
     for start in range(0, len(clean_records), embed_batch_size):
         batch = clean_records[start : start + embed_batch_size]
-        vectors = _embed_texts(
-            [str(item.get("text") or "").strip() for item in batch], db=db
-        )
+        vectors = _embed_texts([str(item.get("text") or "").strip() for item in batch], db=db)
         for rec, vec in zip(batch, vectors):
             pid = _stable_point_id(str(rec.get("doc_id")), str(rec.get("chunk_id")))
             points.append({"id": pid, "vector": vec, "payload": rec})
 
-    url = (
-        settings.qdrant_url.rstrip("/")
-        + f"/collections/{settings.qdrant_collection}/points?wait=true"
-    )
+    url = settings.qdrant_url.rstrip("/") + f"/collections/{settings.qdrant_collection}/points?wait=true"
     for start in range(0, len(points), upsert_batch_size):
         batch_points = points[start : start + upsert_batch_size]
         r = requests.put(url, json={"points": batch_points}, timeout=30)
@@ -205,10 +192,7 @@ def search_records(
 
     ensure_collection_exists()
 
-    url = (
-        settings.qdrant_url.rstrip("/")
-        + f"/collections/{settings.qdrant_collection}/points/search"
-    )
+    url = settings.qdrant_url.rstrip("/") + f"/collections/{settings.qdrant_collection}/points/search"
     body: dict[str, Any] = {
         "vector": _embed_query_cached(query, db=db),
         "limit": int(top_k),
@@ -251,9 +235,7 @@ def search_records(
                 "doc_lang": str(payload.get("doc_lang") or "unknown"),
                 "title_en": str(payload.get("title_en") or ""),
                 "title_zh": str(payload.get("title_zh") or ""),
-                "tags": payload.get("tags")
-                if isinstance(payload.get("tags"), list)
-                else [],
+                "tags": payload.get("tags") if isinstance(payload.get("tags"), list) else [],
                 "category_path": str(payload.get("category_path") or "archive/misc"),
                 "source_type": str(payload.get("source_type") or "file"),
                 "updated_at": payload.get("updated_at"),
@@ -262,9 +244,7 @@ def search_records(
     return hits
 
 
-def delete_records_by_point_ids(
-    point_ids: list[str], *, wait: bool = True
-) -> dict[str, int]:
+def delete_records_by_point_ids(point_ids: list[str], *, wait: bool = True) -> dict[str, int]:
     ids = []
     seen: set[str] = set()
     for raw in point_ids:
@@ -281,10 +261,7 @@ def delete_records_by_point_ids(
 
     ensure_collection_exists()
     wait_q = "true" if wait else "false"
-    url = (
-        settings.qdrant_url.rstrip("/")
-        + f"/collections/{settings.qdrant_collection}/points/delete?wait={wait_q}"
-    )
+    url = settings.qdrant_url.rstrip("/") + f"/collections/{settings.qdrant_collection}/points/delete?wait={wait_q}"
     body = {"points": ids}
     r = requests.post(url, json=body, timeout=20)
     if int(getattr(r, "status_code", 0) or 0) >= 400:
@@ -311,10 +288,7 @@ def delete_records_by_doc_id(doc_id: str, *, wait: bool = True) -> dict[str, int
 
     ensure_collection_exists()
     wait_q = "true" if wait else "false"
-    url = (
-        settings.qdrant_url.rstrip("/")
-        + f"/collections/{settings.qdrant_collection}/points/delete?wait={wait_q}"
-    )
+    url = settings.qdrant_url.rstrip("/") + f"/collections/{settings.qdrant_collection}/points/delete?wait={wait_q}"
     body = {
         "filter": {
             "must": [

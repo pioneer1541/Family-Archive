@@ -136,20 +136,14 @@ def _search_vector_query(
     return out
 
 
-def _filter_hits_by_allowed_docs(
-    hits: list[dict[str, Any]], allowed_doc_ids: set[str] | None
-) -> list[dict[str, Any]]:
+def _filter_hits_by_allowed_docs(hits: list[dict[str, Any]], allowed_doc_ids: set[str] | None) -> list[dict[str, Any]]:
     if not hits:
         return []
     if allowed_doc_ids is None:
         return hits
     if not allowed_doc_ids:
         return []
-    return [
-        item
-        for item in hits
-        if str(item.get("doc_id") or "").strip() in allowed_doc_ids
-    ]
+    return [item for item in hits if str(item.get("doc_id") or "").strip() in allowed_doc_ids]
 
 
 def _search_lexical_query(
@@ -217,18 +211,14 @@ def _search_lexical_query(
     return hits
 
 
-def _merge_hits(
-    hits_a: list[dict[str, Any]], hits_b: list[dict[str, Any]], top_k: int
-) -> list[dict[str, Any]]:
+def _merge_hits(hits_a: list[dict[str, Any]], hits_b: list[dict[str, Any]], top_k: int) -> list[dict[str, Any]]:
     by_chunk: dict[str, dict[str, Any]] = {}
     for item in hits_a + hits_b:
         cid = str(item.get("chunk_id") or "")
         if not cid:
             continue
         current = by_chunk.get(cid)
-        if current is None or float(item.get("score") or 0.0) > float(
-            current.get("score") or 0.0
-        ):
+        if current is None or float(item.get("score") or 0.0) > float(current.get("score") or 0.0):
             by_chunk[cid] = item
 
     out = list(by_chunk.values())
@@ -239,11 +229,7 @@ def _merge_hits(
 def search_documents(db: Session, req: SearchRequest) -> SearchResponse:
     query = req.query.strip()
     query_en = ""
-    has_scope_filters = bool(
-        str(req.category_path or "").strip()
-        or (req.tags_all or [])
-        or (req.tags_any or [])
-    )
+    has_scope_filters = bool(str(req.category_path or "").strip() or (req.tags_all or []) or (req.tags_any or []))
     allowed_doc_ids: set[str] | None = None
     needs_allowed_filter = has_scope_filters or (not bool(req.include_missing))
     if needs_allowed_filter:
@@ -313,9 +299,7 @@ def search_documents(db: Session, req: SearchRequest) -> SearchResponse:
         retrieval_mode = "vector_only"
     elif lexical_hit_count > 0:
         retrieval_mode = "lexical_fallback"
-    tag_map = crud.get_document_tags_map(
-        db, [str(item.get("doc_id") or "") for item in merged]
-    )
+    tag_map = crud.get_document_tags_map(db, [str(item.get("doc_id") or "") for item in merged])
 
     results = [
         SearchHit(
@@ -329,9 +313,7 @@ def search_documents(db: Session, req: SearchRequest) -> SearchResponse:
             title_zh=str(item["title_zh"]),
             category_path=str(item["category_path"]),
             source_type=str(item["source_type"]),
-            updated_at=item["updated_at"]
-            if isinstance(item["updated_at"], dt.datetime)
-            else dt.datetime.now(dt.UTC),
+            updated_at=item["updated_at"] if isinstance(item["updated_at"], dt.datetime) else dt.datetime.now(dt.UTC),
             tags=tag_map.get(str(item["doc_id"]), []),
         )
         for item in merged

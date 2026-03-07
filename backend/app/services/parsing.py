@@ -139,9 +139,7 @@ def _clean_text(text: str) -> str:
     return "\n".join(rows).strip()
 
 
-def _read_pdf_pages(
-    path: str, max_pages: int = 120, db: Session | None = None
-) -> list[str]:
+def _read_pdf_pages(path: str, max_pages: int = 120, db: Session | None = None) -> list[str]:
     try:
         reader = PdfReader(path)
     except Exception:
@@ -192,9 +190,7 @@ def _split_text_to_pseudo_pages(text: str, *, tokens_per_page: int = 420) -> lis
     return out
 
 
-def extract_page_chunks_from_path(
-    path: str, *, max_pages: int = 160, db: Session | None = None
-) -> list[str]:
+def extract_page_chunks_from_path(path: str, *, max_pages: int = 160, db: Session | None = None) -> list[str]:
     ext = Path(path).suffix.lower().lstrip(".")
     if ext == "pdf":
         pages = _read_pdf_pages(path, max_pages=max_pages, db=db)
@@ -208,9 +204,7 @@ def extract_page_chunks_from_path(
         vl_text = _clean_text(
             extract_pdf_text_with_vl(
                 path,
-                max_pages=min(
-                    max(1, int(max_pages)), int(settings.ingestion_ocr_pdf_max_pages)
-                ),
+                max_pages=min(max(1, int(max_pages)), int(settings.ingestion_ocr_pdf_max_pages)),
                 dpi=int(settings.ingestion_ocr_render_dpi),
                 db=db,
             )
@@ -247,11 +241,7 @@ def _read_xlsx(path: str, max_rows: int = 2000) -> str:
         for row in ws.iter_rows(values_only=True):
             if row_count >= max_rows:
                 break
-            vals = [
-                str(cell).strip()
-                for cell in row
-                if cell is not None and str(cell).strip()
-            ]
+            vals = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
             if vals:
                 parts.append(" | ".join(vals))
                 row_count += 1
@@ -264,11 +254,7 @@ def extract_text_from_path(path: str, db: Session | None = None) -> str:
         return _read_txt(path)
     if ext == "pdf":
         pages = extract_page_chunks_from_path(path, max_pages=120, db=db)
-        text = "\n\n".join(
-            f"[Page {idx + 1}]\n{page}"
-            for idx, page in enumerate(pages)
-            if str(page or "").strip()
-        )
+        text = "\n\n".join(f"[Page {idx + 1}]\n{page}" for idx, page in enumerate(pages) if str(page or "").strip())
         if text.strip():
             return text
         return _clean_text(extract_ocr_text(path))
@@ -284,9 +270,7 @@ def extract_text_from_path(path: str, db: Session | None = None) -> str:
     raise ValueError(f"unsupported_extension:{ext}")
 
 
-def chunk_text(
-    text: str, target_tokens: int = 320, overlap_tokens: int = 48
-) -> list[str]:
+def chunk_text(text: str, target_tokens: int = 320, overlap_tokens: int = 48) -> list[str]:
     tokens = str(text or "").split()
     if not tokens:
         return []

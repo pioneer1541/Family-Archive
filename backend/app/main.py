@@ -149,18 +149,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 db.close()
             if not setup_done:
                 return await call_next(request)
-            return JSONResponse(
-                status_code=401, content={"detail": "Not authenticated."}
-            )
+            return JSONResponse(status_code=401, content={"detail": "Not authenticated."})
 
         return await call_next(request)
 
 
 app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifespan)
 
-allow_all_origins = (
-    len(settings.allowed_origins) == 1 and settings.allowed_origins[0] == "*"
-)
+allow_all_origins = len(settings.allowed_origins) == 1 and settings.allowed_origins[0] == "*"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,

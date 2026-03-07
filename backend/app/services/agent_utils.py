@@ -49,9 +49,7 @@ def _clean_search_fallback_snippet(value: Any, *, cap: int = 280) -> str:
     return _safe_text(base, cap=cap)
 
 
-def _doc_ids_from_scope(
-    scope: dict[str, Any], *, client_context: dict[str, Any] | None = None
-) -> list[str]:
+def _doc_ids_from_scope(scope: dict[str, Any], *, client_context: dict[str, Any] | None = None) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
 
