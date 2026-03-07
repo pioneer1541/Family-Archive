@@ -14,7 +14,7 @@ services:
       - FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER=0
       - FAMILY_VAULT_INGESTION_RETRY_MAX_RETRIES=2
       - FAMILY_VAULT_INGESTION_RETRY_BASE_DELAY_SEC=5
-      - FAMILY_VAULT_DATABASE_URL=sqlite:////app/data/family_vault.db
+      - FAMILY_VAULT_DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/family_vault
       - FAMILY_VAULT_REDIS_URL=redis://redis:6379/0
       - FAMILY_VAULT_QDRANT_URL=http://qdrant:6333
       - FAMILY_VAULT_QDRANT_COLLECTION=fkv_docs_v1
@@ -53,6 +53,7 @@ services:
     depends_on:
       - redis
       - qdrant
+      - postgres
 
   fkv-worker:
     build: ./backend
@@ -69,7 +70,7 @@ services:
       - FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER=0
       - FAMILY_VAULT_INGESTION_RETRY_MAX_RETRIES=2
       - FAMILY_VAULT_INGESTION_RETRY_BASE_DELAY_SEC=5
-      - FAMILY_VAULT_DATABASE_URL=sqlite:////app/data/family_vault.db
+      - FAMILY_VAULT_DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/family_vault
       - FAMILY_VAULT_REDIS_URL=redis://redis:6379/0
       - FAMILY_VAULT_QDRANT_URL=http://qdrant:6333
       - FAMILY_VAULT_QDRANT_COLLECTION=fkv_docs_v1
@@ -107,6 +108,23 @@ services:
     depends_on:
       - redis
       - qdrant
+      - postgres
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: fkv-postgres
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 100m
+        max-file: 5
+    environment:
+      - POSTGRES_DB=family_vault
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine

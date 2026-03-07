@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     ingestion_retry_max_retries: int = 2
     ingestion_retry_base_delay_sec: int = 5
     sqlite_busy_timeout_ms: int = 5000
+    pg_pool_pre_ping: bool = True
+    pg_pool_recycle: int = 1800
 
     qdrant_url: str = "http://qdrant:6333"
     qdrant_collection: str = "fkv_docs_v1"

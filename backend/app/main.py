@@ -1,4 +1,5 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
@@ -19,6 +20,7 @@ from app.services.qdrant import ensure_collection_exists
 
 settings = get_settings()
 logger = get_logger(__name__)
+is_production_env = os.getenv("ENV", "").strip().lower() == "production"
 
 
 async def _mail_poll_loop(stop_event: asyncio.Event) -> None:
@@ -88,7 +90,7 @@ async def _nas_scan_loop(stop_event: asyncio.Event) -> None:
 async def lifespan(_app: FastAPI):
     stop_event = asyncio.Event()
     background_tasks: list[asyncio.Task] = []
-    if settings.auto_create_schema:
+    if settings.auto_create_schema and not is_production_env:
         Base.metadata.create_all(bind=engine)
         ensure_sqlite_runtime_schema()
     if settings.qdrant_enable:
