@@ -7,7 +7,7 @@ import type {DocumentContentAvailability, KbDoc, UiLocale} from '@src/lib/api/ty
 import {pickBilingualText} from '@src/lib/i18n/bilingual';
 import {useContentViewer} from '@src/lib/ui-state/content-viewer';
 
-const PREVIEWABLE_EXTENSIONS = new Set(['pdf', 'png', 'jpg', 'jpeg', 'webp', 'tif', 'tiff', 'heic']);
+const PREVIEWABLE_EXTENSIONS = new Set(['pdf', 'png', 'jpg', 'jpeg', 'webp', 'tif', 'tiff', 'heic', 'txt', 'doc', 'docx']);
 
 function canInlinePreview(doc: KbDoc | null): boolean {
   if (!doc) return false;
@@ -42,6 +42,8 @@ export function DocumentContentOverlay() {
   const [loading, setLoading] = useState(false);
   const [frameFailed, setFrameFailed] = useState(false);
   const [availability, setAvailability] = useState<DocumentContentAvailability | null>(null);
+  const [downloadedText, setDownloadedText] = useState('');
+  const [textLoading, setTextLoading] = useState(false);
 
   useEffect(() => {
     if (!open || !docId) return;
@@ -79,12 +81,53 @@ export function DocumentContentOverlay() {
     };
   }, [client, docId, open]);
 
+  useEffect(() => {
+    if (!open || !doc) return;
+    const ext = String(doc.fileExt || '').trim().toLowerCase();
+    const isTxt = ext === 'txt';
+    const hasExtracted = Boolean(String(doc.extractedText || '').trim());
+    if (!isTxt || hasExtracted || !doc.downloadUrl) {
+      setDownloadedText('');
+      setTextLoading(false);
+      return;
+    }
+
+    let alive = true;
+    setTextLoading(true);
+    fetch(doc.downloadUrl)
+      .then(async (res) => {
+        if (!res.ok) return '';
+        return await res.text();
+      })
+      .then((content) => {
+        if (!alive) return;
+        setDownloadedText(String(content || '').slice(0, 120_000));
+      })
+      .catch(() => {
+        if (!alive) return;
+        setDownloadedText('');
+      })
+      .finally(() => {
+        if (!alive) return;
+        setTextLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [doc, open]);
+
   const title = pickBilingualText(doc?.title || {zh: '', en: ''}, locale).text || doc?.fileName || '-';
   const availabilityDetail = String(availability?.detail || '').trim();
+  const ext = String(doc?.fileExt || '').trim().toLowerCase();
+  const isPdf = ext === 'pdf';
+  const isTxt = ext === 'txt';
+  const isDocWord = ext === 'doc' || ext === 'docx';
+  const isImage = ['png', 'jpg', 'jpeg', 'webp', 'tif', 'tiff', 'heic'].includes(ext);
   const canShowInline = Boolean(availability?.sourceAvailable && availability?.inlineSupported);
   const allowInlineWhenProbeFails = isAvailabilityProbeFailure(availabilityDetail);
   const showFrame = canInlinePreview(doc) && !frameFailed && (canShowInline || allowInlineWhenProbeFails);
-  const extracted = String(doc?.extractedText || '').trim();
+  const extracted = String(doc?.extractedText || '').trim() || String(downloadedText || '').trim();
   const fallbackReason = fallbackReasonText(t, availabilityDetail);
 
   return (
@@ -124,7 +167,28 @@ export function DocumentContentOverlay() {
         <div className="content-body">
           {loading ? (
             <div className="content-loading">{t('contentOverlay.loading')}</div>
-          ) : showFrame ? (
+          ) : showFrame && isPdf ? (
+            <object
+              className="content-frame"
+              data={doc?.inlineUrl || ''}
+              type="application/pdf"
+              aria-label={t('contentOverlay.iframeTitle', {name: doc?.fileName || ''})}
+            >
+              <iframe
+                className="content-frame"
+                src={doc?.inlineUrl || ''}
+                title={t('contentOverlay.iframeTitle', {name: doc?.fileName || ''})}
+                onError={() => setFrameFailed(true)}
+              />
+            </object>
+          ) : showFrame && isImage ? (
+            <img
+              className="content-image"
+              src={doc?.inlineUrl || ''}
+              alt={doc?.fileName || t('contentOverlay.iframeTitle', {name: ''})}
+              onError={() => setFrameFailed(true)}
+            />
+          ) : showFrame && !isTxt && !isDocWord ? (
             <iframe
               className="content-frame"
               src={doc?.inlineUrl || ''}
@@ -134,9 +198,13 @@ export function DocumentContentOverlay() {
           ) : (
             <div className="text-fallback">
               <div className="text-fallback-title">{t('contentOverlay.fallbackTitle')}</div>
-              <div className="text-fallback-reason">{fallbackReason}</div>
+              <div className="text-fallback-reason">
+                {isDocWord ? t('contentOverlay.docPreviewHint') : fallbackReason}
+              </div>
               {extracted ? (
                 <pre className="text-fallback-pre">{extracted}</pre>
+              ) : textLoading ? (
+                <div className="text-fallback-empty">{t('contentOverlay.loading')}</div>
               ) : (
                 <div className="text-fallback-empty">{t('contentOverlay.noExtractedText')}</div>
               )}

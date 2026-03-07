@@ -33,6 +33,8 @@ import type {
 } from '../types';
 
 const API_BASE = process.env.NEXT_PUBLIC_FKV_API_BASE || '/api';
+const GMAIL_V1_BASE = `${API_BASE}/v1/gmail/credentials`;
+const GMAIL_LEGACY_BASE = `${API_BASE}/gmail/credentials`;
 const DOC_CACHE_MAX = 200;
 const DOC_CACHE_TTL_MS = 10 * 60 * 1000;
 const docCache = new Map<string, {doc: KbDoc; ts: number}>();
@@ -1232,6 +1234,22 @@ async function restartServices(): Promise<{ok: boolean; message?: string; error?
   }
 }
 
+async function fetchGmailWithFallback(pathSuffix = '', init?: RequestInit): Promise<Response> {
+  const urls = [`${GMAIL_V1_BASE}${pathSuffix}`, `${GMAIL_LEGACY_BASE}${pathSuffix}`];
+  let fallback: Response | null = null;
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, init);
+      if (response.status !== 404) return response;
+      fallback = response;
+    } catch {
+      // Try next endpoint variant.
+    }
+  }
+  if (fallback) return fallback;
+  throw new Error('Gmail credentials endpoint unreachable');
+}
+
 
 // ---------------------------------------------------------------------------
 // Gmail Credentials
@@ -1239,17 +1257,24 @@ async function restartServices(): Promise<{ok: boolean; message?: string; error?
 
 async function getGmailCredentials(): Promise<GmailCredential[]> {
   try {
-    const r = await fetch(`${API_BASE}/v1/gmail/credentials`);
+    const r = await fetchGmailWithFallback();
     if (!r.ok) return [];
     const data = await r.json();
-    return Array.isArray(data?.items) ? data.items : [];
+    const rows = Array.isArray(data?.items) ? data.items : [];
+    return rows.map((row: any) => ({
+      id: String(row?.id || ''),
+      name: String(row?.name || ''),
+      client_id: String(row?.client_id || row?.client_id_masked || ''),
+      created_at: String(row?.created_at || ''),
+      updated_at: String(row?.updated_at || ''),
+    }));
   } catch {
     return [];
   }
 }
 
 async function createGmailCredential(data: GmailCredentialCreate): Promise<GmailCredential> {
-  const r = await fetch(`${API_BASE}/v1/gmail/credentials`, {
+  const r = await fetchGmailWithFallback('', {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(data),
@@ -1262,20 +1287,28 @@ async function createGmailCredential(data: GmailCredentialCreate): Promise<Gmail
 }
 
 async function updateGmailCredential(id: string, data: GmailCredentialUpdate): Promise<GmailCredential> {
-  const r = await fetch(`${API_BASE}/v1/gmail/credentials/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(data),
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error(err?.detail || "Failed to update credential");
+  const suffix = `/${encodeURIComponent(id)}`;
+  const urls = [`${GMAIL_V1_BASE}${suffix}`, `${GMAIL_LEGACY_BASE}${suffix}`];
+  for (const url of urls) {
+    for (const method of ['PATCH', 'PUT']) {
+      const r = await fetch(url, {
+        method,
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data),
+      });
+      if (r.status === 404 || r.status === 405) continue;
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err?.detail || "Failed to update credential");
+      }
+      return await r.json();
+    }
   }
-  return await r.json();
+  throw new Error('Failed to update credential');
 }
 
 async function deleteGmailCredential(id: string): Promise<void> {
-  const r = await fetch(`${API_BASE}/v1/gmail/credentials/${encodeURIComponent(id)}`, {
+  const r = await fetchGmailWithFallback(`/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
   if (!r.ok) {

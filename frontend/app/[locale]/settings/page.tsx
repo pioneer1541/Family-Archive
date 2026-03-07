@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect, useState, useCallback} from 'react';
+import {useEffect, useState, useCallback, useRef} from 'react';
 import {useTranslations, useLocale} from 'next-intl';
 import {useRouter} from 'next/navigation';
 import {getKbClient} from '@src/lib/api/kb-client';
@@ -10,6 +10,20 @@ import type {AppSettingItem, ConnectivityStatus, KeywordLists, OllamaModel, Gmai
 // Types
 // ---------------------------------------------------------------------------
 type TabKey = 'llm' | 'storage' | 'mail' | 'keywords' | 'account';
+const RESTART_REQUIRED_KEYS = new Set([
+  'planner_model',
+  'synthesizer_model',
+  'embed_model',
+  'summary_model',
+  'category_model',
+  'friendly_name_model',
+  'vl_extract_model',
+  'summary_timeout_page_sec',
+  'summary_timeout_section_sec',
+  'summary_timeout_final_sec',
+  'agent_synth_timeout_sec',
+  'ollama_base_url',
+]);
 
 // ---------------------------------------------------------------------------
 // Helper functions
@@ -144,6 +158,7 @@ export default function SettingsPage() {
   const [gmailSaving, setGmailSaving] = useState(false);
   // Gmail 删除确认
   const [gmailDeleteId, setGmailDeleteId] = useState<string | null>(null);
+  const localDirPickerRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     client.getSettings?.().then(setItems).catch(() => {});
@@ -187,7 +202,8 @@ export default function SettingsPage() {
         if (!r.ok) {
           throw new Error((result as {detail?: string})?.detail || 'Settings update failed');
         }
-        if (result?.restart_required) {
+        const hasRestartKey = Object.keys(patch).some((key) => RESTART_REQUIRED_KEYS.has(key));
+        if (result?.restart_required || hasRestartKey) {
           setRestartRequired(true);
         }
       }
@@ -358,6 +374,30 @@ export default function SettingsPage() {
     {key: 'account', label: t('tabAccount')},
   ];
 
+  function handleBrowseLocalFolder() {
+    localDirPickerRef.current?.click();
+  }
+
+  function handleLocalFolderSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    const first = files && files.length > 0 ? files[0] : null;
+    const relative = String((first as File & {webkitRelativePath?: string} | null)?.webkitRelativePath || '');
+    const folderName = relative.split('/').filter(Boolean)[0] || '';
+    if (folderName) {
+      const current = String(getVal('local_source_dir') || '').trim();
+      const guessed = current
+        ? `${current.replace(/[\\/]+$/, '')}/${folderName}`
+        : folderName;
+      setVal('local_source_dir', guessed);
+      setToast(t('localBrowseHint'));
+      setTimeout(() => setToast(''), 3500);
+    } else {
+      setToast(t('localBrowseUnavailable'));
+      setTimeout(() => setToast(''), 3500);
+    }
+    event.target.value = '';
+  }
+
   return (
     <div className="settings-page">
       <h1 className="settings-title">{t('pageTitle')}</h1>
@@ -453,11 +493,25 @@ export default function SettingsPage() {
               {(getVal('source_type') || 'local').toLowerCase() === 'local' ? (
                 <div className="settings-field">
                   <label>{t('localSourceDir')}</label>
-                  <input
-                    type="text"
-                    value={getVal('local_source_dir')}
-                    onChange={(e) => setVal('local_source_dir', e.target.value)}
-                  />
+                  <div className="settings-input-row">
+                    <input
+                      type="text"
+                      value={getVal('local_source_dir')}
+                      onChange={(e) => setVal('local_source_dir', e.target.value)}
+                    />
+                    <button type="button" className="btn-secondary" onClick={handleBrowseLocalFolder}>
+                      {t('browse')}
+                    </button>
+                    <input
+                      ref={localDirPickerRef}
+                      type="file"
+                      style={{display: 'none'}}
+                      onChange={handleLocalFolderSelected}
+                      multiple
+                      {...({'webkitdirectory': ''} as React.InputHTMLAttributes<HTMLInputElement>)}
+                    />
+                  </div>
+                  <p className="settings-hint">{t('localBrowseHint')}</p>
                 </div>
               ) : (
                 <>

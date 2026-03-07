@@ -1263,6 +1263,13 @@ a {
   background: #fff;
 }
 
+.content-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;
+}
+
 .text-fallback {
   height: 100%;
   padding: 18px;
@@ -2839,6 +2846,13 @@ body.keyboard-open {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.settings-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .settings-field label {

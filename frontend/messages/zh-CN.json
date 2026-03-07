@@ -124,6 +124,7 @@
     "reasonAvailabilityEndpointMissing": "预览探测接口暂不可用，当前已切换为提取文本浏览。",
     "reasonAvailabilityUnavailable": "预览状态探测失败，当前已切换为提取文本浏览。",
     "reasonGeneric": "当前无法内联预览，已切换为提取文本。",
+    "docPreviewHint": "Word 文档暂不支持内联预览，已显示可用提取文本。",
     "noExtractedText": "暂无可显示的提取文本，请使用下载按钮查看原文件。",
     "iframeTitle": "{name} 文档内容"
   },
@@ -175,6 +176,9 @@
     "sourceTypeLocal": "本地文件夹",
     "sourceTypeNas": "NAS 文件夹",
     "localSourceDir": "本地源目录",
+    "browse": "浏览",
+    "localBrowseHint": "浏览器无法读取绝对本地路径，仅能推断已选文件夹名称，请按需手动修正。",
+    "localBrowseUnavailable": "未读取到文件夹信息，请手动填写本地目录路径。",
     "nasHost": "NAS IP 地址",
     "nasSharePath": "NAS 共享路径",
     "nasAutoScan": "自动扫描 NAS",

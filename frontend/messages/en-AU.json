@@ -124,6 +124,7 @@
     "reasonAvailabilityEndpointMissing": "Preview availability endpoint is unavailable. Showing extracted text fallback.",
     "reasonAvailabilityUnavailable": "Preview availability check failed. Showing extracted text fallback.",
     "reasonGeneric": "Inline preview is unavailable. Showing extracted text.",
+    "docPreviewHint": "Inline preview for Word documents is not supported. Showing extracted text when available.",
     "noExtractedText": "No extracted text available. Use download to open the source file.",
     "iframeTitle": "{name} document content"
   },
@@ -175,6 +176,9 @@
     "sourceTypeLocal": "Local Folder",
     "sourceTypeNas": "NAS Folder",
     "localSourceDir": "Local Source Directory",
+    "browse": "Browse",
+    "localBrowseHint": "Browser security cannot read the absolute local path. We can only infer folder name from selected files.",
+    "localBrowseUnavailable": "Folder details could not be read. Please enter the local source path manually.",
     "nasHost": "NAS IP Address",
     "nasSharePath": "NAS Share Path",
     "nasAutoScan": "NAS Auto Scan",
