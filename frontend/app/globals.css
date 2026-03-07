@@ -3712,3 +3712,79 @@ body.keyboard-open {
     justify-content: flex-start;
   }
 }
+
+/* ========================================
+   移动端滚动修复
+   ======================================== */
+
+html {
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  overflow-x: hidden;
+  overscroll-behavior: none;
+}
+
+/* 弹出框打开时锁定滚动 */
+body.overlay-open,
+body.modal-open,
+body.no-scroll {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100%;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+/* iOS Safari 安全区域 */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .bottom-tab-bar {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .detail-panel {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .sync-panel {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* 修复弹出框滚动穿透 */
+.detail-overlay,
+.sync-overlay,
+.doc-content-overlay {
+  overscroll-behavior: contain;
+}
+
+.detail-panel,
+.sync-panel,
+.doc-content-panel {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* 修复 iOS Safari 视口高度 */
+@supports (height: 100dvh) {
+  .detail-panel {
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+}
+
+/* 修复 fixed 元素在移动端的问题 */
+.sidebar-backdrop.open,
+.detail-overlay.open,
+.sync-overlay.open,
+.doc-content-overlay.open,
+.settings-restart-dialog {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}

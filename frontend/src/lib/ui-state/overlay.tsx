@@ -1,7 +1,7 @@
 'use client';
 
 import type {ReactNode} from 'react';
-import {createContext, useContext, useMemo, useState} from 'react';
+import {createContext, useContext, useEffect, useMemo, useState, useRef} from 'react';
 
 interface OverlayContextValue {
   open: boolean;
@@ -15,6 +15,7 @@ const OverlayContext = createContext<OverlayContextValue | null>(null);
 export function OverlayProvider({children}: {children: ReactNode}) {
   const [open, setOpen] = useState(false);
   const [docId, setDocId] = useState('');
+  const scrollYRef = useRef(0);
 
   const value = useMemo(
     () => ({
@@ -32,6 +33,27 @@ export function OverlayProvider({children}: {children: ReactNode}) {
     }),
     [open, docId]
   );
+
+  // 滚动锁定逻辑
+  useEffect(() => {
+    if (open) {
+      // 记录当前滚动位置
+      scrollYRef.current = window.scrollY;
+      // 锁定滚动
+      document.body.classList.add('overlay-open');
+      document.body.style.top = `-${scrollYRef.current}px`;
+    } else {
+      // 恢复滚动
+      document.body.classList.remove('overlay-open');
+      document.body.style.top = '';
+      window.scrollTo(0, scrollYRef.current);
+    }
+
+    return () => {
+      document.body.classList.remove('overlay-open');
+      document.body.style.top = '';
+    };
+  }, [open]);
 
   return <OverlayContext.Provider value={value}>{children}</OverlayContext.Provider>;
 }

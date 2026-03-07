@@ -168,6 +168,20 @@ export default function SettingsPage() {
   }, []);
 
   // 加载 Gmail 凭证列表
+
+  // 滚动锁定：弹出框打开时锁定 body 滚动
+  useEffect(() => {
+    if (restartRequired) {
+      const scrollY = window.scrollY;
+      document.body.classList.add("overlay-open");
+      document.body.style.top = `-${scrollY}px`;
+      return () => {
+        document.body.classList.remove("overlay-open");
+        document.body.style.top = "";
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [restartRequired]);
   async function loadGmailCredentials() {
     setGmailLoading(true);
     try {

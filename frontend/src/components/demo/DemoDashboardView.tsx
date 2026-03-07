@@ -150,9 +150,9 @@ function DemoDashboardView() {
                     {new Date(doc.updatedAt || Date.now()).toLocaleDateString(locale === 'zh-CN' ? 'zh-CN' : 'en-AU')}
                   </span>
                 </div>
-                <h3 className="demo-doc-title">{doc.titleZh || doc.titleEn || doc.fileName || 'Untitled'}</h3>
+                <h3 className="demo-doc-title">{doc.title || doc.title || doc.fileName || 'Untitled'}</h3>
                 <p className="demo-doc-preview">
-                  {(doc.summaryZh || doc.summaryEn || '').slice(0, 80)}...
+                  {(doc.summary || doc.summary || '').slice(0, 80)}...
                 </p>
               </article>
             ))}
