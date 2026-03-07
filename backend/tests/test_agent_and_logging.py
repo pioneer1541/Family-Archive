@@ -792,7 +792,7 @@ def test_agent_context_policy_fresh_turn_ignores_history(client, monkeypatch):
         },
     )
 
-    def _fake_synth(req, planner, bundle, *, trace_id, conversation):
+    def _fake_synth(req, planner, bundle, *, trace_id, conversation, db=None):
         captured["conversation"] = list(conversation)
         return (None, "forced")
 
@@ -865,7 +865,7 @@ def test_agent_context_policy_followup_turn_keeps_history(client, monkeypatch):
         },
     )
 
-    def _fake_synth(req, planner, bundle, *, trace_id, conversation):
+    def _fake_synth(req, planner, bundle, *, trace_id, conversation, db=None):
         captured["conversation"] = list(conversation)
         return (None, "forced")
 
