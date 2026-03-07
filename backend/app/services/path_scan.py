@@ -6,6 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import models
+from app.config import get_settings
+from app.runtime_config import get_runtime_setting
+
+settings = get_settings()
 
 
 def _real(path: str) -> str:
@@ -27,6 +31,54 @@ def _is_within(path: str, root: str) -> bool:
         return os.path.commonpath([p, r]) == r
     except Exception:
         return p == r or p.startswith(r.rstrip("/\\") + os.sep)
+
+
+def normalize_source_type(source_type: str | None) -> str:
+    value = str(source_type or "").strip().lower()
+    if value == "nas":
+        return "nas"
+    return "local"
+
+
+def resolve_source_root(db: Session | None = None) -> tuple[str, str]:
+    source_type = normalize_source_type(
+        get_runtime_setting("source_type", db) if db is not None else settings.source_type
+    )
+    if source_type == "local":
+        local_root = (
+            get_runtime_setting("local_source_dir", db)
+            if db is not None
+            else settings.local_source_dir
+        )
+        fallback_root = (
+            get_runtime_setting("nas_default_source_dir", db)
+            if db is not None
+            else settings.nas_default_source_dir
+        )
+        root = _real(local_root) or _real(fallback_root)
+        return ("local", root)
+
+    nas_host = (
+        get_runtime_setting("nas_host", db) if db is not None else settings.nas_host
+    )
+    nas_path = (
+        get_runtime_setting("nas_path", db) if db is not None else settings.nas_path
+    )
+    fallback_root = (
+        get_runtime_setting("nas_default_source_dir", db)
+        if db is not None
+        else settings.nas_default_source_dir
+    )
+    host = str(nas_host or "").strip().strip("/\\")
+    path = str(nas_path or "").strip()
+    if host and path:
+        rel = path.strip().strip("/\\")
+        if rel:
+            root = _real(f"//{host}/{rel}")
+            if root:
+                return ("nas", root)
+    root = _real(path) or _real(fallback_root)
+    return ("nas", root)
 
 
 def _normalize_exts(exts: Iterable[str]) -> set[str]:

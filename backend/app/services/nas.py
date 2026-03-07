@@ -9,7 +9,9 @@ from app.services.ingestion import enqueue_ingestion_job
 from app.services.path_scan import (
     collect_incremental_changes,
     discover_files,
+    normalize_source_type,
     purge_source_states_outside_root,
+    resolve_source_root,
 )
 
 settings = get_settings()
@@ -37,8 +39,10 @@ def _is_within(path: str, root: str) -> bool:
         return p == r or p.startswith(r.rstrip("/\\") + os.sep)
 
 
-def _normalize_scan_paths(paths: list[str] | None) -> tuple[str, list[str]]:
-    root = _real(settings.nas_default_source_dir)
+def _normalize_scan_paths(
+    paths: list[str] | None, *, root_path: str | None = None
+) -> tuple[str, list[str]]:
+    root = _real(root_path) or _real(settings.nas_default_source_dir)
     raw_paths = [str(p or "").strip() for p in (paths or []) if str(p or "").strip()]
     if (not root) or (not raw_paths):
         return (root, [root] if root else [])
@@ -66,9 +70,12 @@ def run_nas_scan(
     recursive: bool = True,
     max_files: int | None = None,
 ) -> dict:
-    root, scan_paths = _normalize_scan_paths(paths)
+    source_type, source_root = resolve_source_root(db)
+    root, scan_paths = _normalize_scan_paths(paths, root_path=source_root)
+    active_source_type = normalize_source_type(source_type)
     if not scan_paths:
         return {
+            "source_type": active_source_type,
             "paths": [],
             "candidate_files": 0,
             "changed_files": 0,
@@ -77,7 +84,9 @@ def run_nas_scan(
             "job_id": "",
         }
 
-    purged = purge_source_states_outside_root(db, source_type="nas", root=root)
+    purged = purge_source_states_outside_root(
+        db, source_type=active_source_type, root=root
+    )
     photo_max_bytes = max(0, int(settings.photo_max_size_mb or 0)) * 1024 * 1024
 
     cap = int(max_files or settings.ingestion_scan_max_files_per_run)
@@ -90,7 +99,7 @@ def run_nas_scan(
         recursive=bool(recursive),
         max_files=cap,
     )
-    changed = collect_incremental_changes(db, files, source_type="nas")
+    changed = collect_incremental_changes(db, files, source_type=active_source_type)
     enqueue_paths = crud.filter_ignored_paths(db, changed)
 
     job_id = ""
@@ -116,10 +125,12 @@ def run_nas_scan(
                 "queued": queued,
                 "job_id": job_id,
                 "purged_states": purged,
+                "source_type": active_source_type,
             }
         ),
     )
     return {
+        "source_type": active_source_type,
         "paths": scan_paths,
         "candidate_files": int(stats.get("discovered_files") or 0),
         "changed_files": len(enqueue_paths),

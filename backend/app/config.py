@@ -91,6 +91,10 @@ class Settings(BaseSettings):
     ingestion_phash_hamming_threshold: int = 8
     max_search_hits: int = 20
 
+    source_type: str = "local"
+    local_source_dir: str = ""
+    nas_host: str = ""
+    nas_path: str = ""
     nas_default_source_dir: str = ""
     nas_allowed_extensions: List[str] = [
         "pdf",

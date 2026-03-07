@@ -36,6 +36,10 @@ _RUNTIME_CONFIGURABLE: dict[str, tuple[str, str]] = {
     "summary_timeout_final_sec": ("FAMILY_VAULT_SUMMARY_TIMEOUT_FINAL_SEC", "120"),
     "agent_synth_timeout_sec": ("FAMILY_VAULT_AGENT_SYNTH_TIMEOUT_SEC", "25"),
     # NAS
+    "source_type": ("FAMILY_VAULT_SOURCE_TYPE", "local"),
+    "local_source_dir": ("FAMILY_VAULT_LOCAL_SOURCE_DIR", ""),
+    "nas_host": ("FAMILY_VAULT_NAS_HOST", ""),
+    "nas_path": ("FAMILY_VAULT_NAS_PATH", ""),
     "nas_auto_scan_enabled": ("FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED", "0"),
     "nas_scan_interval_sec": ("FAMILY_VAULT_NAS_SCAN_INTERVAL_SEC", "900"),
     "nas_default_source_dir": ("FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR", ""),
@@ -133,6 +137,30 @@ SETTING_META: dict[str, dict[str, Any]] = {
         "category": "nas",
         "label_zh": "自动扫描NAS",
         "label_en": "NAS Auto Scan",
+    },
+    "source_type": {
+        "type": "string",
+        "category": "nas",
+        "label_zh": "源类型",
+        "label_en": "Source Type",
+    },
+    "local_source_dir": {
+        "type": "path",
+        "category": "nas",
+        "label_zh": "本地源目录",
+        "label_en": "Local Source Directory",
+    },
+    "nas_host": {
+        "type": "string",
+        "category": "nas",
+        "label_zh": "NAS 主机地址",
+        "label_en": "NAS Host",
+    },
+    "nas_path": {
+        "type": "path",
+        "category": "nas",
+        "label_zh": "NAS 共享路径",
+        "label_en": "NAS Share Path",
     },
     "nas_scan_interval_sec": {
         "type": "int",

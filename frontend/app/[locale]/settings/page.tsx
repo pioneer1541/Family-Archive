@@ -9,7 +9,7 @@ import type {AppSettingItem, ConnectivityStatus, KeywordLists, OllamaModel, Gmai
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type TabKey = 'llm' | 'storage' | 'mail' | 'gmail' | 'timeout' | 'advanced' | 'keywords' | 'account';
+type TabKey = 'llm' | 'storage' | 'mail' | 'timeout' | 'advanced' | 'keywords' | 'account';
 
 // ---------------------------------------------------------------------------
 // Helper functions
@@ -354,7 +354,6 @@ export default function SettingsPage() {
     {key: 'llm', label: t('tabLlm')},
     {key: 'storage', label: t('tabStorage')},
     {key: 'mail', label: t('tabMail')},
-    {key: 'gmail', label: t('tabGmail')},
     {key: 'timeout', label: t('tabTimeout')},
     {key: 'advanced', label: t('tabAdvanced')},
     {key: 'keywords', label: t('tabKeywords')},
@@ -408,19 +407,50 @@ export default function SettingsPage() {
           {tab === 'storage' && (
             <div className="settings-section">
               <div className="settings-field">
+                <label>{t('sourceType')}</label>
+                <select
+                  value={(getVal('source_type') || 'local').toLowerCase() === 'nas' ? 'nas' : 'local'}
+                  onChange={(e) => setVal('source_type', e.target.value)}
+                >
+                  <option value="local">{t('sourceTypeLocal')}</option>
+                  <option value="nas">{t('sourceTypeNas')}</option>
+                </select>
+              </div>
+              {(getVal('source_type') || 'local').toLowerCase() === 'local' ? (
+                <div className="settings-field">
+                  <label>{t('localSourceDir')}</label>
+                  <input
+                    type="text"
+                    value={getVal('local_source_dir')}
+                    onChange={(e) => setVal('local_source_dir', e.target.value)}
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="settings-field">
+                    <label>{t('nasHost')}</label>
+                    <input
+                      type="text"
+                      value={getVal('nas_host')}
+                      onChange={(e) => setVal('nas_host', e.target.value)}
+                    />
+                  </div>
+                  <div className="settings-field">
+                    <label>{t('nasSharePath')}</label>
+                    <input
+                      type="text"
+                      value={getVal('nas_path')}
+                      onChange={(e) => setVal('nas_path', e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+              <div className="settings-field">
                 <label>{t('nasAutoScan')}</label>
                 <input
                   type="checkbox"
                   checked={getVal('nas_auto_scan_enabled') === '1' || getVal('nas_auto_scan_enabled') === 'true'}
                   onChange={(e) => setVal('nas_auto_scan_enabled', e.target.checked ? '1' : '0')}
-                />
-              </div>
-              <div className="settings-field">
-                <label>{t('nasDir')}</label>
-                <input
-                  type="text"
-                  value={getVal('nas_default_source_dir')}
-                  onChange={(e) => setVal('nas_default_source_dir', e.target.value)}
                 />
               </div>
               <div className="settings-field">
@@ -450,6 +480,7 @@ export default function SettingsPage() {
           {/* Mail Tab */}
           {tab === 'mail' && (
             <div className="settings-section">
+              <h3>{t('mailPollingSection')}</h3>
               <div className="settings-field">
                 <label>{t('mailPoll')}</label>
                 <input
@@ -475,18 +506,7 @@ export default function SettingsPage() {
                   onChange={(e) => setVal('mail_query', e.target.value)}
                 />
               </div>
-              {connectivity && (
-                <div className="connectivity-status">
-                  <StatusBadge ok={connectivity.gmail.ok} label={connectivity.gmail.ok ? t('connOk') : t('connFail')} />
-                </div>
-              )}
-              <button type="button" className="btn-secondary" onClick={handleTestConn}>{t('testConn')}</button>
-            </div>
-          )}
-
-          {/* Gmail Tab */}
-          {tab === 'gmail' && (
-            <div className="settings-section">
+              <hr className="settings-divider" />
               <div className="settings-section-header">
                 <h3>{tg('credentials')}</h3>
                 <button
@@ -545,90 +565,98 @@ export default function SettingsPage() {
                   </table>
                 </div>
               )}
-
-              {/* Gmail Form Modal */}
-              {gmailFormOpen && (
-                <div className="settings-restart-dialog" onClick={handleGmailCancel}>
-                  <div className="settings-restart-content gmail-modal-content" onClick={(e) => e.stopPropagation()}>
-                    <h3>{gmailEditId ? tg('modalEditTitle') : tg('modalCreateTitle')}</h3>
-                    <form onSubmit={handleGmailSubmit} className="settings-form gmail-cred-form">
-                      <div className="settings-field">
-                        <label>{tg('name')}</label>
-                        <input
-                          type="text"
-                          value={gmailForm.name}
-                          onChange={(e) => setGmailForm({...gmailForm, name: e.target.value})}
-                          placeholder={tg('namePlaceholder')}
-                          required
-                        />
-                      </div>
-                      <div className="settings-field">
-                        <label>{tg('clientId')}</label>
-                        <input
-                          type="text"
-                          value={gmailForm.client_id}
-                          onChange={(e) => setGmailForm({...gmailForm, client_id: e.target.value})}
-                          placeholder={tg('clientIdPlaceholder')}
-                          required
-                        />
-                      </div>
-                      <div className="settings-field">
-                        <label>{tg('clientSecret')}</label>
-                        <input
-                          type="password"
-                          value={gmailForm.client_secret}
-                          onChange={(e) => setGmailForm({...gmailForm, client_secret: e.target.value})}
-                          placeholder={tg('clientSecretPlaceholder')}
-                          required={!gmailEditId}
-                        />
-                        {gmailEditId && (
-                          <p className="settings-hint">{tg('secretHint')}</p>
-                        )}
-                      </div>
-                      {gmailError && <p className="setup-error">{gmailError}</p>}
-                      <div className="settings-form-actions">
-                        <button type="button" className="btn-secondary" onClick={handleGmailCancel}>
-                          {t('cancel')}
-                        </button>
-                        <button type="submit" className="btn-primary" disabled={gmailSaving}>
-                          {gmailSaving
-                            ? t('loading')
-                            : (gmailEditId ? tg('update') : tg('create'))}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
+              <hr className="settings-divider" />
+              <h3>{t('mailConnectionSection')}</h3>
+              {connectivity && (
+                <div className="connectivity-status">
+                  <StatusBadge ok={connectivity.gmail.ok} label={connectivity.gmail.ok ? t('connOk') : t('connFail')} />
                 </div>
               )}
+              <button type="button" className="btn-secondary" onClick={handleTestConn}>{t('testConn')}</button>
+            </div>
+          )}
 
-              {/* Delete Confirmation */}
-              {gmailDeleteId && (
-                <div className="settings-restart-dialog">
-                  <div className="settings-restart-content">
-                    <h3>{tg('deleteConfirm')}</h3>
-                    <p>{tg('deleteHint')}</p>
-                    {gmailDeleteTarget && (
-                      <p className="settings-hint">{`${tg('name')}: ${gmailDeleteTarget.name}`}</p>
+          {/* Gmail Form Modal */}
+          {gmailFormOpen && (
+            <div className="settings-restart-dialog" onClick={handleGmailCancel}>
+              <div className="settings-restart-content gmail-modal-content" onClick={(e) => e.stopPropagation()}>
+                <h3>{gmailEditId ? tg('modalEditTitle') : tg('modalCreateTitle')}</h3>
+                <form onSubmit={handleGmailSubmit} className="settings-form gmail-cred-form">
+                  <div className="settings-field">
+                    <label>{tg('name')}</label>
+                    <input
+                      type="text"
+                      value={gmailForm.name}
+                      onChange={(e) => setGmailForm({...gmailForm, name: e.target.value})}
+                      placeholder={tg('namePlaceholder')}
+                      required
+                    />
+                  </div>
+                  <div className="settings-field">
+                    <label>{tg('clientId')}</label>
+                    <input
+                      type="text"
+                      value={gmailForm.client_id}
+                      onChange={(e) => setGmailForm({...gmailForm, client_id: e.target.value})}
+                      placeholder={tg('clientIdPlaceholder')}
+                      required
+                    />
+                  </div>
+                  <div className="settings-field">
+                    <label>{tg('clientSecret')}</label>
+                    <input
+                      type="password"
+                      value={gmailForm.client_secret}
+                      onChange={(e) => setGmailForm({...gmailForm, client_secret: e.target.value})}
+                      placeholder={tg('clientSecretPlaceholder')}
+                      required={!gmailEditId}
+                    />
+                    {gmailEditId && (
+                      <p className="settings-hint">{tg('secretHint')}</p>
                     )}
-                    <div className="settings-restart-actions">
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => setGmailDeleteId(null)}
-                      >
-                        {t('cancel')}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-primary btn-danger"
-                        onClick={handleGmailDelete}
-                      >
-                        {tg('delete')}
-                      </button>
-                    </div>
                   </div>
+                  {gmailError && <p className="setup-error">{gmailError}</p>}
+                  <div className="settings-form-actions">
+                    <button type="button" className="btn-secondary" onClick={handleGmailCancel}>
+                      {t('cancel')}
+                    </button>
+                    <button type="submit" className="btn-primary" disabled={gmailSaving}>
+                      {gmailSaving
+                        ? t('loading')
+                        : (gmailEditId ? tg('update') : tg('create'))}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Delete Confirmation */}
+          {gmailDeleteId && (
+            <div className="settings-restart-dialog">
+              <div className="settings-restart-content">
+                <h3>{tg('deleteConfirm')}</h3>
+                <p>{tg('deleteHint')}</p>
+                {gmailDeleteTarget && (
+                  <p className="settings-hint">{`${tg('name')}: ${gmailDeleteTarget.name}`}</p>
+                )}
+                <div className="settings-restart-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setGmailDeleteId(null)}
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary btn-danger"
+                    onClick={handleGmailDelete}
+                  >
+                    {tg('delete')}
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -739,8 +767,8 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Save/Reset buttons (except account and gmail tabs) */}
-          {tab !== 'account' && tab !== 'gmail' && (
+          {/* Save button (except account tab) */}
+          {tab !== 'account' && (
             <div className="settings-actions">
               <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
                 {saving ? '…' : t('save')}

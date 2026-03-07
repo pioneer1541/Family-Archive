@@ -1823,10 +1823,14 @@ def connectivity_health(db: Session = Depends(get_db)):
     except Exception as exc:
         qdrant_result = {"ok": False, "error": str(exc)}
 
-    # NAS directory
-    nas_dir = str(get_runtime_setting("nas_default_source_dir", db) or "").strip()
+    # Source directory (local/NAS)
+    from app.services.path_scan import resolve_source_root
+
+    source_type, source_root = resolve_source_root(db)
+    nas_dir = str(source_root or "").strip()
     nas_result = {
         "ok": False,
+        "source_type": source_type,
         "path": nas_dir,
         "readable": False,
         "writable": False,

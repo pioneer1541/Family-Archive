@@ -181,11 +181,12 @@ def execute_sync_run(
         for p in (nas_out.get("queued_paths") or [])
         if str(p or "").strip()
     ]
+    nas_source_type = str(nas_out.get("source_type") or "nas").strip() or "nas"
     for source_path in nas_paths_to_track:
         _upsert_item(
             db,
             run_id=run.id,
-            source_type="nas",
+            source_type=nas_source_type,
             source_path=source_path,
             file_name=_item_name(source_path),
             file_size=_item_size(source_path),
