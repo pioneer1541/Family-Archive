@@ -20,6 +20,7 @@ os.environ["FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER"] = "1"
 os.environ["FAMILY_VAULT_QDRANT_ENABLE"] = "0"
 os.environ["FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED"] = "0"
 os.environ["FAMILY_VAULT_MAIL_POLL_ENABLED"] = "0"
+os.environ["FAMILY_VAULT_BCRYPT_ROUNDS"] = "4"
 
 from app.db import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402

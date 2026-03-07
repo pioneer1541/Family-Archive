@@ -35,6 +35,17 @@ _ACCESS_TOKEN_EXPIRE_HOURS = 24
 COOKIE_NAME = "fkv_token"
 
 _ADMIN_PASSWORD_KEY = "admin_password_hash"
+_DEFAULT_BCRYPT_ROUNDS = 12
+
+
+def _get_bcrypt_rounds() -> int:
+    raw = os.environ.get("FAMILY_VAULT_BCRYPT_ROUNDS", str(_DEFAULT_BCRYPT_ROUNDS))
+    try:
+        rounds = int(raw)
+    except (TypeError, ValueError):
+        return _DEFAULT_BCRYPT_ROUNDS
+    # bcrypt valid cost range is 4..31.
+    return min(31, max(4, rounds))
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +68,7 @@ class UserContext:
 
 
 def hash_password(plain: str) -> str:
-    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt(rounds=_get_bcrypt_rounds())).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
