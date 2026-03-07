@@ -3,7 +3,7 @@ import os
 import re
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, extract, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import BillFact, Document
@@ -498,20 +498,20 @@ def list_recent_bill_facts(
     if since is not None:
         stmt = stmt.where(anchor_expr >= since)
     if target_month is not None:
-        month_str = f"{int(target_month):02d}"
+        month_val = int(target_month)
         date_cols = [
             BillFact.billing_period_end,
             BillFact.billing_period_start,
             BillFact.due_date,
         ]
         if target_year is not None:
-            year_str = str(int(target_year))
+            year_val = int(target_year)
             stmt = stmt.where(
                 or_(
                     *(
                         and_(
-                            func.strftime("%m", col) == month_str,
-                            func.strftime("%Y", col) == year_str,
+                            extract("month", col) == month_val,
+                            extract("year", col) == year_val,
                         )
                         for col in date_cols
                     )
@@ -519,7 +519,7 @@ def list_recent_bill_facts(
             )
         else:
             stmt = stmt.where(
-                or_(*(func.strftime("%m", col) == month_str for col in date_cols))
+                or_(*(extract("month", col) == month_val for col in date_cols))
             )
     rows = db.execute(
         stmt.order_by(anchor_expr.desc().nullslast(), BillFact.updated_at.desc()).limit(

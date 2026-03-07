@@ -1,12 +1,12 @@
 import argparse
 import datetime as dt
 import json
-import sqlite3
 import sys
 from pathlib import Path
 from typing import Any
 
 import requests
+from sqlalchemy import create_engine, text
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -31,12 +31,20 @@ def _db_path_from_url(database_url: str) -> str:
     raise ValueError(f"unsupported_database_url:{raw}")
 
 
-def _load_chunk_doc_map(db_path: str) -> dict[str, str]:
-    conn = sqlite3.connect(str(db_path))
-    try:
-        rows = conn.execute("select id, document_id from chunks").fetchall()
-    finally:
-        conn.close()
+def _resolve_database_url(*, db_path: str | None, database_url: str | None) -> str:
+    raw = str(database_url or "").strip()
+    if raw:
+        return raw
+    path = str(db_path or "").strip()
+    if path:
+        return f"sqlite:///{path}"
+    return str(settings.database_url or "").strip()
+
+
+def _load_chunk_doc_map(database_url: str) -> dict[str, str]:
+    engine = create_engine(str(database_url), future=True)
+    with engine.connect() as conn:
+        rows = conn.execute(text("select id, document_id from chunks")).fetchall()
     out: dict[str, str] = {}
     for chunk_id, doc_id in rows:
         cid = str(chunk_id or "").strip()
@@ -102,7 +110,8 @@ def _delete_point_batch(
 
 def reconcile_qdrant_points(
     *,
-    db_path: str,
+    db_path: str | None = None,
+    database_url: str | None = None,
     qdrant_url: str,
     collection: str,
     apply: bool,
@@ -112,7 +121,10 @@ def reconcile_qdrant_points(
     sample_limit: int = 40,
 ) -> dict[str, Any]:
     started_at = _now_iso()
-    chunk_doc_map = _load_chunk_doc_map(db_path)
+    resolved_database_url = _resolve_database_url(
+        db_path=db_path, database_url=database_url
+    )
+    chunk_doc_map = _load_chunk_doc_map(resolved_database_url)
 
     to_delete: list[str] = []
     reasons: dict[str, int] = {}
@@ -179,7 +191,8 @@ def reconcile_qdrant_points(
         "finished_at": finished_at,
         "qdrant_url": str(qdrant_url),
         "collection": str(collection),
-        "db_path": str(db_path),
+        "database_url": str(resolved_database_url),
+        "db_path": str(db_path or ""),
         "apply": bool(apply),
         "scanned_points": int(scanned),
         "kept_points": int(kept),
@@ -193,10 +206,14 @@ def reconcile_qdrant_points(
 
 
 def _parse_args() -> argparse.Namespace:
-    default_db_path = _db_path_from_url(settings.database_url)
+    default_database_url = str(settings.database_url or "").strip()
+    default_db_path = ""
+    if default_database_url.startswith("sqlite"):
+        default_db_path = _db_path_from_url(default_database_url)
     default_output = (ROOT_DIR.parent / "data" / "qdrant_reconcile_report.json").resolve()
-    parser = argparse.ArgumentParser(description="Reconcile Qdrant points against SQLite chunks table.")
-    parser.add_argument("--db-path", default=default_db_path, help="SQLite database file path.")
+    parser = argparse.ArgumentParser(description="Reconcile Qdrant points against chunks table.")
+    parser.add_argument("--database-url", default=default_database_url, help="Database URL for chunks table lookup.")
+    parser.add_argument("--db-path", default=default_db_path, help="SQLite database file path (legacy option).")
     parser.add_argument("--qdrant-url", default=settings.qdrant_url, help="Qdrant base URL.")
     parser.add_argument("--collection", default=settings.qdrant_collection, help="Qdrant collection name.")
     parser.add_argument("--page-size", type=int, default=256, help="Qdrant scroll page size.")
@@ -212,6 +229,7 @@ def main() -> int:
     args = _parse_args()
     report = reconcile_qdrant_points(
         db_path=str(args.db_path),
+        database_url=str(args.database_url),
         qdrant_url=str(args.qdrant_url),
         collection=str(args.collection),
         apply=bool(args.apply),
