@@ -90,10 +90,13 @@ def _normalize_row(row: dict[str, Any]) -> dict[str, Any]:
     for key, value in row.items():
         if value is None:
             out[key] = None
-        elif isinstance(value, (str, int, float, bool)):
+        elif isinstance(value, str):
+            # Remove NUL bytes (chr(0)) that PostgreSQL cannot handle
+            out[key] = value.replace(chr(0), "")
+        elif isinstance(value, (int, float, bool)):
             out[key] = value
         else:
-            out[key] = str(value)
+            out[key] = str(value).replace(chr(0), "")
     return out
 
 
@@ -182,7 +185,7 @@ def migrate_sqlite_to_pg(
                             col_name: row.get(col_name)
                             for col_name in pg_table.columns.keys()
                         }
-                        buffer.append(payload)
+                        buffer.append(_normalize_row(payload))
                         if len(buffer) >= max(1, int(batch_size)):
                             pg_conn.execute(pg_table.insert(), buffer)
                             inserted += len(buffer)
