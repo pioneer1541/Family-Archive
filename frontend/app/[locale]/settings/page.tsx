@@ -9,7 +9,7 @@ import type {AppSettingItem, ConnectivityStatus, KeywordLists, OllamaModel, Gmai
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type TabKey = 'llm' | 'storage' | 'mail' | 'timeout' | 'advanced' | 'keywords' | 'account';
+type TabKey = 'llm' | 'storage' | 'mail' | 'keywords' | 'account';
 
 // ---------------------------------------------------------------------------
 // Helper functions
@@ -354,8 +354,6 @@ export default function SettingsPage() {
     {key: 'llm', label: t('tabLlm')},
     {key: 'storage', label: t('tabStorage')},
     {key: 'mail', label: t('tabMail')},
-    {key: 'timeout', label: t('tabTimeout')},
-    {key: 'advanced', label: t('tabAdvanced')},
     {key: 'keywords', label: t('tabKeywords')},
     {key: 'account', label: t('tabAccount')},
   ];
@@ -400,6 +398,42 @@ export default function SettingsPage() {
                   />
                 );
               })}
+              <hr className="settings-divider" />
+              {TIMEOUT_KEYS.map((key) => {
+                const meta = items.find((i) => i.key === key);
+                const label = isZh ? (meta?.label_zh ?? key) : (meta?.label_en ?? key);
+                return (
+                  <div key={key} className="settings-field">
+                    <label>{label}</label>
+                    <input
+                      type="number"
+                      value={getVal(key)}
+                      onChange={(e) => setVal(key, e.target.value)}
+                      min={5}
+                    />
+                  </div>
+                );
+              })}
+              <hr className="settings-divider" />
+              <div className="settings-field">
+                <label>{t('ollamaUrl')}</label>
+                <input
+                  type="url"
+                  value={getVal('ollama_base_url')}
+                  onChange={(e) => setVal('ollama_base_url', e.target.value)}
+                />
+              </div>
+              <div className="settings-field connectivity-row">
+                <button type="button" className="btn-secondary" onClick={handleTestConn}>{t('testConn')}</button>
+                {connectivity && (
+                  <StatusBadge
+                    ok={connectivity.ollama.ok}
+                    label={connectivity.ollama.ok
+                      ? `${t('connOk')} (${connectivity.ollama.model_count} models)`
+                      : t('connFail')}
+                  />
+                )}
+              </div>
             </div>
           )}
 
@@ -656,52 +690,6 @@ export default function SettingsPage() {
                     {tg('delete')}
                   </button>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Timeout Tab */}
-          {tab === 'timeout' && (
-            <div className="settings-section">
-              {TIMEOUT_KEYS.map((key) => {
-                const meta = items.find((i) => i.key === key);
-                const label = isZh ? (meta?.label_zh ?? key) : (meta?.label_en ?? key);
-                return (
-                  <div key={key} className="settings-field">
-                    <label>{label}</label>
-                    <input
-                      type="number"
-                      value={getVal(key)}
-                      onChange={(e) => setVal(key, e.target.value)}
-                      min={5}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Advanced Tab */}
-          {tab === 'advanced' && (
-            <div className="settings-section">
-              <div className="settings-field">
-                <label>{t('ollamaUrl')}</label>
-                <input
-                  type="url"
-                  value={getVal('ollama_base_url')}
-                  onChange={(e) => setVal('ollama_base_url', e.target.value)}
-                />
-              </div>
-              <div className="settings-field connectivity-row">
-                <button type="button" className="btn-secondary" onClick={handleTestConn}>{t('testConn')}</button>
-                {connectivity && (
-                  <StatusBadge
-                    ok={connectivity.ollama.ok}
-                    label={connectivity.ollama.ok
-                      ? `${t('connOk')} (${connectivity.ollama.model_count} models)`
-                      : t('connFail')}
-                  />
-                )}
               </div>
             </div>
           )}

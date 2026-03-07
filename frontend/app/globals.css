@@ -2933,12 +2933,15 @@ body.keyboard-open {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 2147483000;
   animation: fade-in 0.2s ease;
 }
 
 .settings-restart-content {
-  background: var(--paper);
+  position: relative;
+  z-index: 2147483001;
+  background: var(--surface);
+  color: var(--ink);
   border-radius: 12px;
   padding: 24px;
   max-width: 400px;
