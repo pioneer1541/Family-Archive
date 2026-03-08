@@ -4,6 +4,7 @@ import mimetypes
 import os
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import requests
@@ -553,11 +554,10 @@ def list_documents(
         offset=offset,
     )
     tag_map = crud.get_document_tags_map(db, [item.id for item in items])
-    return DocumentListResponse(
-        total=total,
-        limit=limit,
-        offset=offset,
-        items=[
+    response_items: list[DocumentListItem] = []
+    for row in items:
+        source_available = crud.document_source_available_cached(row)
+        response_items.append(
             DocumentListItem(
                 doc_id=row.id,
                 file_name=row.file_name,
@@ -570,13 +570,18 @@ def list_documents(
                 category_path=row.category_path,
                 category_label_en=row.category_label_en or "",
                 category_label_zh=row.category_label_zh or "",
-                source_available=crud.document_source_available_cached(row),
-                source_missing_reason="" if crud.document_source_available_cached(row) else "source_file_missing",
+                source_available=source_available,
+                source_missing_reason="" if source_available else "source_file_missing",
                 tags=tag_map.get(row.id, []),
                 updated_at=row.updated_at,
             )
-            for row in items
-        ],
+        )
+
+    return DocumentListResponse(
+        total=total,
+        limit=limit,
+        offset=offset,
+        items=response_items,
     )
 
 
@@ -1687,30 +1692,37 @@ def connectivity_health(db: Session = Depends(get_db)):
     """Check connectivity to Ollama, Qdrant, NAS, and Gmail."""
     import time
 
-    # Ollama
     ollama_url = get_runtime_setting("ollama_base_url", db)
-    try:
-        t0 = time.monotonic()
-        resp = requests.get(f"{ollama_url}/api/tags", timeout=5)
-        resp.raise_for_status()
-        model_count = len(resp.json().get("models", []))
-        ollama_result = {
-            "ok": True,
-            "model_count": model_count,
-            "latency_ms": int((time.monotonic() - t0) * 1000),
-        }
-    except Exception as exc:
-        ollama_result = {"ok": False, "error": str(exc), "model_count": 0}
 
-    # Qdrant
-    try:
-        qdrant_resp = requests.get(f"{settings.qdrant_url}/collections/{settings.qdrant_collection}", timeout=5)
-        qdrant_result = {
-            "ok": qdrant_resp.status_code == 200,
-            "collection": settings.qdrant_collection,
-        }
-    except Exception as exc:
-        qdrant_result = {"ok": False, "error": str(exc)}
+    def _check_ollama() -> dict:
+        try:
+            t0 = time.monotonic()
+            resp = requests.get(f"{ollama_url}/api/tags", timeout=5)
+            resp.raise_for_status()
+            model_count = len(resp.json().get("models", []))
+            return {
+                "ok": True,
+                "model_count": model_count,
+                "latency_ms": int((time.monotonic() - t0) * 1000),
+            }
+        except Exception as exc:
+            return {"ok": False, "error": str(exc), "model_count": 0}
+
+    def _check_qdrant() -> dict:
+        try:
+            qdrant_resp = requests.get(f"{settings.qdrant_url}/collections/{settings.qdrant_collection}", timeout=5)
+            return {
+                "ok": qdrant_resp.status_code == 200,
+                "collection": settings.qdrant_collection,
+            }
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        ollama_future = executor.submit(_check_ollama)
+        qdrant_future = executor.submit(_check_qdrant)
+        ollama_result = ollama_future.result()
+        qdrant_result = qdrant_future.result()
 
     # Source directory (local/NAS)
     from app.services.path_scan import resolve_source_root
