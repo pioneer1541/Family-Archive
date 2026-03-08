@@ -5,7 +5,8 @@ from collections.abc import Generator
 from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.auth import COOKIE_NAME, decode_access_token, get_current_user as _get_current_user_from_token
+from app.auth import COOKIE_NAME, decode_access_token
+from app.auth import get_current_user as _get_current_user_from_token
 from app.db import SessionLocal
 from app.models import User
 

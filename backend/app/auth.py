@@ -157,7 +157,9 @@ def verify_admin_password(plain: str, db: Session) -> bool:
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
     """Get a user by email (case-insensitive)."""
     normalized_email = email.lower().strip()
-    return db.execute(select(User).where(User.email == normalized_email, User.deleted_at.is_(None))).scalar_one_or_none()
+    return db.execute(
+        select(User).where(User.email == normalized_email, User.deleted_at.is_(None))
+    ).scalar_one_or_none()
 
 
 def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
