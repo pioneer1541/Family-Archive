@@ -1681,6 +1681,8 @@ def restart_services(_: object = Depends(get_current_user)):
 _root_router = APIRouter()
 _root_router.include_router(router)
 _root_router.include_router(auth_router)
+# Backward-compatible auth endpoints for clients calling /api/v1/auth/* directly.
+_root_router.include_router(auth_router, prefix="/api")
 router = _root_router
 
 

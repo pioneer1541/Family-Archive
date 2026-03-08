@@ -28,7 +28,7 @@ from app.schemas import (
 )
 
 settings = get_settings()
-router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+router = APIRouter(prefix=f"{settings.api_prefix}/auth", tags=["auth"])
 
 
 def _to_user_response(user: User) -> UserResponse:
