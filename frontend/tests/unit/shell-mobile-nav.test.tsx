@@ -1,7 +1,7 @@
 import type {ReactNode} from 'react';
 import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
-import {AppShell} from '@src/components/shell/AppShell';
+import {ProtectedAppShell} from '@src/components/shell/ProtectedAppShell';
 
 let mockPathname = '/dashboard';
 
@@ -61,9 +61,9 @@ describe('App shell mobile drawer and bottom tabs', () => {
 
   it('toggles mobile sidebar with topbar button and backdrop', async () => {
     render(
-      <AppShell>
+      <ProtectedAppShell>
         <div>child</div>
-      </AppShell>
+      </ProtectedAppShell>
     );
 
     const sidebar = document.querySelector('.sidebar');
@@ -84,9 +84,9 @@ describe('App shell mobile drawer and bottom tabs', () => {
 
   it('keeps bottom tab active state in sync and auto closes drawer on route change', async () => {
     const {rerender} = render(
-      <AppShell>
+      <ProtectedAppShell>
         <div>child</div>
-      </AppShell>
+      </ProtectedAppShell>
     );
 
     fireEvent.click(screen.getByRole('button', {name: '菜单'}));
@@ -95,9 +95,9 @@ describe('App shell mobile drawer and bottom tabs', () => {
 
     mockPathname = '/docs';
     rerender(
-      <AppShell>
+      <ProtectedAppShell>
         <div>child</div>
-      </AppShell>
+      </ProtectedAppShell>
     );
 
     await waitFor(() => {
@@ -128,9 +128,9 @@ describe('App shell mobile drawer and bottom tabs', () => {
     });
 
     render(
-      <AppShell>
+      <ProtectedAppShell>
         <div>child</div>
-      </AppShell>
+      </ProtectedAppShell>
     );
 
     await waitFor(() => {
