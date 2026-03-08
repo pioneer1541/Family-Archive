@@ -156,6 +156,10 @@ def _infer_answerability(
 
 def _presence_evidence_sufficient(query: str, chunks: list[dict[str, Any]]) -> bool:
     lowered = str(query or "").lower()
+    # Normalize common Chinese question wrappers so target entities are not
+    # swallowed into a single long token (e.g. "我们家里有没有太阳能").
+    for wrap in ("我们", "家里", "有没有", "是否", "有无"):
+        lowered = lowered.replace(wrap, " ")
     tokens = re.findall(r"[a-z]{3,}|[\u4e00-\u9fff]{2,}", lowered)
     stop = {
         "我们",
