@@ -17,7 +17,7 @@ class APIKeyEncryptor:
     加密密钥来源优先级：
     1. 环境变量 FAMILY_VAULT_ENCRYPTION_KEY
     2. 密钥文件 /app/secrets/encryption.key
-    3. 用户目录 ~/.family-vault/encryption.key
+    3. 数据目录 /app/data/.family-vault/encryption.key
     """
 
     def __init__(self):
@@ -32,19 +32,17 @@ class APIKeyEncryptor:
             return env_key.encode()
 
         # 2. 从密钥文件获取
-        key_paths = [
-            Path("/app/secrets/encryption.key"),
-            Path.home() / ".family-vault" / "encryption.key",
-        ]
+        fallback_key_file = Path("/app/data/.family-vault/encryption.key")
+        key_paths = [Path("/app/secrets/encryption.key"), fallback_key_file]
 
         for key_file in key_paths:
             if key_file.exists():
                 with open(key_file, "rb") as f:
                     return f.read()
 
-        # 3. 创建新密钥（仅创建在用户目录下）
+        # 3. 创建新密钥（仅创建在 /app/data 下）
         key = Fernet.generate_key()
-        key_file = Path.home() / ".family-vault" / "encryption.key"
+        key_file = fallback_key_file
         key_file.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
         with open(key_file, "wb") as f:
             f.write(key)

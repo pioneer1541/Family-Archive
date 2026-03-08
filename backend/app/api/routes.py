@@ -1738,6 +1738,8 @@ def create_gmail_credentials(
     from app.models import GmailCredentials
     from app.utils.encryption import encrypt
 
+    Path("/app/data").mkdir(parents=True, exist_ok=True)
+
     cred = GmailCredentials(
         id=str(uuid.uuid4()),
         name=body["name"],
