@@ -20,6 +20,7 @@
   --topbar-height: 57px;
   --bottom-tab-height: 60px;
   --bottom-tab-visible: 0px;
+  --keyboard-open: 0;
   --agent-input-height: 88px;
 }
 
@@ -246,10 +247,6 @@ a {
   align-items: center;
   padding: 0 4px;
   padding-bottom: env(safe-area-inset-bottom);
-}
-
-.bottom-tab-bar.hidden-by-keyboard {
-  display: none !important;
 }
 
 .tab-item {
@@ -2250,10 +2247,6 @@ a {
   text-align: right;
 }
 
-body.keyboard-open {
-  --bottom-tab-visible: 0px;
-}
-
 .empty-text {
   text-align: center;
   padding: 60px;
@@ -2316,15 +2309,11 @@ body.keyboard-open {
 
 @media (max-width: 768px) {
   :root {
-    --bottom-tab-visible: calc(var(--bottom-tab-height) + env(safe-area-inset-bottom));
+    --bottom-tab-visible: calc((1 - var(--keyboard-open)) * (var(--bottom-tab-height) + env(safe-area-inset-bottom)));
   }
 
   body {
     display: block;
-  }
-
-  body.keyboard-open {
-    --bottom-tab-visible: 0px;
   }
 
   .sidebar {

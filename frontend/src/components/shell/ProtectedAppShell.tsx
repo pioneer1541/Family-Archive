@@ -43,7 +43,6 @@ export function ProtectedAppShell({children}: {children: ReactNode}) {
   const pathname = usePathname();
   const t = useTranslations();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   useEffect(() => {
     setMobileSidebarOpen(false);
@@ -52,7 +51,6 @@ export function ProtectedAppShell({children}: {children: ReactNode}) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const root = document.documentElement;
-    const body = document.body;
 
     const updateViewportState = () => {
       const vv = window.visualViewport;
@@ -60,9 +58,7 @@ export function ProtectedAppShell({children}: {children: ReactNode}) {
       root.style.setProperty('--app-height', `${viewportHeight}px`);
       const keyboardDelta = Math.max(0, Math.round(window.innerHeight - (vv?.height ?? window.innerHeight)));
       const isKeyboardOpen = keyboardDelta >= 140;
-      setKeyboardOpen(isKeyboardOpen);
-      body.classList.toggle('keyboard-open', isKeyboardOpen);
-      root.style.setProperty('--bottom-tab-visible', isKeyboardOpen ? '0px' : 'calc(var(--bottom-tab-height) + env(safe-area-inset-bottom))');
+      root.style.setProperty('--keyboard-open', isKeyboardOpen ? '1' : '0');
     };
 
     updateViewportState();
@@ -72,7 +68,7 @@ export function ProtectedAppShell({children}: {children: ReactNode}) {
     return () => {
       window.removeEventListener('resize', updateViewportState);
       window.visualViewport?.removeEventListener('resize', updateViewportState);
-      body.classList.remove('keyboard-open');
+      root.style.setProperty('--keyboard-open', '0');
     };
   }, []);
 
@@ -97,11 +93,11 @@ export function ProtectedAppShell({children}: {children: ReactNode}) {
                   id="sidebar-backdrop"
                   onClick={() => setMobileSidebarOpen(false)}
                 />
-                <div className={`main${keyboardOpen ? ' keyboard-open' : ''}`}>
+                <div className="main">
                   <Topbar onToggleMobileSidebar={() => setMobileSidebarOpen((prev) => !prev)} />
                   <div className={`content${isAgentRoute ? ' content-agent' : ''}`}>{children}</div>
                 </div>
-                <nav className={`bottom-tab-bar${keyboardOpen ? ' hidden-by-keyboard' : ''}`}>
+                <nav className="bottom-tab-bar">
                   {MOBILE_NAV_ITEMS.map((item) => (
                     <Link
                       key={item.key}

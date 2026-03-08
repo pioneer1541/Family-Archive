@@ -52,7 +52,6 @@ vi.mock('@src/lib/api/kb-client', () => ({
 describe('App shell mobile drawer and bottom tabs', () => {
   beforeEach(() => {
     mockPathname = '/dashboard';
-    document.body.classList.remove('keyboard-open');
     Object.defineProperty(window, 'visualViewport', {
       value: undefined,
       configurable: true
@@ -134,8 +133,7 @@ describe('App shell mobile drawer and bottom tabs', () => {
     );
 
     await waitFor(() => {
-      expect(document.body.classList.contains('keyboard-open')).toBe(true);
-      expect(document.querySelector('.bottom-tab-bar')).toHaveClass('hidden-by-keyboard');
+      expect(document.documentElement.style.getPropertyValue('--keyboard-open')).toBe('1');
     });
 
     expect(typeof resizeHandler === 'function' || resizeHandler === null).toBe(true);
