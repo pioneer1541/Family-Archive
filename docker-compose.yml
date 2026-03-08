@@ -47,7 +47,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # 请在此处挂载 NAS/本地目录，然后在 Settings UI 中设置 NAS 源目录路径。
       # - /mnt/nas:/mnt/nas:ro
-      # - /mnt/nas:/volume1/Family_Archives
+      - /mnt/nas:/volume1/Family_Archives:ro
     ports:
       - "18180:18080"
     depends_on:
@@ -104,7 +104,7 @@ services:
       - ./secrets/gmail:/app/secrets/gmail:ro
       # 请在此处挂载 NAS/本地目录，然后在 Settings UI 中设置 NAS 源目录路径。
       # - /mnt/nas:/mnt/nas:ro
-      # - /mnt/nas:/volume1/Family_Archives:ro
+      - /mnt/nas:/volume1/Family_Archives:ro
     depends_on:
       - redis
       - qdrant
