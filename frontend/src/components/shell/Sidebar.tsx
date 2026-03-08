@@ -2,6 +2,7 @@
 
 import {useTranslations} from 'next-intl';
 import {Link, usePathname} from '@/i18n/navigation';
+import {normalizePath} from '@src/lib/utils/paths';
 
 interface NavItem {
   href: '/dashboard' | '/docs' | '/cats' | '/agent';
@@ -20,10 +21,6 @@ const NAV_ITEMS: NavItem[] = [
   {href: '/cats', icon: '⊟', key: 'cats'},
   {href: '/agent', icon: '✦', key: 'agent'}
 ];
-
-function normalizePath(pathname: string): string {
-  return String(pathname || '').replace(/^\/(zh-CN|en-AU)(?=\/|$)/, '') || '/';
-}
 
 function isActive(pathname: string, href: string): boolean {
   const normalized = normalizePath(pathname);

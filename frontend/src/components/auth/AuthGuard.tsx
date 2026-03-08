@@ -3,14 +3,24 @@
 import {useEffect, useState} from 'react';
 import {useRouter, usePathname} from 'next/navigation';
 import {getKbClient} from '@src/lib/api/kb-client';
+import {isPublicPath} from '@src/lib/utils/paths';
 
-// Routes that don't require authentication
-const PUBLIC_PATHS = ['/setup', '/login', '/register'];
+const AUTH_STATUS_TIMEOUT_MS = 8000;
 
-function isPublicPath(pathname: string): boolean {
-  // Strip locale prefix
-  const stripped = String(pathname || '').replace(/^\/(zh-CN|en-AU)(?=\/|$)/, '') || '/';
-  return PUBLIC_PATHS.some((p) => stripped === p || stripped.startsWith(p + '/'));
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timerId = window.setTimeout(() => {
+      reject(new Error('auth status timeout'));
+    }, timeoutMs);
+
+    promise.then((value) => {
+      window.clearTimeout(timerId);
+      resolve(value);
+    }).catch((error) => {
+      window.clearTimeout(timerId);
+      reject(error);
+    });
+  });
 }
 
 export function AuthGuard({children}: {children: React.ReactNode}) {
@@ -31,25 +41,37 @@ export function AuthGuard({children}: {children: React.ReactNode}) {
       return;
     }
 
-    client.getAuthStatus().then(async (status) => {
-      const locale = pathname.startsWith('/en-AU') ? 'en-AU' : 'zh-CN';
+    let isMounted = true;
+    const locale = pathname.startsWith('/en-AU') ? 'en-AU' : 'zh-CN';
+    const safeReplace = (target: string) => {
+      if (!isMounted) return;
+      router.replace(target);
+    };
+
+    withTimeout(client.getAuthStatus(), AUTH_STATUS_TIMEOUT_MS).then(async (status) => {
+      if (!isMounted) return;
       if (!status.setup_complete) {
-        router.replace(`/${locale}/setup`);
+        safeReplace(`/${locale}/setup`);
         return;
       }
       if (client.getMe) {
         const me = await client.getMe();
+        if (!isMounted) return;
         if (!me) {
-          router.replace(`/${locale}/login`);
+          safeReplace(`/${locale}/login`);
           return;
         }
       }
+      if (!isMounted) return;
       setChecked(true);
     }).catch(() => {
-      // On error (e.g. 401), redirect to login
-      const locale = pathname.startsWith('/en-AU') ? 'en-AU' : 'zh-CN';
-      router.replace(`/${locale}/login`);
+      if (!isMounted) return;
+      safeReplace(`/${locale}/login`);
     });
+
+    return () => {
+      isMounted = false;
+    };
   }, [pathname, router]);
 
   if (!checked) {

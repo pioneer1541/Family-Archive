@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app.api.auth_routes import router as auth_router
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.auth import (
     COOKIE_NAME,
     create_access_token,
@@ -999,7 +999,11 @@ _AGENT_STAGE_LABELS: dict[str, dict[str, str]] = {
 
 
 @router.post("/agent/execute/stream")
-def agent_execute_stream(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> StreamingResponse:
+def agent_execute_stream(
+    payload: AgentExecuteRequest,
+    db: Session = Depends(get_db),
+    _: object = Depends(get_current_user),
+) -> StreamingResponse:
     def _event_generator():
         try:
             for node_name, resp in stream_agent_graph(db, payload):
@@ -1014,8 +1018,8 @@ def agent_execute_stream(payload: AgentExecuteRequest, db: Session = Depends(get
                 else:
                     event = {"stage": node_name, "label": label, "done": True}
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-        except Exception as exc:
-            error_event = {"error": True, "detail": str(exc)}
+        except Exception:
+            error_event = {"error": True, "detail": "internal_error"}
             yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
@@ -1556,7 +1560,10 @@ def _setting_source(key: str, db: Session) -> str:
 
 
 @router.get("/settings")
-def get_settings_endpoint(db: Session = Depends(get_db)):
+def get_settings_endpoint(
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Return all runtime-configurable settings with their current values."""
     items = []
     for key in _RUNTIME_CONFIGURABLE:
@@ -1578,7 +1585,11 @@ def get_settings_endpoint(db: Session = Depends(get_db)):
 
 
 @router.patch("/settings")
-def patch_settings(body: dict, db: Session = Depends(get_db)):
+def patch_settings(
+    body: dict,
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Update one or more settings in the DB."""
     for key, value in body.items():
         if key not in _RUNTIME_CONFIGURABLE:
@@ -1600,7 +1611,10 @@ def patch_settings(body: dict, db: Session = Depends(get_db)):
 
 
 @router.get("/settings/keywords")
-def get_keywords(db: Session = Depends(get_db)):
+def get_keywords(
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Return user-defined tagging keyword lists."""
     return {
         "person_keywords": get_runtime_json("person_keywords", db).get("terms", {}),
@@ -1610,7 +1624,11 @@ def get_keywords(db: Session = Depends(get_db)):
 
 
 @router.patch("/settings/keywords")
-def patch_keywords(body: dict, db: Session = Depends(get_db)):
+def patch_keywords(
+    body: dict,
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Update keyword lists. body keys: person_keywords | pet_keywords | location_keywords.
     Each value is a list of strings (or dict {term: canonical}).
@@ -1779,7 +1797,7 @@ def connectivity_health(db: Session = Depends(get_db)):
 
 
 @router.post("/restart")
-def restart_services():
+def restart_services(_: object = Depends(get_current_user)):
     """Restart backend worker to apply configuration changes."""
     manual_cmd = "docker compose restart fkv-worker"
 
@@ -1842,11 +1860,14 @@ router = _root_router
 
 
 @router.get("/gmail/credentials")
-def list_gmail_credentials(db: Session = Depends(get_db)):
+def list_gmail_credentials(
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """List all Gmail credentials (masked)."""
     from app.models import GmailCredentials
 
-    creds = db.execute(select(GmailCredentials).where(GmailCredentials.is_active is True)).scalars().all()
+    creds = db.execute(select(GmailCredentials).where(GmailCredentials.is_active.is_(True))).scalars().all()
     items = []
     for c in creds:
         client_id_masked = c.client_id[:8] + "..." + c.client_id[-4:] if len(c.client_id) > 12 else c.client_id
@@ -1865,7 +1886,11 @@ def list_gmail_credentials(db: Session = Depends(get_db)):
 
 
 @router.post("/gmail/credentials")
-def create_gmail_credentials(body: dict, db: Session = Depends(get_db)):
+def create_gmail_credentials(
+    body: dict,
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Create a new Gmail credential."""
     import uuid
 
@@ -1890,7 +1915,12 @@ def create_gmail_credentials(body: dict, db: Session = Depends(get_db)):
 
 
 @router.put("/gmail/credentials/{cred_id}")
-def update_gmail_credentials(cred_id: str, body: dict, db: Session = Depends(get_db)):
+def update_gmail_credentials(
+    cred_id: str,
+    body: dict,
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Update a Gmail credential."""
     from app.models import GmailCredentials
     from app.utils.encryption import encrypt
@@ -1917,7 +1947,11 @@ def update_gmail_credentials(cred_id: str, body: dict, db: Session = Depends(get
 
 
 @router.delete("/gmail/credentials/{cred_id}")
-def delete_gmail_credentials(cred_id: str, db: Session = Depends(get_db)):
+def delete_gmail_credentials(
+    cred_id: str,
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Delete a Gmail credential."""
     from app.models import GmailCredentials
 

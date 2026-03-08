@@ -13,6 +13,7 @@ import {ContentViewerProvider} from '@src/lib/ui-state/content-viewer';
 import {SyncViewerProvider} from '@src/lib/ui-state/sync-viewer';
 import {TopbarProvider} from '@src/lib/ui-state/topbar';
 import {AuthGuard} from '@src/components/auth/AuthGuard';
+import {normalizePath} from '@src/lib/utils/paths';
 
 const DetailOverlay = dynamic(() => import('@src/components/overlay/DetailOverlay').then((mod) => mod.DetailOverlay), {ssr: false});
 const DocumentContentOverlay = dynamic(() => import('@src/components/overlay/DocumentContentOverlay').then((mod) => mod.DocumentContentOverlay), {ssr: false});
@@ -31,10 +32,6 @@ const MOBILE_NAV_ITEMS: MobileNavItem[] = [
   {href: '/cats', key: 'cats', icon: '⊟'},
   {href: '/agent', key: 'agent', icon: '✦'}
 ];
-
-function normalizePath(pathname: string): string {
-  return String(pathname || '').replace(/^\/(zh-CN|en-AU)(?=\/|$)/, '') || '/';
-}
 
 function isActive(pathname: string, href: string): boolean {
   const normalized = normalizePath(pathname);
