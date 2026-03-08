@@ -5,7 +5,7 @@ import {useRouter, usePathname} from 'next/navigation';
 import {getKbClient} from '@src/lib/api/kb-client';
 
 // Routes that don't require authentication
-const PUBLIC_PATHS = ['/setup', '/login'];
+const PUBLIC_PATHS = ['/setup', '/login', '/register'];
 
 function isPublicPath(pathname: string): boolean {
   // Strip locale prefix
@@ -31,14 +31,20 @@ export function AuthGuard({children}: {children: React.ReactNode}) {
       return;
     }
 
-    client.getAuthStatus().then((status) => {
+    client.getAuthStatus().then(async (status) => {
+      const locale = pathname.startsWith('/en-AU') ? 'en-AU' : 'zh-CN';
       if (!status.setup_complete) {
-        // Derive locale from current path
-        const locale = pathname.startsWith('/en-AU') ? 'en-AU' : 'zh-CN';
         router.replace(`/${locale}/setup`);
-      } else {
-        setChecked(true);
+        return;
       }
+      if (client.getMe) {
+        const me = await client.getMe();
+        if (!me) {
+          router.replace(`/${locale}/login`);
+          return;
+        }
+      }
+      setChecked(true);
     }).catch(() => {
       // On error (e.g. 401), redirect to login
       const locale = pathname.startsWith('/en-AU') ? 'en-AU' : 'zh-CN';

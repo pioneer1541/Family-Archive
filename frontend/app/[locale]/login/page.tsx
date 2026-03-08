@@ -3,6 +3,7 @@
 import {useState} from "react";
 import {useRouter} from "next/navigation";
 import {useLocale, useTranslations} from "next-intl";
+import {Link} from "@/i18n/navigation";
 import {getKbClient} from "@src/lib/api/kb-client";
 
 export default function LoginPage() {
@@ -69,9 +70,9 @@ export default function LoginPage() {
         </form>
         <p className="setup-hint" style={{marginTop: "1rem", textAlign: "center"}}>
           {t("noAccount")}{" "}
-          <a href={`/${locale}/register`} style={{color: "var(--accent)"}}>
+          <Link href="/register" style={{color: "var(--accent)"}}>
             {t("register")}
-          </a>
+          </Link>
         </p>
       </div>
     </div>
