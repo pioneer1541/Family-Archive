@@ -1,4 +1,4 @@
-from typing import Generator
+from collections.abc import Generator
 
 from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy.orm import Session
