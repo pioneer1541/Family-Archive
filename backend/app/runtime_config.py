@@ -14,6 +14,7 @@ import json
 import os
 import threading
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -310,6 +311,28 @@ def invalidate_runtime_cache(*keys: str) -> None:
                 _cache.pop(k, None)
         else:
             _cache.clear()
+
+
+def set_runtime_setting(key: str, value: str, db: Session) -> str:
+    """Persist a runtime setting and invalidate in-memory cache for the key."""
+    if key not in _RUNTIME_CONFIGURABLE:
+        raise KeyError(f"Unknown runtime setting: {key!r}")
+    if db is None:
+        raise ValueError("db session is required")
+
+    from app.models import AppSetting  # avoid circular import at module level
+
+    str_value = str(value)
+    row = db.get(AppSetting, key)
+    if row is None:
+        row = AppSetting(key=key, value=str_value, updated_at=datetime.now(UTC))
+        db.add(row)
+    else:
+        row.value = str_value
+        row.updated_at = datetime.now(UTC)
+    db.commit()
+    invalidate_runtime_cache(key)
+    return str_value
 
 
 def _set_cache(key: str, value: str, now: float) -> None:

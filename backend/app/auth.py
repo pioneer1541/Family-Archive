@@ -86,7 +86,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 def is_setup_complete(db: Session) -> bool:
     """Return True if at least one active admin user exists."""
     result = db.execute(
-        select(User).where(User.role == "admin", User.is_active is True, User.deleted_at is None).limit(1)
+        select(User).where(User.role == "admin", User.is_active.is_(True), User.deleted_at.is_(None)).limit(1)
     ).scalar()
     if result is not None:
         return True
@@ -101,7 +101,7 @@ def set_admin_password(plain: str, db: Session) -> None:
 
     # Try to find existing admin user
     admin_user = db.execute(
-        select(User).where(User.email == "admin@local", User.deleted_at is None)
+        select(User).where(User.email == "admin@local", User.deleted_at.is_(None))
     ).scalar_one_or_none()
 
     if admin_user is not None:
@@ -136,7 +136,7 @@ def verify_admin_password(plain: str, db: Session) -> bool:
     """Return True if plain matches the stored bcrypt hash for admin."""
     # Try admin user first
     admin_user = db.execute(
-        select(User).where(User.email == "admin@local", User.deleted_at is None)
+        select(User).where(User.email == "admin@local", User.deleted_at.is_(None))
     ).scalar_one_or_none()
 
     if admin_user is not None:
@@ -157,12 +157,12 @@ def verify_admin_password(plain: str, db: Session) -> bool:
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
     """Get a user by email (case-insensitive)."""
     normalized_email = email.lower().strip()
-    return db.execute(select(User).where(User.email == normalized_email, User.deleted_at is None)).scalar_one_or_none()
+    return db.execute(select(User).where(User.email == normalized_email, User.deleted_at.is_(None))).scalar_one_or_none()
 
 
 def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
     """Get a user by ID."""
-    return db.execute(select(User).where(User.id == user_id, User.deleted_at is None)).scalar_one_or_none()
+    return db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None))).scalar_one_or_none()
 
 
 def create_user(db: Session, email: str, password: str, role: str = "user") -> User:
