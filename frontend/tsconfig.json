@@ -43,7 +43,8 @@
     ".next/types/**/*.ts",
     ".next-runtime/types/**/*.ts",
     ".next-e2e/types/**/*.ts",
-    "/tmp/fkv-next-build/types/**/*.ts"
+    "/tmp/fkv-next-build/types/**/*.ts",
+    ".next-build/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

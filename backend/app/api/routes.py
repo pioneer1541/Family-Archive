@@ -19,10 +19,13 @@ from app.api.auth_routes import router as auth_router
 from app.api.deps import get_current_user, get_db
 from app.auth import (
     COOKIE_NAME,
+    authenticate_user,
     create_access_token,
+    decode_access_token,
+    get_current_user as get_current_user_from_token,
     is_setup_complete,
     set_admin_password,
-    verify_admin_password,
+    update_user_password,
 )
 from app.celery_app import celery_app
 from app.config import get_settings
@@ -1270,6 +1273,7 @@ class _SetupRequest(BaseModel):
 
 
 class _LoginRequest(BaseModel):
+    username: str
     password: str
 
 
@@ -1297,12 +1301,13 @@ def auth_setup(body: _SetupRequest, db: Session = Depends(get_db)):
 
 @router.post("/auth/login")
 def auth_login(body: _LoginRequest, response: Response, db: Session = Depends(get_db)):
-    """Verify password and set JWT cookie."""
+    """Verify username/password and set JWT cookie."""
     if not is_setup_complete(db):
         raise HTTPException(status_code=400, detail="Setup not complete.")
-    if not verify_admin_password(body.password, db):
-        raise HTTPException(status_code=401, detail="Invalid password.")
-    token = create_access_token()
+    user = authenticate_user(db, body.username, body.password)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid credentials.")
+    token = create_access_token(user)
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
@@ -1327,16 +1332,20 @@ def auth_change_password(
     db: Session = Depends(get_db),
     fkv_token: str | None = Cookie(default=None),
 ):
-    """Change the admin password (requires current session)."""
-    from app.auth import decode_access_token
-
+    """Change current user's password (requires current session)."""
     if not fkv_token or not decode_access_token(fkv_token):
         raise HTTPException(status_code=401, detail="Not authenticated.")
-    if not verify_admin_password(body.old_password, db):
+    user = get_current_user_from_token(db, fkv_token)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    verified = authenticate_user(db, user.username, body.old_password)
+    if verified is None:
         raise HTTPException(status_code=401, detail="Old password incorrect.")
     if len(body.new_password) < 8:
         raise HTTPException(status_code=422, detail="New password must be at least 8 characters.")
-    set_admin_password(body.new_password, db)
+    updated = update_user_password(db, user.id, body.new_password)
+    if not updated:
+        raise HTTPException(status_code=404, detail="User not found.")
     return {"ok": True}
 
 

@@ -48,6 +48,10 @@ def _get_bcrypt_rounds() -> int:
     return min(31, max(4, rounds))
 
 
+def normalize_username(username: str) -> str:
+    return str(username or "").strip().lower()
+
+
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
@@ -58,7 +62,7 @@ class UserContext:
     """User context extracted from JWT token."""
 
     user_id: str
-    email: str
+    username: str
     role: str
 
 
@@ -79,8 +83,42 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Setup state (legacy, for backward compatibility)
+# Setup / bootstrap helpers
 # ---------------------------------------------------------------------------
+
+
+def ensure_default_admin(db: Session) -> User:
+    """Ensure a default active admin user exists: admin/admin."""
+    admin_user = db.execute(
+        select(User).where(User.username == "admin", User.deleted_at.is_(None))
+    ).scalar_one_or_none()
+    if admin_user is not None:
+        return admin_user
+
+    import uuid
+
+    admin_user = User(
+        id=str(uuid.uuid4()),
+        username="admin",
+        email=None,
+        password_hash=hash_password("admin"),
+        role="admin",
+        is_active=True,
+    )
+    db.add(admin_user)
+
+    # Keep legacy setting in sync for old compatibility paths.
+    row = db.get(AppSetting, _ADMIN_PASSWORD_KEY)
+    if row is None:
+        row = AppSetting(key=_ADMIN_PASSWORD_KEY, value=admin_user.password_hash, updated_at=datetime.now(UTC))
+        db.add(row)
+    else:
+        row.value = admin_user.password_hash
+        row.updated_at = datetime.now(UTC)
+
+    db.commit()
+    db.refresh(admin_user)
+    return admin_user
 
 
 def is_setup_complete(db: Session) -> bool:
@@ -90,37 +128,24 @@ def is_setup_complete(db: Session) -> bool:
     ).scalar()
     if result is not None:
         return True
-    # Fall back to legacy admin_password_hash in app_settings
+
+    # Fall back to legacy admin_password_hash in app_settings.
     row = db.get(AppSetting, _ADMIN_PASSWORD_KEY)
-    return row is not None and bool(row.value)
+    if row is not None and bool(row.value):
+        return True
+
+    # Fresh system: initialize default admin/admin.
+    ensure_default_admin(db)
+    return True
 
 
 def set_admin_password(plain: str, db: Session) -> None:
     """Hash and persist the admin password (creates admin user or updates existing)."""
+    admin_user = ensure_default_admin(db)
     hashed = hash_password(plain)
+    admin_user.password_hash = hashed
+    admin_user.updated_at = datetime.now(UTC)
 
-    # Try to find existing admin user
-    admin_user = db.execute(
-        select(User).where(User.email == "admin@local", User.deleted_at.is_(None))
-    ).scalar_one_or_none()
-
-    if admin_user is not None:
-        admin_user.password_hash = hashed
-        admin_user.updated_at = datetime.now(UTC)
-    else:
-        # Create new admin user
-        import uuid
-
-        admin_user = User(
-            id=str(uuid.uuid4()),
-            email="admin@local",
-            password_hash=hashed,
-            role="admin",
-            is_active=True,
-        )
-        db.add(admin_user)
-
-    # Also update legacy app_settings for backward compatibility
     row = db.get(AppSetting, _ADMIN_PASSWORD_KEY)
     if row is None:
         row = AppSetting(key=_ADMIN_PASSWORD_KEY, value=hashed, updated_at=datetime.now(UTC))
@@ -134,15 +159,11 @@ def set_admin_password(plain: str, db: Session) -> None:
 
 def verify_admin_password(plain: str, db: Session) -> bool:
     """Return True if plain matches the stored bcrypt hash for admin."""
-    # Try admin user first
-    admin_user = db.execute(
-        select(User).where(User.email == "admin@local", User.deleted_at.is_(None))
-    ).scalar_one_or_none()
+    admin_user = ensure_default_admin(db)
+    if verify_password(plain, admin_user.password_hash):
+        return True
 
-    if admin_user is not None:
-        return verify_password(plain, admin_user.password_hash)
-
-    # Fall back to legacy app_settings
+    # Legacy fallback.
     row = db.get(AppSetting, _ADMIN_PASSWORD_KEY)
     if row is None:
         return False
@@ -154,9 +175,20 @@ def verify_admin_password(plain: str, db: Session) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def get_user_by_username(db: Session, username: str) -> Optional[User]:
+    normalized = normalize_username(username)
+    if not normalized:
+        return None
+    return db.execute(
+        select(User).where(User.username == normalized, User.deleted_at.is_(None))
+    ).scalar_one_or_none()
+
+
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
     """Get a user by email (case-insensitive)."""
-    normalized_email = email.lower().strip()
+    normalized_email = str(email or "").lower().strip()
+    if not normalized_email:
+        return None
     return db.execute(
         select(User).where(User.email == normalized_email, User.deleted_at.is_(None))
     ).scalar_one_or_none()
@@ -167,14 +199,16 @@ def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
     return db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None))).scalar_one_or_none()
 
 
-def create_user(db: Session, email: str, password: str, role: str = "user") -> User:
+def create_user(db: Session, username: str, password: str, role: str = "user", email: str | None = None) -> User:
     """Create a new user with hashed password."""
     import uuid
 
-    normalized_email = email.lower().strip()
+    normalized_username = normalize_username(username)
+    normalized_email = str(email or "").strip().lower() or None
     hashed = hash_password(password)
     user = User(
         id=str(uuid.uuid4()),
+        username=normalized_username,
         email=normalized_email,
         password_hash=hashed,
         role=role,
@@ -184,6 +218,12 @@ def create_user(db: Session, email: str, password: str, role: str = "user") -> U
     db.commit()
     db.refresh(user)
     return user
+
+
+def list_users(db: Session) -> list[User]:
+    return list(
+        db.execute(select(User).where(User.deleted_at.is_(None)).order_by(User.created_at.asc())).scalars().all()
+    )
 
 
 def soft_delete_user(db: Session, user_id: str) -> bool:
@@ -208,21 +248,22 @@ def update_user_password(db: Session, user_id: str, new_password: str) -> bool:
     return True
 
 
-def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
-    """Authenticate a user by email and password."""
-    user = get_user_by_email(db, email)
-    if user is None:
-        # Try legacy admin login
-        if email.lower().strip() == "admin" or email.lower().strip() == "admin@local":
-            if verify_admin_password(password, db):
-                # Return or create admin user
-                admin_user = get_user_by_email(db, "admin@local")
-                if admin_user is None:
-                    # Migrate legacy password to users table
-                    admin_user = create_user(db, "admin@local", password, "admin")
-                return admin_user
+def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
+    """Authenticate a user by username and password."""
+    normalized = normalize_username(username)
+
+    user = get_user_by_username(db, normalized)
+    if user is None and "@" in normalized:
+        # Backward compatibility for legacy email login.
+        user = get_user_by_email(db, normalized)
+    if user is None and normalized in {"admin", "admin@local"}:
+        # Legacy compatibility: ensure admin exists and verify against legacy hash.
+        admin_user = ensure_default_admin(db)
+        if verify_admin_password(password, db):
+            return admin_user
         return None
-    if not user.is_active:
+
+    if user is None or not user.is_active:
         return None
     if not verify_password(password, user.password_hash):
         return None
@@ -239,7 +280,8 @@ def create_access_token(user: User, expires_delta: Optional[timedelta] = None) -
     expire = datetime.now(UTC) + (expires_delta or timedelta(hours=_ACCESS_TOKEN_EXPIRE_HOURS))
     payload = {
         "sub": user.id,
-        "email": user.email,
+        "username": user.username,
+        "email": user.email or "",
         "role": user.role,
         "exp": expire,
     }
@@ -250,7 +292,7 @@ def create_legacy_access_token(expires_delta: Optional[timedelta] = None) -> str
     """Create a legacy JWT token for admin (backward compatibility)."""
     expire = datetime.now(UTC) + (expires_delta or timedelta(hours=_ACCESS_TOKEN_EXPIRE_HOURS))
     return jwt.encode(
-        {"sub": "admin", "role": "admin", "exp": expire},
+        {"sub": "admin", "username": "admin", "role": "admin", "exp": expire},
         _SECRET_KEY,
         algorithm=_ALGORITHM,
     )
@@ -263,9 +305,9 @@ def decode_access_token(token: str) -> Optional[UserContext]:
         user_id = payload.get("sub")
         if not user_id:
             return None
-        email = payload.get("email", "")
+        username = str(payload.get("username") or "").strip().lower()
         role = payload.get("role", "user")
-        return UserContext(user_id=user_id, email=email, role=role)
+        return UserContext(user_id=user_id, username=username, role=role)
     except JWTError:
         return None
 

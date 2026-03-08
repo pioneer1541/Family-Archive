@@ -1,5 +1,6 @@
 import {catIdFromPath, colorIndexForCategory, iconForCategory} from '@src/lib/category';
 import type {
+  AdminCreateUserPayload,
   AgentRunPayload,
   AgentRunResult,
   AuthStatus,
@@ -543,9 +544,29 @@ export function createMockAdapter(): KbApiClient {
       return {setup_complete: true};
     },
     async authSetup(_password: string): Promise<void> {},
-    async authLogin(_password: string): Promise<void> {},
+    async authLogin(_username: string, _password: string): Promise<void> {},
     async authLogout(): Promise<void> {},
     async changePassword(_oldPw: string, _newPw: string): Promise<void> {},
+    async authRegister(_username: string, _password: string, _email?: string): Promise<void> {},
+    async getMe() {
+      return {id: 'mock-admin', username: 'admin', role: 'admin', created_at: new Date().toISOString(), email: null};
+    },
+    async listUsers() {
+      return {
+        total: 1,
+        items: [{id: 'mock-admin', username: 'admin', role: 'admin', created_at: new Date().toISOString(), email: null}],
+      };
+    },
+    async createUser(payload: AdminCreateUserPayload) {
+      return {
+        id: `mock-${String(payload.username || '').toLowerCase() || 'user'}`,
+        username: String(payload.username || ''),
+        role: payload.role || 'user',
+        created_at: new Date().toISOString(),
+        email: payload.email || null,
+      };
+    },
+    async deleteUser(_userId: string): Promise<void> {},
     // Settings stubs
     async getSettings() { return []; },
     async updateSettings(_patch: Record<string, string>): Promise<void> {},

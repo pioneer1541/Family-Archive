@@ -40,11 +40,18 @@ def test_get_db_yields_and_closes_session(monkeypatch):
 
 def test_get_current_user_success():
     with SessionLocal() as db:
-        user = create_user(db, email="deps-success@example.com", password="StrongPass123!", role="admin")
+        user = create_user(
+            db,
+            username="deps-success",
+            email="deps-success@example.com",
+            password="StrongPass123!",
+            role="admin",
+        )
         token = create_access_token(user)
         current = deps.get_current_user(db=db, token=token)
 
     assert current.id == user.id
+    assert current.username == "deps-success"
     assert current.email == "deps-success@example.com"
     assert current.role == "admin"
 
@@ -59,7 +66,13 @@ def test_get_current_user_returns_401_when_missing_cookie():
 
 def test_get_current_user_returns_401_for_expired_token():
     with SessionLocal() as db:
-        user = create_user(db, email="deps-expired@example.com", password="StrongPass123!", role="user")
+        user = create_user(
+            db,
+            username="deps-expired",
+            email="deps-expired@example.com",
+            password="StrongPass123!",
+            role="user",
+        )
         expired = create_access_token(user, expires_delta=timedelta(seconds=-1))
         with pytest.raises(HTTPException) as exc:
             deps.get_current_user(db=db, token=expired)

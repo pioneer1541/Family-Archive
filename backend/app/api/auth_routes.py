@@ -14,14 +14,18 @@ from app.auth import (
     create_user,
     decode_access_token,
     get_current_user,
+    list_users,
+    normalize_username,
     soft_delete_user,
     update_user_password,
 )
 from app.config import get_settings
 from app.models import User
 from app.schemas import (
+    AdminCreateUserRequest,
     AuthStatusResponse,
     UserChangePasswordRequest,
+    UserListResponse,
     UserLoginRequest,
     UserRegisterRequest,
     UserResponse,
@@ -32,7 +36,13 @@ router = APIRouter(prefix=f"{settings.api_prefix}/auth", tags=["auth"])
 
 
 def _to_user_response(user: User) -> UserResponse:
-    return UserResponse(user_id=user.id, email=user.email, role=user.role, created_at=user.created_at)
+    return UserResponse(
+        user_id=user.id,
+        username=user.username,
+        email=user.email,
+        role=user.role,
+        created_at=user.created_at,
+    )
 
 
 def _auth_context_or_401(token: str | None) -> UserContext:
@@ -58,20 +68,13 @@ def _require_current_user(
     return user
 
 
-def _has_any_active_admin(db: Session) -> bool:
-    admin_count = db.scalar(
-        select(func.count()).select_from(User).where(User.role == "admin", User.is_active, User.deleted_at.is_(None))
-    )
-    return int(admin_count or 0) > 0
-
-
-def _assert_email_available(db: Session, email: str) -> None:
-    normalized_email = str(email or "").strip().lower()
-    existing = db.execute(select(User).where(func.lower(User.email) == normalized_email)).scalar_one_or_none()
+def _assert_username_available(db: Session, username: str) -> None:
+    normalized_username = normalize_username(username)
+    existing = db.execute(select(User).where(func.lower(User.username) == normalized_username)).scalar_one_or_none()
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Email already exists.",
+            detail="Username already exists.",
         )
 
 
@@ -79,28 +82,11 @@ def _assert_email_available(db: Session, email: str) -> None:
 def register_user(
     payload: UserRegisterRequest,
     db: Session = Depends(get_db),
-    token: str | None = Cookie(default=None, alias=COOKIE_NAME),
 ) -> UserResponse:
-    has_admin = _has_any_active_admin(db)
-    role = "user"
-    if has_admin:
-        current_user = _require_current_user(db=db, token=token)
-        if current_user.role != "admin":
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required.")
-    else:
-        role = "admin"
-
-    _assert_email_available(db, payload.email)
-
-    try:
-        user = create_user(db, email=payload.email, password=payload.password, role=role)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Email already exists.",
-        ) from None
-    return _to_user_response(user)
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Registration is disabled. Ask an administrator to create your account.",
+    )
 
 
 @router.post("/login", response_model=AuthStatusResponse)
@@ -109,7 +95,7 @@ def login(
     response: Response,
     db: Session = Depends(get_db),
 ) -> AuthStatusResponse:
-    user = authenticate_user(db, payload.email, payload.password)
+    user = authenticate_user(db, payload.username, payload.password)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
 
@@ -142,7 +128,7 @@ def change_password(
     current_user: Annotated[User, Depends(_require_current_user)],
     db: Session = Depends(get_db),
 ) -> AuthStatusResponse:
-    verified_user = authenticate_user(db, current_user.email, payload.old_password)
+    verified_user = authenticate_user(db, current_user.username, payload.old_password)
     if verified_user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
 
@@ -178,3 +164,75 @@ def get_me(
     current_user: Annotated[User, Depends(_require_current_user)],
 ) -> UserResponse:
     return _to_user_response(current_user)
+
+
+def _require_admin(user: User) -> None:
+    if user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required.")
+
+
+@router.get("/users", response_model=UserListResponse)
+def admin_list_users(
+    current_user: Annotated[User, Depends(_require_current_user)],
+    db: Session = Depends(get_db),
+) -> UserListResponse:
+    _require_admin(current_user)
+    rows = list_users(db)
+    items = [_to_user_response(item) for item in rows]
+    return UserListResponse(total=len(items), items=items)
+
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def admin_create_user(
+    payload: AdminCreateUserRequest,
+    current_user: Annotated[User, Depends(_require_current_user)],
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    _require_admin(current_user)
+    _assert_username_available(db, payload.username)
+    try:
+        user = create_user(
+            db,
+            username=payload.username,
+            email=payload.email,
+            password=payload.password,
+            role=payload.role,
+        )
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Username already exists.") from None
+    return _to_user_response(user)
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def admin_delete_user(
+    user_id: str,
+    current_user: Annotated[User, Depends(_require_current_user)],
+    db: Session = Depends(get_db),
+) -> Response:
+    _require_admin(current_user)
+    if user_id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete current user.")
+
+    target = db.execute(select(User).where(User.id == user_id, User.deleted_at.is_(None))).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    if target.role == "admin":
+        remaining_admins = db.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(
+                User.role == "admin",
+                User.deleted_at.is_(None),
+                User.is_active.is_(True),
+                User.id != target.id,
+            )
+        )
+        if int(remaining_admins or 0) <= 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete last admin user.")
+
+    deleted = soft_delete_user(db, user_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

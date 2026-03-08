@@ -10,7 +10,7 @@ from starlette.responses import JSONResponse
 
 from app import models  # noqa: F401
 from app.api.routes import router
-from app.auth import COOKIE_NAME, decode_access_token, is_setup_complete
+from app.auth import COOKIE_NAME, decode_access_token, ensure_default_admin, is_setup_complete
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine, ensure_sqlite_runtime_schema
 from app.logging_utils import get_logger, sanitize_log_context
@@ -93,6 +93,11 @@ async def lifespan(_app: FastAPI):
     if settings.auto_create_schema and not is_production_env:
         Base.metadata.create_all(bind=engine)
         ensure_sqlite_runtime_schema()
+    db = SessionLocal()
+    try:
+        ensure_default_admin(db)
+    finally:
+        db.close()
     if settings.qdrant_enable:
         try:
             ensure_collection_exists(force=True)

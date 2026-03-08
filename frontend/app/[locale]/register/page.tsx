@@ -11,7 +11,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const t = useTranslations("register");
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -35,12 +35,12 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await client.authRegister?.(email, password);
+      await client.authRegister?.(username, password);
       router.replace(`/${locale}/login?registered=1`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
       if (msg.includes("already") || msg.includes("exists")) {
-        setError(t("errorEmailExists"));
+        setError(t("errorUsernameExists"));
       } else {
         setError(t("errorRegisterFailed"));
       }
@@ -58,14 +58,14 @@ export default function RegisterPage() {
         </div>
         <form onSubmit={handleRegister} className="setup-form">
           <label>
-            {t("email")}
+            {t("username")}
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t("emailPlaceholder")}
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder={t("usernamePlaceholder")}
               autoFocus
-              autoComplete="email"
+              autoComplete="username"
               required
             />
           </label>

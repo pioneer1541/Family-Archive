@@ -687,12 +687,13 @@ class HealthResponse(BaseModel):
 
 
 class UserRegisterRequest(BaseModel):
-    email: str = Field(min_length=3, max_length=255)
+    username: str = Field(min_length=3, max_length=64)
+    email: str | None = Field(default=None, max_length=255)
     password: str = Field(min_length=8, max_length=128)
 
 
 class UserLoginRequest(BaseModel):
-    email: str = Field(min_length=1, max_length=255)
+    username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=128)
 
 
@@ -703,7 +704,8 @@ class UserChangePasswordRequest(BaseModel):
 
 class UserResponse(BaseModel):
     user_id: str
-    email: str
+    username: str
+    email: str | None = None
     role: str
     created_at: datetime
 
@@ -712,6 +714,18 @@ class AuthStatusResponse(BaseModel):
     setup_complete: bool
     authenticated: bool = False
     user: UserResponse | None = None
+
+
+class AdminCreateUserRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    email: str | None = Field(default=None, max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+    role: Literal["admin", "user"] = "user"
+
+
+class UserListResponse(BaseModel):
+    total: int
+    items: list[UserResponse]
 
 
 # ---------------------------------------------------------------------------

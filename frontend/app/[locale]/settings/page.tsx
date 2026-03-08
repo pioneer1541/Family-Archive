@@ -4,12 +4,21 @@ import {useEffect, useState, useCallback, useRef} from 'react';
 import {useTranslations, useLocale} from 'next-intl';
 import {useRouter} from 'next/navigation';
 import {getKbClient} from '@src/lib/api/kb-client';
-import type {AppSettingItem, ConnectivityStatus, KeywordLists, OllamaModel, GmailCredential, GmailCredentialCreate, GmailCredentialUpdate} from '@src/lib/api/types';
+import type {
+  AppSettingItem,
+  ConnectivityStatus,
+  KeywordLists,
+  OllamaModel,
+  GmailCredential,
+  GmailCredentialCreate,
+  GmailCredentialUpdate,
+  UserResponse,
+} from '@src/lib/api/types';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type TabKey = 'llm' | 'storage' | 'mail' | 'keywords' | 'account';
+type TabKey = 'llm' | 'storage' | 'mail' | 'keywords' | 'account' | 'users';
 const RESTART_REQUIRED_KEYS = new Set([
   'planner_model',
   'synthesizer_model',
@@ -143,6 +152,7 @@ export default function SettingsPage() {
   const [toast, setToast] = useState('');
   const [restartRequired, setRestartRequired] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [me, setMe] = useState<UserResponse | null>(null);
   // Account tab
   const [oldPw, setOldPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -158,12 +168,20 @@ export default function SettingsPage() {
   const [gmailSaving, setGmailSaving] = useState(false);
   // Gmail 删除确认
   const [gmailDeleteId, setGmailDeleteId] = useState<string | null>(null);
+  // Admin users tab
+  const [users, setUsers] = useState<UserResponse[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userCreateName, setUserCreateName] = useState('');
+  const [userCreatePassword, setUserCreatePassword] = useState('');
+  const [userCreateError, setUserCreateError] = useState('');
   const localDirPickerRef = useRef<HTMLInputElement | null>(null);
+  const isAdmin = me?.role === 'admin';
 
   useEffect(() => {
     client.getSettings?.().then(setItems).catch(() => {});
     client.getOllamaModels?.().then(setModels).catch(() => {});
     client.getKeywords?.().then(setKeywords).catch(() => {});
+    client.getMe?.().then((u) => setMe(u ?? null)).catch(() => setMe(null));
     loadGmailCredentials();
   }, []);
 
@@ -193,6 +211,19 @@ export default function SettingsPage() {
       setGmailLoading(false);
     }
   }
+
+  const loadUsers = useCallback(async () => {
+    if (!isAdmin) return;
+    setUsersLoading(true);
+    try {
+      const result = await client.listUsers?.();
+      setUsers(result?.items ?? []);
+    } catch {
+      setUsers([]);
+    } finally {
+      setUsersLoading(false);
+    }
+  }, [isAdmin, client]);
 
   function getVal(key: string): string {
     if (key in patch) return patch[key];
@@ -287,6 +318,41 @@ export default function SettingsPage() {
   async function handleLogout() {
     await client.authLogout?.();
     router.replace(`/${locale}/login`);
+  }
+
+  async function handleCreateUser(e: React.FormEvent) {
+    e.preventDefault();
+    setUserCreateError('');
+    if (userCreateName.trim().length < 3) {
+      setUserCreateError(t('userUsernameMin'));
+      return;
+    }
+    if (userCreatePassword.length < 8) {
+      setUserCreateError(t('userPasswordMin'));
+      return;
+    }
+    try {
+      await client.createUser?.({username: userCreateName.trim(), password: userCreatePassword, role: 'user'});
+      setUserCreateName('');
+      setUserCreatePassword('');
+      setToast(t('userCreated'));
+      setTimeout(() => setToast(''), 3000);
+      await loadUsers();
+    } catch (err: unknown) {
+      setUserCreateError(err instanceof Error ? err.message : t('userCreateError'));
+    }
+  }
+
+  async function handleDeleteUser(id: string) {
+    try {
+      await client.deleteUser?.(id);
+      setToast(t('userDeleted'));
+      setTimeout(() => setToast(''), 3000);
+      await loadUsers();
+    } catch (err: unknown) {
+      setToast(err instanceof Error ? err.message : t('userDeleteError'));
+      setTimeout(() => setToast(''), 4000);
+    }
   }
 
   // Gmail 凭证操作
@@ -389,6 +455,7 @@ export default function SettingsPage() {
     {key: 'mail', label: t('tabMail')},
     {key: 'keywords', label: t('tabKeywords')},
     {key: 'account', label: t('tabAccount')},
+    ...(isAdmin ? [{key: 'users' as TabKey, label: t('tabUsers')}] : []),
   ];
 
   function handleBrowseLocalFolder() {
@@ -414,6 +481,12 @@ export default function SettingsPage() {
     }
     event.target.value = '';
   }
+
+  useEffect(() => {
+    if (tab === 'users' && isAdmin) {
+      loadUsers();
+    }
+  }, [tab, isAdmin, loadUsers]);
 
   return (
     <div className="settings-page">
@@ -826,8 +899,76 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {tab === 'users' && (
+            <div className="settings-section">
+              <h3>{t('userManagement')}</h3>
+              <form onSubmit={handleCreateUser} className="settings-form">
+                <div className="settings-field">
+                  <label>{t('username')}</label>
+                  <input
+                    type="text"
+                    value={userCreateName}
+                    onChange={(e) => setUserCreateName(e.target.value)}
+                    autoComplete="username"
+                    required
+                  />
+                </div>
+                <div className="settings-field">
+                  <label>{t('newPassword')}</label>
+                  <input
+                    type="password"
+                    value={userCreatePassword}
+                    onChange={(e) => setUserCreatePassword(e.target.value)}
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+                {userCreateError && <p className="setup-error">{userCreateError}</p>}
+                <button type="submit" className="btn-primary">{t('createUser')}</button>
+              </form>
+              <hr className="settings-divider" />
+              {usersLoading ? (
+                <p className="settings-hint">{t('loading')}</p>
+              ) : users.length === 0 ? (
+                <p className="settings-hint">{t('usersEmpty')}</p>
+              ) : (
+                <div className="users-table-wrap">
+                  <table className="users-table">
+                    <thead>
+                      <tr>
+                        <th>{t('username')}</th>
+                        <th>{t('role')}</th>
+                        <th>{t('createdAt')}</th>
+                        <th>{t('actions')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((u) => (
+                        <tr key={u.id}>
+                          <td>{u.username}</td>
+                          <td>{u.role || 'user'}</td>
+                          <td>{new Date(u.created_at).toLocaleDateString(locale)}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn-secondary btn-sm btn-danger"
+                              onClick={() => handleDeleteUser(u.id)}
+                              disabled={u.id === me?.id}
+                            >
+                              {t('delete')}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Save button (except account tab) */}
-          {tab !== 'account' && (
+          {tab !== 'account' && tab !== 'users' && (
             <div className="settings-actions">
               <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
                 {saving ? '…' : t('save')}

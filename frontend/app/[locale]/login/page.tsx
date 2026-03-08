@@ -11,7 +11,7 @@ export default function LoginPage() {
   const router = useRouter();
   const t = useTranslations("login");
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,7 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await client.authLogin?.(email, password);
+      await client.authLogin?.(username, password);
       router.replace(`/${locale}/dashboard`);
     } catch (err: unknown) {
       setError(t("errorInvalid"));
@@ -41,14 +41,14 @@ export default function LoginPage() {
         </div>
         <form onSubmit={handleLogin} className="setup-form">
           <label>
-            {t("email")}
+            {t("username")}
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t("emailPlaceholder")}
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder={t("usernamePlaceholder")}
               autoFocus
-              autoComplete="email"
+              autoComplete="username"
               required
             />
           </label>

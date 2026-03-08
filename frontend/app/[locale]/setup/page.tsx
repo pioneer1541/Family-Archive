@@ -59,7 +59,7 @@ export default function SetupPage() {
         await client.updateSettings?.({ollama_base_url: ollamaUrl.trim()});
       }
       // Log in automatically after setup
-      await client.authLogin?.('', password);
+      await client.authLogin?.('admin', password);
       router.replace(`/${locale}/dashboard`);
     } catch {
       router.replace(`/${locale}/login`);

@@ -1,5 +1,6 @@
 import {catIdFromPath, colorIndexForCategory, iconForCategory} from '@src/lib/category';
 import type {
+  AdminCreateUserPayload,
   AgentAction,
   AgentRequestErrorKind,
   AgentRequestErrorShape,
@@ -26,6 +27,7 @@ import type {
   SyncRunStartResult,
   SyncSourceSummary,
   UiLocale,
+  UserListResult,
   UserResponse,
   GmailCredential,
   GmailCredentialCreate,
@@ -1115,11 +1117,11 @@ async function authSetup(password: string): Promise<void> {
   }
 }
 
-async function authLogin(email: string, password: string): Promise<void> {
+async function authLogin(username: string, password: string): Promise<void> {
   const r = await fetch(`${API_BASE}/v1/auth/login`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({email, password}),
+    body: JSON.stringify({username, password}),
   });
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
@@ -1147,21 +1149,78 @@ async function getMe(): Promise<UserResponse | null> {
   try {
     const r = await fetch(`${API_BASE}/v1/auth/me`);
     if (!r.ok) return null;
-    return await r.json();
+    const raw = (await r.json()) as Record<string, unknown>;
+    return {
+      id: String(raw.user_id || ''),
+      username: String(raw.username || ''),
+      email: raw.email ? String(raw.email) : null,
+      role: raw.role ? String(raw.role) : undefined,
+      created_at: String(raw.created_at || ''),
+    };
   } catch {
     return null;
   }
 }
 
-async function authRegister(email: string, password: string): Promise<void> {
+async function authRegister(username: string, password: string, email?: string): Promise<void> {
   const r = await fetch(`${API_BASE}/v1/auth/register`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({email, password}),
+    body: JSON.stringify({username, password, email}),
   });
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
     throw new Error(err?.detail || 'Registration failed');
+  }
+}
+
+async function listUsers(): Promise<UserListResult> {
+  const r = await fetch(`${API_BASE}/v1/auth/users`);
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err?.detail || 'Failed to list users');
+  }
+  const raw = (await r.json()) as {total?: number; items?: Array<Record<string, unknown>>};
+  const items = Array.isArray(raw.items) ? raw.items : [];
+  return {
+    total: Number(raw.total || items.length),
+    items: items.map((item) => ({
+      id: String(item.user_id || ''),
+      username: String(item.username || ''),
+      email: item.email ? String(item.email) : null,
+      role: item.role ? String(item.role) : undefined,
+      created_at: String(item.created_at || ''),
+    })),
+  };
+}
+
+async function createUser(payload: AdminCreateUserPayload): Promise<UserResponse> {
+  const r = await fetch(`${API_BASE}/v1/auth/users`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err?.detail || 'Failed to create user');
+  }
+  const item = (await r.json()) as Record<string, unknown>;
+  return {
+    id: String(item.user_id || ''),
+    username: String(item.username || ''),
+    email: item.email ? String(item.email) : null,
+    role: item.role ? String(item.role) : undefined,
+    created_at: String(item.created_at || ''),
+  };
+}
+
+async function deleteUser(userId: string): Promise<void> {
+  const r = await fetch(`${API_BASE}/v1/auth/users/${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err?.detail || 'Failed to delete user');
   }
 }
 
@@ -1346,6 +1405,9 @@ export function createRealAdapter(): KbApiClient {
     restartServices,
     getMe,
     authRegister,
+    listUsers,
+    createUser,
+    deleteUser,
     getGmailCredentials,
     createGmailCredential,
     updateGmailCredential,

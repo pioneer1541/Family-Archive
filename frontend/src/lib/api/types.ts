@@ -310,8 +310,22 @@ export interface KeywordLists {
 
 export interface UserResponse {
   id: string;
-  email: string;
+  username: string;
+  email?: string | null;
+  role?: string;
   created_at: string;
+}
+
+export interface AdminCreateUserPayload {
+  username: string;
+  password: string;
+  email?: string;
+  role?: 'admin' | 'user';
+}
+
+export interface UserListResult {
+  total: number;
+  items: UserResponse[];
 }
 
 // Gmail credential types
@@ -356,11 +370,14 @@ export interface KbApiClient {
   // Auth
   getAuthStatus?(): Promise<AuthStatus>;
   authSetup?(password: string): Promise<void>;
-  authLogin?(email: string, password: string): Promise<void>;
-  authRegister?(email: string, password: string): Promise<void>;
+  authLogin?(username: string, password: string): Promise<void>;
+  authRegister?(username: string, password: string, email?: string): Promise<void>;
   authLogout?(): Promise<void>;
   changePassword?(oldPassword: string, newPassword: string): Promise<void>;
   getMe?(): Promise<UserResponse | null>;
+  listUsers?(): Promise<UserListResult>;
+  createUser?(payload: AdminCreateUserPayload): Promise<UserResponse>;
+  deleteUser?(userId: string): Promise<void>;
   // Settings
   getSettings?(): Promise<AppSettingItem[]>;
   updateSettings?(patch: Record<string, string>): Promise<void>;
