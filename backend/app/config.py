@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     sqlite_busy_timeout_ms: int = 5000
     pg_pool_pre_ping: bool = True
     pg_pool_recycle: int = 1800
+    pg_pool_size: int = 20
+    pg_max_overflow: int = 30
 
     qdrant_url: str = "http://qdrant:6333"
     qdrant_collection: str = "fkv_docs_v1"

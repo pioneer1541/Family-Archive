@@ -12,6 +12,8 @@ if settings.database_url.startswith("sqlite"):
 elif settings.database_url.startswith("postgresql"):
     engine_kwargs["pool_pre_ping"] = settings.pg_pool_pre_ping
     engine_kwargs["pool_recycle"] = settings.pg_pool_recycle
+    engine_kwargs["pool_size"] = settings.pg_pool_size
+    engine_kwargs["max_overflow"] = settings.pg_max_overflow
 
 engine = create_engine(settings.database_url, connect_args=connect_args, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
