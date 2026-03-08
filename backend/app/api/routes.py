@@ -4,11 +4,13 @@ import mimetypes
 import os
 import shutil
 import subprocess
+import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import requests
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -95,6 +97,7 @@ from app.schemas import (
     TaskListItem,
     TaskListResponse,
     TaskResponse,
+    UploadResponse,
 )
 from app.services.agent import execute_agent
 from app.services.agent_graph import stream_agent_graph
@@ -136,6 +139,7 @@ settings = get_settings()
 logger = get_logger(__name__)
 router = APIRouter(prefix=settings.api_prefix)
 DATA_DIR = (Path(__file__).resolve().parents[3] / "data").resolve()
+UPLOAD_TMP_ROOT = Path("/tmp/fkv_uploads").resolve()
 
 
 _INLINE_MIME_BY_EXT: dict[str, str] = {
@@ -211,6 +215,36 @@ def _inline_supported_for_document(doc: Document) -> bool:
     file_ext = str(doc.file_ext or "").strip().lower().lstrip(".")
     media_type = _mime_for_file_ext(file_ext)
     return media_type != "application/octet-stream"
+
+
+def _is_under_upload_tmp_root(path: str) -> bool:
+    raw = str(path or "").strip()
+    if not raw:
+        return False
+    try:
+        resolved = Path(raw).resolve()
+    except Exception:
+        return False
+    return str(resolved).startswith(f"{UPLOAD_TMP_ROOT}{os.sep}")
+
+
+def _cleanup_upload_dirs(paths: list[str]) -> None:
+    cleaned_dirs: set[str] = set()
+    for raw in paths:
+        if not _is_under_upload_tmp_root(raw):
+            continue
+        try:
+            upload_dir = Path(raw).resolve().parent
+        except Exception:
+            continue
+        upload_dir_text = str(upload_dir)
+        if upload_dir_text in cleaned_dirs:
+            continue
+        try:
+            shutil.rmtree(upload_dir, ignore_errors=True)
+            cleaned_dirs.add(upload_dir_text)
+        except Exception:
+            continue
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -526,6 +560,51 @@ def scan_nas(payload: NasScanRequest, db: Session = Depends(get_db)) -> NasScanR
 @router.post("/search", response_model=SearchResponse)
 def search(payload: SearchRequest, db: Session = Depends(get_db)) -> SearchResponse:
     return search_documents(db, payload)
+
+
+@router.post("/documents/upload", response_model=UploadResponse)
+def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: object = Depends(get_current_user),
+) -> UploadResponse:
+    original_name = str(file.filename or "").strip()
+    filename = Path(original_name).name.strip()
+    if not filename:
+        raise HTTPException(status_code=400, detail="invalid_filename")
+
+    ext = Path(filename).suffix.lower().lstrip(".")
+    allowed_exts = {str(item or "").strip().lower().lstrip(".") for item in settings.ingestion_allowed_extensions}
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail="unsupported_file_type")
+
+    upload_dir = UPLOAD_TMP_ROOT / str(uuid.uuid4())
+    upload_dir.mkdir(parents=True, exist_ok=False)
+    upload_path = upload_dir / filename
+    try:
+        with upload_path.open("wb") as output:
+            shutil.copyfileobj(file.file, output)
+    finally:
+        file.file.close()
+
+    input_paths = crud.filter_ignored_paths(db, [str(upload_path)])
+    if not input_paths:
+        _cleanup_upload_dirs([str(upload_path)])
+        raise HTTPException(status_code=409, detail="all_paths_ignored")
+
+    job = crud.create_ingestion_job(db, input_paths)
+    enqueue_ingestion_job(job.id)
+
+    logger.info(
+        "document_upload_enqueued",
+        extra=sanitize_log_context(
+            {
+                "job_id": job.id,
+                "filename": filename,
+            }
+        ),
+    )
+    return UploadResponse(job_id=job.id, filename=filename)
 
 
 @router.get("/documents", response_model=DocumentListResponse)

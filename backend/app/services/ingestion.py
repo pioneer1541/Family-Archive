@@ -2,6 +2,8 @@ import datetime as dt
 import json
 import os
 import re
+import shutil
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -57,6 +59,7 @@ from app.services.tag_rules import infer_auto_tags
 
 settings = get_settings()
 logger = get_logger(__name__)
+UPLOAD_TMP_ROOT = Path("/tmp/fkv_uploads").resolve()
 
 
 def compact_error_code(raw: str | None) -> str:
@@ -171,6 +174,73 @@ def enqueue_ingestion_job(job_id: str, force_reprocess: bool = False, reprocess_
             code = compact_error_code(f"sync_fallback_failed:{type(exc).__name__}")
             mark_job_terminal_failure(job_id, error_code=code)
         return "sync"
+
+
+def _is_under_upload_tmp_root(path: str) -> bool:
+    raw = str(path or "").strip()
+    if not raw:
+        return False
+    try:
+        resolved = Path(raw).resolve()
+    except Exception:
+        return False
+    return str(resolved).startswith(f"{UPLOAD_TMP_ROOT}{os.sep}")
+
+
+def _cleanup_upload_dirs(paths: list[str]) -> int:
+    cleaned_dirs: set[str] = set()
+    for raw in paths:
+        if not _is_under_upload_tmp_root(raw):
+            continue
+        try:
+            upload_dir = Path(raw).resolve().parent
+        except Exception:
+            continue
+        upload_dir_text = str(upload_dir)
+        if upload_dir_text in cleaned_dirs:
+            continue
+        try:
+            shutil.rmtree(upload_dir, ignore_errors=True)
+            cleaned_dirs.add(upload_dir_text)
+        except Exception:
+            continue
+    return len(cleaned_dirs)
+
+
+@celery_app.task(name="fkv.ingestion.cleanup_uploaded_files")
+def cleanup_uploaded_files_task(job_id: str, paths: list[str]) -> dict[str, Any]:
+    cleaned_dirs = _cleanup_upload_dirs(paths)
+    logger.info(
+        "ingestion_uploaded_files_cleaned",
+        extra=sanitize_log_context(
+            {
+                "job_id": str(job_id or ""),
+                "cleaned_dirs": int(cleaned_dirs),
+            }
+        ),
+    )
+    return {"ok": True, "job_id": str(job_id or ""), "cleaned_dirs": int(cleaned_dirs)}
+
+
+def enqueue_cleanup_uploaded_files(job_id: str, paths: list[str]) -> None:
+    safe_paths = [str(item or "").strip() for item in (paths or []) if str(item or "").strip()]
+    if not safe_paths:
+        return
+    if not any(_is_under_upload_tmp_root(path) for path in safe_paths):
+        return
+    try:
+        cleanup_uploaded_files_task.delay(job_id, safe_paths)
+    except Exception as exc:
+        logger.warning(
+            "ingestion_cleanup_task_dispatch_failed",
+            extra=sanitize_log_context(
+                {
+                    "job_id": str(job_id or ""),
+                    "error_code": compact_error_code(f"cleanup_dispatch_failed:{type(exc).__name__}"),
+                }
+            ),
+        )
+        _cleanup_upload_dirs(safe_paths)
 
 
 def _status_after_run(success_count: int, failed_count: int, duplicate_count: int) -> str:
@@ -677,12 +747,11 @@ def process_ingestion_job(
     job_id: str, force_reprocess: bool = False, reprocess_doc_id: str | None = None
 ) -> dict[str, Any]:
     db = SessionLocal()
+    paths: list[str] = []
     try:
         job = db.get(IngestionJob, job_id)
         if job is None:
             return {"ok": False, "error": "job_not_found", "job_id": job_id}
-
-        paths = []
         try:
             paths = json.loads(job.input_paths or "[]")
         except Exception:
@@ -777,3 +846,4 @@ def process_ingestion_job(
         }
     finally:
         db.close()
+        enqueue_cleanup_uploaded_files(job_id, paths)

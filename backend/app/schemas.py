@@ -36,6 +36,11 @@ class IngestionJobDeleteResponse(BaseModel):
     detail: str = ""
 
 
+class UploadResponse(BaseModel):
+    job_id: str
+    filename: str
+
+
 class NasScanRequest(BaseModel):
     paths: list[str] = Field(default_factory=list)
     recursive: bool = True
