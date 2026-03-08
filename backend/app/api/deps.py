@@ -1,3 +1,5 @@
+"""API dependencies for authentication and database sessions."""
+
 from collections.abc import Generator
 
 from fastapi import Cookie, Depends, HTTPException, status
