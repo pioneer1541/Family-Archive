@@ -1,3 +1,4 @@
+import asyncio
 import datetime as dt
 import time
 import uuid
@@ -84,6 +85,11 @@ def _embed_texts(texts: list[str], db: Session | None = None) -> list[list[float
             return [_embed_texts([item], db=db)[0] for item in clean]
         raise RuntimeError(f"embed_count_mismatch:{len(vectors)}:{len(clean)}")
     return vectors
+
+
+async def embed_texts_async(texts: list[str], db: Session | None = None) -> list[list[float]]:
+    # Run blocking embedding call in a worker thread for async startup warmup.
+    return await asyncio.to_thread(_embed_texts, texts, db)
 
 
 def _embed_query_cached(query: str, db: Session | None = None) -> list[float]:

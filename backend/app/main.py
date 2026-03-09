@@ -16,7 +16,7 @@ from app.db import Base, SessionLocal, engine, ensure_sqlite_runtime_schema
 from app.logging_utils import get_logger, sanitize_log_context
 from app.services.mail_ingest import poll_mailbox_and_enqueue
 from app.services.nas import run_nas_scan
-from app.services.qdrant import ensure_collection_exists
+from app.services.qdrant import embed_texts_async, ensure_collection_exists
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -108,6 +108,24 @@ async def lifespan(_app: FastAPI):
                     {
                         "status": "warn",
                         "error_code": "qdrant_init_failed",
+                        "detail": str(exc),
+                    }
+                ),
+            )
+        try:
+            logger.info("embed_warmup_start")
+            await embed_texts_async(["warmup"])
+            logger.info(
+                "embed_warmup_done",
+                extra=sanitize_log_context({"status": "ok", "warmup_items": 1}),
+            )
+        except Exception as exc:
+            logger.warning(
+                "embed_warmup_failed",
+                extra=sanitize_log_context(
+                    {
+                        "status": "warn",
+                        "error_code": "embed_warmup_failed",
                         "detail": str(exc),
                     }
                 ),

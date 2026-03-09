@@ -1,5 +1,6 @@
 import datetime as dt
 import re
+import time
 from typing import Any
 
 import requests
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app.config import get_settings
+from app.logging_utils import get_logger, sanitize_log_context
 from app.models import Chunk, Document, DocumentStatus
 from app.runtime_config import get_runtime_setting
 from app.schemas import SearchHit, SearchRequest, SearchResponse
@@ -15,6 +17,10 @@ from app.services.qdrant import search_records
 from app.services.source_tags import infer_source_type
 
 settings = get_settings()
+logger = get_logger(__name__)
+_translation_cache: dict[str, tuple[float, str]] = {}
+_TRANSLATION_CACHE_TTL_SEC = 3600.0
+_TRANSLATION_CACHE_MAX = 512
 
 
 def _is_zh(text: str) -> bool:
@@ -24,6 +30,16 @@ def _is_zh(text: str) -> bool:
 def _translate_query_to_en(query: str, db: Session | None = None) -> str:
     if not query or (not _is_zh(query)):
         return ""
+
+    cache_key = str(query).strip()
+    now = time.time()
+    hit = _translation_cache.get(cache_key)
+    if hit and (now - float(hit[0]) <= _TRANSLATION_CACHE_TTL_SEC):
+        logger.debug(
+            "search_translate_cache_hit",
+            extra=sanitize_log_context({"query_len": len(cache_key)}),
+        )
+        return str(hit[1] or "")
 
     try:
         url = settings.ollama_base_url.rstrip("/") + "/api/chat"
@@ -44,8 +60,30 @@ def _translate_query_to_en(query: str, db: Session | None = None) -> str:
         data = r.json() if hasattr(r, "json") else {}
         msg = data.get("message") if isinstance(data, dict) else {}
         out = str((msg or {}).get("content") or "").strip()
-        return out[:120]
-    except Exception:
+        translated = out[:120]
+        _translation_cache[cache_key] = (now, translated)
+        if len(_translation_cache) > _TRANSLATION_CACHE_MAX:
+            oldest_key = min(_translation_cache, key=lambda k: _translation_cache[k][0])
+            _translation_cache.pop(oldest_key, None)
+        logger.debug(
+            "search_translate_cache_store",
+            extra=sanitize_log_context(
+                {"query_len": len(cache_key), "translated_len": len(translated)}
+            ),
+        )
+        return translated
+    except Exception as exc:
+        logger.warning(
+            "search_translate_failed",
+            extra=sanitize_log_context(
+                {
+                    "status": "warn",
+                    "error_code": "search_translate_failed",
+                    "detail": str(exc),
+                    "query_len": len(cache_key),
+                }
+            ),
+        )
         return ""
 
 
