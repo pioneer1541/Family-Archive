@@ -305,6 +305,10 @@ def _build_gmail_callback_uri(origin: str) -> str:
 
 
 def _resolve_gmail_redirect_uri(request: Request, stored_redirect_uri: str | None, requested_redirect_uri: str | None) -> str:
+    configured_origin = _normalize_origin(settings.google_redirect_uri)
+    if configured_origin:
+        return _build_gmail_callback_uri(configured_origin)
+
     configured = str(stored_redirect_uri or "").strip()
     if configured and configured != "http://localhost":
         return configured
