@@ -615,7 +615,7 @@ def detect_summary_quality_flags(summary_en: str, summary_zh: str) -> list[str]:
 
 def is_low_quality_summary(summary_en: str, summary_zh: str) -> bool:
     flags = set(detect_summary_quality_flags(summary_en, summary_zh))
-    return bool({"empty_summary", "contains_process_terms", "missing_entity_signals"} & flags)
+    return bool({"empty_summary", "contains_process_terms"} & flags)
 
 
 def _normalize_summary_output(
