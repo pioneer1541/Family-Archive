@@ -8,10 +8,12 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Optional
+from urllib.parse import urlencode
 
 import requests
 from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Response, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -245,6 +247,24 @@ def _cleanup_upload_dirs(paths: list[str]) -> None:
             cleaned_dirs.add(upload_dir_text)
         except Exception:
             continue
+
+
+def _frontend_settings_redirect_url() -> str:
+    origins = [str(x or "").strip() for x in (settings.allowed_origins or []) if str(x or "").strip()]
+    base = "http://localhost:18181"
+    for origin in origins:
+        if origin != "*":
+            base = origin
+            break
+    return f"{base.rstrip('/')}/settings?tab=integrations"
+
+
+def _gmail_redirect(*, error: str | None = None, connected: bool = False) -> RedirectResponse:
+    if connected:
+        query = urlencode({"gmail_connected": "1"})
+    else:
+        query = urlencode({"gmail_error": str(error or "unknown")})
+    return RedirectResponse(url=f"{_frontend_settings_redirect_url()}&{query}", status_code=302)
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -1815,7 +1835,7 @@ def create_gmail_credentials(
     import uuid
 
     from app.models import GmailCredentials
-    from app.utils.encryption import encrypt
+    from app.utils.encryption import decrypt, encrypt
 
     Path("/app/data").mkdir(parents=True, exist_ok=True)
 
@@ -1845,7 +1865,7 @@ def update_gmail_credentials(
 ):
     """Update a Gmail credential."""
     from app.models import GmailCredentials
-    from app.utils.encryption import encrypt
+    from app.utils.encryption import decrypt, encrypt
 
     cred = db.get(GmailCredentials, cred_id)
     if not cred:
@@ -1884,3 +1904,85 @@ def delete_gmail_credentials(
     db.delete(cred)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/gmail/credentials/{cred_id}/auth-url")
+def gmail_credentials_auth_url(
+    cred_id: str,
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate Google OAuth authorization URL for a Gmail credential."""
+    from app.models import GmailCredentials
+
+    cred = db.get(GmailCredentials, cred_id)
+    if (cred is None) or (not bool(cred.is_active)):
+        raise HTTPException(status_code=404, detail="Gmail credential not found.")
+
+    req = requests.Request(
+        method="GET",
+        url="https://accounts.google.com/o/oauth2/v2/auth",
+        params={
+            "client_id": cred.client_id,
+            "redirect_uri": cred.redirect_uri,
+            "response_type": "code",
+            "scope": "openid email profile https://www.googleapis.com/auth/gmail.readonly",
+            "access_type": "offline",
+            "prompt": "consent",
+            "state": cred_id,
+        },
+    )
+    prepared = req.prepare()
+    return {"auth_url": str(prepared.url or "")}
+
+
+@router.get("/gmail/callback")
+def gmail_callback(
+    state: str = Query(..., min_length=1),
+    code: Optional[str] = Query(default=None),
+    error: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    if error or not code:
+        return _gmail_redirect(error=(error or "unknown"))
+
+    from app.models import GmailCredentials
+    from app.utils.encryption import decrypt, encrypt
+
+    cred = db.get(GmailCredentials, state)
+    if (cred is None) or (not bool(cred.is_active)):
+        return _gmail_redirect(error="credential_not_found")
+
+    try:
+        client_secret = decrypt(cred.client_secret_encrypted)
+        token_resp = requests.post(
+            str(cred.token_uri or "https://oauth2.googleapis.com/token"),
+            data={
+                "code": code,
+                "client_id": cred.client_id,
+                "client_secret": str(client_secret or ""),
+                "redirect_uri": cred.redirect_uri,
+                "grant_type": "authorization_code",
+            },
+            timeout=20,
+        )
+        payload = dict(token_resp.json() or {})
+        if token_resp.status_code >= 400:
+            return _gmail_redirect(error=(payload.get("error") or "token_exchange_failed"))
+
+        access_token = str(payload.get("access_token") or "").strip()
+        if not access_token:
+            return _gmail_redirect(error="token_exchange_failed")
+
+        cred.token_encrypted = encrypt(access_token)
+        refresh_token = str(payload.get("refresh_token") or "").strip()
+        if refresh_token:
+            cred.refresh_token_encrypted = encrypt(refresh_token)
+        expires_in = int(payload.get("expires_in") or 0)
+        if expires_in > 0:
+            cred.token_expiry = dt.datetime.now(dt.UTC) + dt.timedelta(seconds=expires_in)
+        db.commit()
+        return _gmail_redirect(connected=True)
+    except Exception:
+        db.rollback()
+        return _gmail_redirect(error="token_exchange_failed")

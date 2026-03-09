@@ -96,6 +96,10 @@ def ensure_sqlite_runtime_schema() -> None:
                     "CREATE INDEX IF NOT EXISTS ix_mail_ingestion_events_sync_run_id ON mail_ingestion_events(sync_run_id)"
                 )
             )
+        if "gmail_credentials" in tables:
+            gmail_cols = {str(row[1] or "") for row in conn.execute(text("PRAGMA table_info(gmail_credentials)"))}
+            if "token_expiry" not in gmail_cols:
+                conn.execute(text("ALTER TABLE gmail_credentials ADD COLUMN token_expiry DATETIME"))
 
 
 def get_db():

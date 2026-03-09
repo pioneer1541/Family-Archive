@@ -36,6 +36,18 @@ _GMAIL_HEALTH_MESSAGES: dict[str, str] = {
 }
 
 
+def _parse_scopes(raw: str | None) -> list[str]:
+    text = str(raw or "").strip()
+    if not text:
+        return list(_GMAIL_SCOPES)
+    if "," in text:
+        parts = [str(item or "").strip() for item in text.split(",")]
+    else:
+        parts = [str(item or "").strip() for item in text.split()]
+    scopes = [item for item in parts if item]
+    return scopes or list(_GMAIL_SCOPES)
+
+
 def get_gmail_health() -> dict:
     """Return a health dict for the Gmail integration.
 
@@ -174,20 +186,72 @@ def _is_inline_asset_part(part: dict, file_name: str) -> bool:
 def _gmail_service():
     if (GoogleCredentials is None) or (GoogleRequest is None) or (google_build is None):
         return (None, "missing_google_gmail_dependencies")
-    if not os.path.exists(settings.mail_token_path):
-        return (None, "gmail_token_not_found")
-    if not os.path.exists(settings.mail_credentials_path):
-        return (None, "gmail_credentials_not_found")
+    creds = None
+    db_cred = None
+    db = None
     try:
-        creds = GoogleCredentials.from_authorized_user_file(settings.mail_token_path, _GMAIL_SCOPES)
+        from app.db import SessionLocal
+        from app.models import GmailCredentials
+        from app.utils.encryption import decrypt
+
+        db = SessionLocal()
+        db_cred = (
+            db.query(GmailCredentials)
+            .filter(GmailCredentials.is_active.is_(True))
+            .order_by(GmailCredentials.updated_at.desc())
+            .first()
+        )
+        if db_cred is not None:
+            token = decrypt(db_cred.token_encrypted)
+            refresh_token = decrypt(db_cred.refresh_token_encrypted)
+            if token:
+                creds = GoogleCredentials(
+                    token=token,
+                    refresh_token=refresh_token,
+                    token_uri=str(db_cred.token_uri or "https://oauth2.googleapis.com/token"),
+                    client_id=str(db_cred.client_id or ""),
+                    client_secret=str(decrypt(db_cred.client_secret_encrypted) or ""),
+                    scopes=_parse_scopes(db_cred.scopes),
+                    expiry=db_cred.token_expiry,
+                )
     except Exception:
-        return (None, "gmail_token_invalid")
+        creds = None
+    finally:
+        if db is not None:
+            db.close()
+
+    if creds is None:
+        if not os.path.exists(settings.mail_token_path):
+            return (None, "gmail_token_not_found")
+        if not os.path.exists(settings.mail_credentials_path):
+            return (None, "gmail_credentials_not_found")
+        try:
+            creds = GoogleCredentials.from_authorized_user_file(settings.mail_token_path, _GMAIL_SCOPES)
+        except Exception:
+            return (None, "gmail_token_invalid")
     try:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(GoogleRequest())
             try:
-                with open(settings.mail_token_path, "w", encoding="utf-8") as f:
-                    f.write(creds.to_json())
+                if db_cred is not None:
+                    from app.db import SessionLocal
+                    from app.models import GmailCredentials
+                    from app.utils.encryption import encrypt
+
+                    refresh_db = SessionLocal()
+                    try:
+                        current = refresh_db.get(GmailCredentials, db_cred.id)
+                        if current is not None:
+                            current.token_encrypted = encrypt(creds.token)
+                            if getattr(creds, "refresh_token", None):
+                                current.refresh_token_encrypted = encrypt(creds.refresh_token)
+                            current.token_expiry = getattr(creds, "expiry", None)
+                            refresh_db.commit()
+                    finally:
+                        refresh_db.close()
+                else:
+                    with open(settings.mail_token_path, "w", encoding="utf-8") as f:
+                        f.write(creds.to_json())
             except Exception:
                 pass
     except Exception:

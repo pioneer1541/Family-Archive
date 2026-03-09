@@ -371,6 +371,7 @@ class GmailCredentials(Base):
     redirect_uri: Mapped[str] = mapped_column(String(512), nullable=False, default="http://localhost")
     token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     refresh_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    token_expiry: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     token_uri: Mapped[str] = mapped_column(String(256), nullable=False, default="https://oauth2.googleapis.com/token")
     auth_uri: Mapped[str] = mapped_column(
         String(256), nullable=False, default="https://accounts.google.com/o/oauth2/auth"
