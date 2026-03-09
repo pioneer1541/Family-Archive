@@ -257,7 +257,17 @@ def extract_text_from_path(path: str, db: Session | None = None) -> str:
         text = "\n\n".join(f"[Page {idx + 1}]\n{page}" for idx, page in enumerate(pages) if str(page or "").strip())
         if text.strip():
             return text
-        return _clean_text(extract_ocr_text(path))
+        ocr_text = _clean_text(extract_ocr_text(path))
+        if ocr_text:
+            return ocr_text
+        return _clean_text(
+            extract_pdf_text_with_vl(
+                path,
+                max_pages=min(120, int(settings.ingestion_ocr_pdf_max_pages)),
+                dpi=int(settings.ingestion_ocr_render_dpi),
+                db=db,
+            )
+        )
     if ext == "docx":
         return _read_docx(path)
     if ext == "xlsx":
