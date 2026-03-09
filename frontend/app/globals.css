@@ -3239,8 +3239,9 @@ a {
     flex-wrap: wrap;
     gap: 6px;
   }
+  .gmail-cred-table-wrap { max-width: 100%; }
   .gmail-cred-table { min-width: 560px; }
-  .gmail-cred-actions { flex-wrap: wrap; }
+  .gmail-cred-actions { flex-wrap: wrap; gap: 8px; }
   .gmail-cred-actions .btn-secondary,
   .gmail-cred-actions .btn-primary {
     width: auto;
