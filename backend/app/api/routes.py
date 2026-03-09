@@ -1863,12 +1863,12 @@ def list_gmail_credentials(
     creds = db.execute(select(GmailCredentials).where(GmailCredentials.is_active.is_(True))).scalars().all()
     items = []
     for c in creds:
-        client_id_masked = c.client_id[:8] + "..." + c.client_id[-4:] if len(c.client_id) > 12 else c.client_id
+        client_id = c.client_id[:8] + "..." + c.client_id[-4:] if len(c.client_id) > 12 else c.client_id
         items.append(
             {
                 "id": c.id,
                 "name": c.name,
-                "client_id_masked": client_id_masked,
+                "client_id": client_id,
                 "redirect_uri": c.redirect_uri,
                 "is_active": c.is_active,
                 "created_at": c.created_at.isoformat(),
