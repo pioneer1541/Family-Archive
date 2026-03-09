@@ -2,7 +2,7 @@
 
 import {useEffect, useState, useCallback, useRef} from 'react';
 import {useTranslations, useLocale} from 'next-intl';
-import {useRouter} from 'next/navigation';
+import {useRouter, useSearchParams, usePathname} from 'next/navigation';
 import {getKbClient} from '@src/lib/api/kb-client';
 import type {
   AppSettingItem,
@@ -138,6 +138,8 @@ export default function SettingsPage() {
   const tg = useTranslations('gmail');
   const locale = useLocale();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isZh = locale === 'zh-CN';
   const client = getKbClient();
 
@@ -166,8 +168,11 @@ export default function SettingsPage() {
   const [gmailEditId, setGmailEditId] = useState<string | null>(null);
   const [gmailError, setGmailError] = useState("");
   const [gmailSaving, setGmailSaving] = useState(false);
+  const [gmailAuthorizingId, setGmailAuthorizingId] = useState<string | null>(null);
   // Gmail 删除确认
   const [gmailDeleteId, setGmailDeleteId] = useState<string | null>(null);
+  const authPollingRef = useRef<number | null>(null);
+  const oauthNoticeHandledRef = useRef(false);
   // Admin users tab
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -184,6 +189,25 @@ export default function SettingsPage() {
     client.getMe?.().then((u) => setMe(u ?? null)).catch(() => setMe(null));
     loadGmailCredentials();
   }, []);
+
+  useEffect(() => {
+    const connected = searchParams.get('gmail_connected');
+    const oauthError = searchParams.get('gmail_error');
+    if (oauthNoticeHandledRef.current) return;
+    if (connected === '1') {
+      oauthNoticeHandledRef.current = true;
+      setToast(tg('gmail_connected'));
+      setTimeout(() => setToast(''), 3000);
+      router.replace(pathname);
+      return;
+    }
+    if (oauthError) {
+      oauthNoticeHandledRef.current = true;
+      setToast(`${tg('gmail_error')}: ${oauthError}`);
+      setTimeout(() => setToast(''), 5000);
+      router.replace(pathname);
+    }
+  }, [pathname, router, searchParams, tg]);
 
   // 加载 Gmail 凭证列表
 
@@ -443,6 +467,42 @@ export default function SettingsPage() {
     setGmailError("");
     setGmailFormOpen(true);
   }
+
+  async function handleGmailAuthorize(credId: string) {
+    if (!client.getGmailAuthUrl) return;
+    setGmailAuthorizingId(credId);
+    try {
+      const result = await client.getGmailAuthUrl(credId);
+      const authWindow = window.open(result.auth_url, '_blank', 'noopener,noreferrer');
+      if (!authWindow) {
+        throw new Error(tg('toastFailed'));
+      }
+      if (authPollingRef.current !== null) {
+        window.clearInterval(authPollingRef.current);
+      }
+      authPollingRef.current = window.setInterval(() => {
+        if (!authWindow.closed) return;
+        if (authPollingRef.current !== null) {
+          window.clearInterval(authPollingRef.current);
+          authPollingRef.current = null;
+        }
+        setGmailAuthorizingId(null);
+        loadGmailCredentials();
+      }, 800);
+    } catch (err) {
+      setGmailAuthorizingId(null);
+      setToast(err instanceof Error ? err.message : tg('toastFailed'));
+      setTimeout(() => setToast(''), 4000);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (authPollingRef.current !== null) {
+        window.clearInterval(authPollingRef.current);
+      }
+    };
+  }, []);
 
   const gmailDeleteTarget = gmailCreds.find((cred) => cred.id === gmailDeleteId) ?? null;
 
@@ -722,6 +782,14 @@ export default function SettingsPage() {
                           <td>{new Date(cred.created_at).toLocaleDateString(locale)}</td>
                           <td>{new Date(cred.updated_at).toLocaleDateString(locale)}</td>
                           <td className="gmail-cred-actions">
+                            <button
+                              type="button"
+                              className="btn-secondary btn-sm"
+                              onClick={() => handleGmailAuthorize(cred.id)}
+                              disabled={gmailAuthorizingId === cred.id}
+                            >
+                              {gmailAuthorizingId === cred.id ? t('loading') : tg('authorize')}
+                            </button>
                             <button
                               type="button"
                               className="btn-secondary btn-sm"

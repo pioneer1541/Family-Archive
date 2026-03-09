@@ -1332,6 +1332,18 @@ async function getGmailCredentials(): Promise<GmailCredential[]> {
   }
 }
 
+async function getGmailAuthUrl(credId: string): Promise<{auth_url: string}> {
+  const r = await fetchGmailWithFallback(`/${encodeURIComponent(credId)}/auth-url`);
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err?.detail || "Failed to get Gmail auth URL");
+  }
+  const data = await r.json().catch(() => ({}));
+  const authUrl = String(data?.auth_url || '').trim();
+  if (!authUrl) throw new Error('Invalid Gmail auth URL response');
+  return {auth_url: authUrl};
+}
+
 async function createGmailCredential(data: GmailCredentialCreate): Promise<GmailCredential> {
   const r = await fetchGmailWithFallback('', {
     method: "POST",
@@ -1409,6 +1421,7 @@ export function createRealAdapter(): KbApiClient {
     createUser,
     deleteUser,
     getGmailCredentials,
+    getGmailAuthUrl,
     createGmailCredential,
     updateGmailCredential,
     deleteGmailCredential,

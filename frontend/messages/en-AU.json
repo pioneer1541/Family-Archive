@@ -287,6 +287,7 @@
     "create": "Create Credential",
     "update": "Update Credential",
     "delete": "Delete",
+    "authorize": "Authorize",
     "deleteConfirm": "Confirm Delete?",
     "deleteHint": "This action cannot be undone. Authorized accounts will need re-authorization.",
     "validationName": "Please enter credential name",
@@ -296,6 +297,8 @@
     "toastUpdated": "Credential updated",
     "toastDeleted": "Credential deleted",
     "toastFailed": "Operation failed",
-    "deleteFailed": "Delete failed"
+    "deleteFailed": "Delete failed",
+    "gmail_connected": "Gmail connected successfully",
+    "gmail_error": "Gmail authorization failed"
   }
 }
