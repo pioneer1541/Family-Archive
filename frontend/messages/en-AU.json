@@ -267,6 +267,7 @@
   },
   "gmail": {
     "credentials": "Gmail OAuth Credentials",
+    "gmail_config_guide": "Setup Guide",
     "add": "Add Credential",
     "hint": "Configure Gmail API OAuth credentials for mail pull feature. Credentials are stored securely.",
     "empty": "No credentials yet. Add a Gmail OAuth credential to get started.",
@@ -299,6 +300,17 @@
     "toastFailed": "Operation failed",
     "deleteFailed": "Delete failed",
     "gmail_connected": "Gmail connected successfully",
-    "gmail_error": "Gmail authorization failed"
+    "gmail_error": "Gmail authorization failed",
+    "gmail_step1_title": "Create Google Cloud project",
+    "gmail_step1": "Create a new project or select an existing project.",
+    "gmail_step2_title": "Enable Gmail API",
+    "gmail_step2": "Enable Gmail API for the selected project.",
+    "gmail_step3_title": "Create OAuth client",
+    "gmail_step3": "Create OAuth Client ID in Google Cloud credentials.",
+    "gmail_step3_sub1": "Click \"Create Credentials\" and choose \"OAuth client ID\".",
+    "gmail_step3_sub2": "Application type: Web application.",
+    "gmail_step3_sub3": "Authorized redirect URI:",
+    "gmail_step4_title": "Copy credentials",
+    "gmail_step4": "Copy Client ID and Client Secret, then paste them into the form below."
   }
 }

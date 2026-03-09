@@ -164,6 +164,7 @@ export default function SettingsPage() {
   const [gmailCreds, setGmailCreds] = useState<GmailCredential[]>([]);
   const [gmailLoading, setGmailLoading] = useState(false);
   const [gmailFormOpen, setGmailFormOpen] = useState(false);
+  const [gmailGuideOpen, setGmailGuideOpen] = useState(false);
   const [gmailForm, setGmailForm] = useState<GmailCredentialCreate>({name: "", client_id: "", client_secret: ""});
   const [gmailEditId, setGmailEditId] = useState<string | null>(null);
   const [gmailError, setGmailError] = useState("");
@@ -173,6 +174,7 @@ export default function SettingsPage() {
   const [gmailDeleteId, setGmailDeleteId] = useState<string | null>(null);
   const authPollingRef = useRef<number | null>(null);
   const oauthNoticeHandledRef = useRef(false);
+  const [originUrl, setOriginUrl] = useState('');
   // Admin users tab
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -208,6 +210,10 @@ export default function SettingsPage() {
       router.replace(pathname);
     }
   }, [pathname, router, searchParams, tg]);
+
+  useEffect(() => {
+    setOriginUrl(window.location.origin);
+  }, []);
 
   // 加载 Gmail 凭证列表
 
@@ -466,6 +472,10 @@ export default function SettingsPage() {
     setGmailForm({name: "", client_id: "", client_secret: ""});
     setGmailError("");
     setGmailFormOpen(true);
+  }
+
+  function handleGmailGuideClose() {
+    setGmailGuideOpen(false);
   }
 
   async function handleGmailAuthorize(credId: string) {
@@ -747,14 +757,23 @@ export default function SettingsPage() {
               <hr className="settings-divider" />
               <div className="settings-section-header">
                 <h3>{tg('credentials')}</h3>
-                <button
-                  type="button"
-                  className="btn-primary btn-sm"
-                  onClick={handleGmailCreate}
-                  disabled={gmailFormOpen}
-                >
-                  {tg('add')}
-                </button>
+                <div className="settings-section-header-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm"
+                    onClick={() => setGmailGuideOpen(true)}
+                  >
+                    {tg('gmail_config_guide')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary btn-sm"
+                    onClick={handleGmailCreate}
+                    disabled={gmailFormOpen}
+                  >
+                    {tg('add')}
+                  </button>
+                </div>
               </div>
               <p className="settings-hint">{tg('hint')}</p>
 
@@ -819,6 +838,70 @@ export default function SettingsPage() {
                 </div>
               )}
               <button type="button" className="btn-secondary" onClick={handleTestConn}>{t('testConn')}</button>
+            </div>
+          )}
+
+          {/* Gmail Form Modal */}
+          {gmailGuideOpen && (
+            <div className="settings-restart-dialog" onClick={handleGmailGuideClose}>
+              <div className="settings-restart-content gmail-modal-content" onClick={(e) => e.stopPropagation()}>
+                <h3>{tg('gmail_config_guide')}</h3>
+                <ol className="gmail-guide-steps">
+                  <li>
+                    <h4>{tg('gmail_step1_title')}</h4>
+                    <p className="settings-hint">{tg('gmail_step1')}</p>
+                    <a
+                      href="https://console.cloud.google.com/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="gmail-guide-link"
+                    >
+                      https://console.cloud.google.com/
+                    </a>
+                  </li>
+                  <li>
+                    <h4>{tg('gmail_step2_title')}</h4>
+                    <p className="settings-hint">{tg('gmail_step2')}</p>
+                    <a
+                      href="https://console.cloud.google.com/apis/library/gmail.googleapis.com"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="gmail-guide-link"
+                    >
+                      https://console.cloud.google.com/apis/library/gmail.googleapis.com
+                    </a>
+                  </li>
+                  <li>
+                    <h4>{tg('gmail_step3_title')}</h4>
+                    <p className="settings-hint">{tg('gmail_step3')}</p>
+                    <ul className="gmail-guide-substeps">
+                      <li>{tg('gmail_step3_sub1')}</li>
+                      <li>{tg('gmail_step3_sub2')}</li>
+                      <li>
+                        {tg('gmail_step3_sub3')}
+                        <code className="gmail-guide-code">{`${originUrl || 'https://your-domain.com'}/gmail/callback`}</code>
+                      </li>
+                    </ul>
+                    <a
+                      href="https://console.cloud.google.com/apis/credentials"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="gmail-guide-link"
+                    >
+                      https://console.cloud.google.com/apis/credentials
+                    </a>
+                  </li>
+                  <li>
+                    <h4>{tg('gmail_step4_title')}</h4>
+                    <p className="settings-hint">{tg('gmail_step4')}</p>
+                  </li>
+                </ol>
+                <div className="settings-restart-actions">
+                  <button type="button" className="btn-secondary" onClick={handleGmailGuideClose}>
+                    {t('cancel')}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

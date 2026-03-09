@@ -267,6 +267,7 @@
   },
   "gmail": {
     "credentials": "Gmail OAuth 凭证",
+    "gmail_config_guide": "配置指南",
     "add": "添加凭证",
     "hint": "配置 Gmail API OAuth 凭证，用于邮件拉取功能。凭证信息将安全存储。",
     "empty": "暂无凭证，请添加 Gmail OAuth 凭证",
@@ -299,6 +300,17 @@
     "toastFailed": "操作失败",
     "deleteFailed": "删除失败",
     "gmail_connected": "Gmail 授权成功",
-    "gmail_error": "Gmail 授权失败"
+    "gmail_error": "Gmail 授权失败",
+    "gmail_step1_title": "创建 Google Cloud 项目",
+    "gmail_step1": "创建新项目或选择已有项目。",
+    "gmail_step2_title": "启用 Gmail API",
+    "gmail_step2": "在当前项目中启用 Gmail API。",
+    "gmail_step3_title": "创建 OAuth 客户端",
+    "gmail_step3": "在 Google Cloud 凭据页面创建 OAuth 客户端 ID。",
+    "gmail_step3_sub1": "点击“创建凭据”并选择 “OAuth 客户端 ID”。",
+    "gmail_step3_sub2": "应用类型选择：Web 应用。",
+    "gmail_step3_sub3": "已授权的重定向 URI：",
+    "gmail_step4_title": "复制凭据",
+    "gmail_step4": "复制 Client ID 和 Client Secret，并粘贴到下方表单。"
   }
 }

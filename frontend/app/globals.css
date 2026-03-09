@@ -2834,6 +2834,12 @@ a {
   gap: 12px;
 }
 
+.settings-section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .settings-field {
   display: flex;
   flex-direction: column;
@@ -2976,6 +2982,48 @@ a {
 
 .gmail-modal-content {
   max-width: 520px;
+}
+
+.gmail-guide-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gmail-guide-steps li {
+  color: var(--ink2);
+}
+
+.gmail-guide-steps h4 {
+  margin: 0 0 4px 0;
+  font-size: 0.98rem;
+  color: var(--ink);
+}
+
+.gmail-guide-substeps {
+  margin: 8px 0;
+  padding-left: 20px;
+  color: var(--ink2);
+  font-size: 0.9rem;
+}
+
+.gmail-guide-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-all;
+}
+
+.gmail-guide-code {
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--bg2);
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-family: var(--font-mono), monospace;
 }
 
 .gmail-cred-table-wrap {
