@@ -317,7 +317,7 @@ def _resolve_gmail_redirect_uri(request: Request, stored_redirect_uri: str | Non
     if origin:
         return _build_gmail_callback_uri(origin)
 
-    return "http://localhost/gmail/callback"
+    return settings.google_redirect_uri
 
 
 @router.get("/health", response_model=HealthResponse)

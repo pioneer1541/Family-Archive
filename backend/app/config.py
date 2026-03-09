@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     category_model: str = "qwen3:4b-instruct"
     friendly_name_model: str = "lfm2:latest"
     vl_extract_model: str = "qwen3-vl:2b"
+    google_redirect_uri: str = "http://localhost:18181/gmail/callback"
     summary_timeout_sec: int = 12
     agent_synth_timeout_sec: int = 25
     agent_context_mode: str = "smart_followup"
