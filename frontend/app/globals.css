@@ -3231,6 +3231,7 @@ a {
   .settings-section .btn-primary {
     padding: 6px 12px;
     font-size: 0.85rem;
+    align-self: flex-start;
   }
   .settings-tabs {
     flex-direction: row;
@@ -3238,12 +3239,7 @@ a {
     gap: 6px;
   }
   .gmail-cred-table-wrap {
-    overflow-x: scroll;
-    -webkit-overflow-scrolling: touch;
-  }
-  .settings-section > .btn-secondary,
-  .settings-section > .btn-primary {
-    align-self: flex-start;
+    overflow-x: auto;
   }
   .setup-card { padding: 28px 20px; }
 }
