@@ -124,7 +124,7 @@ function KeywordEditor({
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
           placeholder={hint}
         />
-        <button type="button" className="btn-secondary btn-sm" onClick={handleAdd}>+</button>
+        <button type="button" className="btn-secondary" onClick={handleAdd}>+</button>
       </div>
     </div>
   );
@@ -760,14 +760,14 @@ export default function SettingsPage() {
                 <div className="settings-section-header-actions">
                   <button
                     type="button"
-                    className="btn-secondary btn-sm"
+                    className="btn-secondary"
                     onClick={() => setGmailGuideOpen(true)}
                   >
                     {tg('gmail_config_guide')}
                   </button>
                   <button
                     type="button"
-                    className="btn-primary btn-sm"
+                    className="btn-primary"
                     onClick={handleGmailCreate}
                     disabled={gmailFormOpen}
                   >
@@ -803,7 +803,7 @@ export default function SettingsPage() {
                           <td className="gmail-cred-actions">
                             <button
                               type="button"
-                              className="btn-secondary btn-sm"
+                              className="btn-secondary"
                               onClick={() => handleGmailAuthorize(cred.id)}
                               disabled={gmailAuthorizingId === cred.id}
                             >
@@ -811,14 +811,14 @@ export default function SettingsPage() {
                             </button>
                             <button
                               type="button"
-                              className="btn-secondary btn-sm"
+                              className="btn-secondary"
                               onClick={() => handleGmailEdit(cred)}
                             >
                               {t('edit')}
                             </button>
                             <button
                               type="button"
-                              className="btn-secondary btn-sm btn-danger"
+                              className="btn-secondary btn-danger"
                               onClick={() => setGmailDeleteId(cred.id)}
                             >
                               {t('delete')}
@@ -1102,7 +1102,7 @@ export default function SettingsPage() {
                           <td>
                             <button
                               type="button"
-                              className="btn-secondary btn-sm btn-danger"
+                              className="btn-secondary btn-danger"
                               onClick={() => handleDeleteUser(u.id)}
                               disabled={u.id === me?.id}
                             >

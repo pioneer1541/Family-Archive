@@ -3227,10 +3227,23 @@ a {
 @media (max-width: 768px) {
   .settings-page { padding: 20px 16px; }
   .settings-layout { flex-direction: column; gap: 16px; }
+  .settings-section .btn-secondary,
+  .settings-section .btn-primary {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
   .settings-tabs {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 6px;
+  }
+  .gmail-cred-table-wrap {
+    overflow-x: scroll;
+    -webkit-overflow-scrolling: touch;
+  }
+  .settings-section > .btn-secondary,
+  .settings-section > .btn-primary {
+    align-self: flex-start;
   }
   .setup-card { padding: 28px 20px; }
 }
