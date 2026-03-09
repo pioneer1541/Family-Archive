@@ -1324,6 +1324,7 @@ async function getGmailCredentials(): Promise<GmailCredential[]> {
       id: String(row?.id || ''),
       name: String(row?.name || ''),
       client_id: String(row?.client_id || row?.client_id_masked || ''),
+      has_token: Boolean(row?.has_token),
       created_at: String(row?.created_at || ''),
       updated_at: String(row?.updated_at || ''),
     }));

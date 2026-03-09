@@ -333,6 +333,7 @@ export interface GmailCredential {
   id: string;
   name: string;
   client_id: string;
+  has_token: boolean;
   created_at: string;
   updated_at: string;
 }

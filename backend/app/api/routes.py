@@ -1674,6 +1674,7 @@ def get_ollama_models(db: Session = Depends(get_db)):
 def connectivity_health(db: Session = Depends(get_db)):
     """Check connectivity to Ollama, Qdrant, NAS, and Gmail."""
     import time
+    from app.models import GmailCredentials
 
     ollama_url = get_runtime_setting("ollama_base_url", db)
 
@@ -1700,6 +1701,27 @@ def connectivity_health(db: Session = Depends(get_db)):
             }
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
+
+    def _test_gmail_connection() -> dict:
+        active_cred_count = db.execute(
+            select(func.count())
+            .select_from(GmailCredentials)
+            .where(GmailCredentials.is_active.is_(True))
+        ).scalar_one()
+        token_count = db.execute(
+            select(func.count())
+            .select_from(GmailCredentials)
+            .where(
+                GmailCredentials.is_active.is_(True),
+                GmailCredentials.token_encrypted.is_not(None),
+            )
+        ).scalar_one()
+        has_token = token_count > 0
+        return {
+            "ok": has_token,
+            "credentials_present": active_cred_count > 0,
+            "token_present": has_token,
+        }
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         ollama_future = executor.submit(_check_ollama)
@@ -1769,14 +1791,8 @@ def connectivity_health(db: Session = Depends(get_db)):
             }
         )
 
-    # Gmail credentials
-    creds_path = settings.mail_credentials_path
-    token_path = settings.mail_token_path
-    gmail_result = {
-        "ok": os.path.isfile(creds_path) and os.path.isfile(token_path),
-        "credentials_present": os.path.isfile(creds_path),
-        "token_present": os.path.isfile(token_path),
-    }
+    # Gmail credentials (OAuth token is stored in DB).
+    gmail_result = _test_gmail_connection()
 
     return {
         "ollama": ollama_result,
@@ -1874,6 +1890,7 @@ def list_gmail_credentials(
                 "name": c.name,
                 "client_id": client_id,
                 "redirect_uri": c.redirect_uri,
+                "has_token": c.token_encrypted is not None,
                 "is_active": c.is_active,
                 "created_at": c.created_at.isoformat(),
                 "updated_at": c.updated_at.isoformat(),

@@ -788,6 +788,7 @@ export default function SettingsPage() {
                       <tr>
                         <th>{tg('tableName')}</th>
                         <th>{tg('tableClientId')}</th>
+                        <th>{tg('tableStatus')}</th>
                         <th>{tg('tableCreatedAt')}</th>
                         <th>{tg('tableUpdatedAt')}</th>
                         <th>{tg('tableActions')}</th>
@@ -798,6 +799,11 @@ export default function SettingsPage() {
                         <tr key={cred.id}>
                           <td>{cred.name}</td>
                           <td className="gmail-cred-mono">{maskClientId(cred.client_id)}</td>
+                          <td>
+                            <span className={`badge ${cred.has_token ? 'badge-green' : 'badge-red'}`}>
+                              {cred.has_token ? tg('statusAuthorized') : tg('statusUnauthorized')}
+                            </span>
+                          </td>
                           <td>{new Date(cred.created_at).toLocaleDateString(locale)}</td>
                           <td>{new Date(cred.updated_at).toLocaleDateString(locale)}</td>
                           <td className="gmail-cred-actions">
