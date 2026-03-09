@@ -9,10 +9,10 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import requests
-from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -265,6 +265,59 @@ def _gmail_redirect(*, error: str | None = None, connected: bool = False) -> Red
     else:
         query = urlencode({"gmail_error": str(error or "unknown")})
     return RedirectResponse(url=f"{_frontend_settings_redirect_url()}&{query}", status_code=302)
+
+
+def _normalize_origin(raw: str | None) -> str:
+    parsed = urlparse(str(raw or "").strip())
+    if parsed.scheme not in {"http", "https"}:
+        return ""
+    netloc = str(parsed.netloc or "").strip()
+    if not netloc:
+        return ""
+    return f"{parsed.scheme}://{netloc}"
+
+
+def _request_origin(request: Request) -> str:
+    origin = _normalize_origin(request.headers.get("origin"))
+    if origin:
+        return origin
+
+    referer = _normalize_origin(request.headers.get("referer"))
+    if referer:
+        return referer
+
+    forwarded_host = str(request.headers.get("x-forwarded-host") or "").strip()
+    if forwarded_host:
+        host = forwarded_host.split(",", 1)[0].strip()
+        proto = str(request.headers.get("x-forwarded-proto") or request.url.scheme or "http").split(",", 1)[0].strip()
+        if host and proto in {"http", "https"}:
+            return f"{proto}://{host}"
+
+    host = str(request.headers.get("host") or request.url.netloc or "").strip()
+    if host:
+        scheme = str(request.url.scheme or "http").strip() or "http"
+        return f"{scheme}://{host}"
+    return ""
+
+
+def _build_gmail_callback_uri(origin: str) -> str:
+    return f"{origin.rstrip('/')}/gmail/callback"
+
+
+def _resolve_gmail_redirect_uri(request: Request, stored_redirect_uri: str | None, requested_redirect_uri: str | None) -> str:
+    configured = str(stored_redirect_uri or "").strip()
+    if configured and configured != "http://localhost":
+        return configured
+
+    requested_origin = _normalize_origin(requested_redirect_uri)
+    if requested_origin:
+        return _build_gmail_callback_uri(requested_origin)
+
+    origin = _request_origin(request)
+    if origin:
+        return _build_gmail_callback_uri(origin)
+
+    return "http://localhost/gmail/callback"
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -1909,6 +1962,8 @@ def delete_gmail_credentials(
 @router.get("/gmail/credentials/{cred_id}/auth-url")
 def gmail_credentials_auth_url(
     cred_id: str,
+    request: Request,
+    redirect_uri: Optional[str] = Query(default=None, max_length=2048),
     _: object = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -1924,7 +1979,7 @@ def gmail_credentials_auth_url(
         url="https://accounts.google.com/o/oauth2/v2/auth",
         params={
             "client_id": cred.client_id,
-            "redirect_uri": cred.redirect_uri,
+            "redirect_uri": _resolve_gmail_redirect_uri(request, cred.redirect_uri, redirect_uri),
             "response_type": "code",
             "scope": "openid email profile https://www.googleapis.com/auth/gmail.readonly",
             "access_type": "offline",
@@ -1938,6 +1993,7 @@ def gmail_credentials_auth_url(
 
 @router.get("/gmail/callback")
 def gmail_callback(
+    request: Request,
     state: str = Query(..., min_length=1),
     code: Optional[str] = Query(default=None),
     error: Optional[str] = Query(default=None),
@@ -1961,7 +2017,7 @@ def gmail_callback(
                 "code": code,
                 "client_id": cred.client_id,
                 "client_secret": str(client_secret or ""),
-                "redirect_uri": cred.redirect_uri,
+                "redirect_uri": _resolve_gmail_redirect_uri(request, cred.redirect_uri, None),
                 "grant_type": "authorization_code",
             },
             timeout=20,

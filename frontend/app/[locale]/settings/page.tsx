@@ -472,7 +472,7 @@ export default function SettingsPage() {
     if (!client.getGmailAuthUrl) return;
     setGmailAuthorizingId(credId);
     try {
-      const result = await client.getGmailAuthUrl(credId);
+      const result = await client.getGmailAuthUrl(credId, window.location.origin);
       const authWindow = window.open(result.auth_url, '_blank', 'noopener,noreferrer');
       if (!authWindow) {
         throw new Error(tg('toastFailed'));

@@ -390,7 +390,7 @@ export interface KbApiClient {
   restartServices?(): Promise<{ok: boolean; message?: string; error?: string; manual?: boolean}>;
   // Gmail Credentials
   getGmailCredentials?(): Promise<GmailCredential[]>;
-  getGmailAuthUrl?(credId: string): Promise<{auth_url: string}>;
+  getGmailAuthUrl?(credId: string, redirectUri?: string): Promise<{auth_url: string}>;
   createGmailCredential?(data: GmailCredentialCreate): Promise<GmailCredential>;
   updateGmailCredential?(id: string, data: GmailCredentialUpdate): Promise<GmailCredential>;
   deleteGmailCredential?(id: string): Promise<void>;

@@ -1332,8 +1332,15 @@ async function getGmailCredentials(): Promise<GmailCredential[]> {
   }
 }
 
-async function getGmailAuthUrl(credId: string): Promise<{auth_url: string}> {
-  const r = await fetchGmailWithFallback(`/${encodeURIComponent(credId)}/auth-url`);
+async function getGmailAuthUrl(credId: string, redirectUri?: string): Promise<{auth_url: string}> {
+  const params = new URLSearchParams();
+  const redirectUriText = String(redirectUri || '').trim();
+  if (redirectUriText) {
+    params.set('redirect_uri', redirectUriText);
+  }
+  const suffixBase = `/${encodeURIComponent(credId)}/auth-url`;
+  const suffix = params.size > 0 ? `${suffixBase}?${params.toString()}` : suffixBase;
+  const r = await fetchGmailWithFallback(suffix);
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
     throw new Error(err?.detail || "Failed to get Gmail auth URL");
