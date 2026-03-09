@@ -3239,7 +3239,13 @@ a {
     flex-wrap: wrap;
     gap: 6px;
   }
+  .gmail-cred-table { min-width: 560px; }
   .gmail-cred-actions { flex-wrap: wrap; }
+  .gmail-cred-actions .btn-secondary,
+  .gmail-cred-actions .btn-primary {
+    width: auto;
+    min-width: 0;
+  }
   .setup-card { padding: 28px 20px; }
 }
 /* ========================================
