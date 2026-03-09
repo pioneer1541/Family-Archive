@@ -37,7 +37,7 @@ from app.services.llm_summary import (
 from app.services.ocr_fallback import get_pdf_page_count
 from app.services.parsing import (
     build_bilingual_title,
-    chunk_text,
+    chunk_text_semantic,
     compute_sha256,
     detect_lang_simple,
     extract_text_from_path,
@@ -561,10 +561,10 @@ def _process_single_path(
             ]
             db.execute(delete(Chunk).where(Chunk.document_id == document.id))
 
-        chunks = chunk_text(
+        chunks = chunk_text_semantic(
             text,
-            target_tokens=settings.ingestion_chunk_target_tokens,
-            overlap_tokens=settings.ingestion_chunk_overlap_tokens,
+            max_words=settings.ingestion_chunk_target_tokens,
+            overlap_words=settings.ingestion_chunk_overlap_tokens,
         )
         if not chunks:
             _mark_doc_failed(document, "chunk_empty")

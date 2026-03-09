@@ -294,6 +294,105 @@ def chunk_text(text: str, target_tokens: int = 320, overlap_tokens: int = 48) ->
     return chunks
 
 
+def chunk_text_semantic(text: str, max_words: int = 320, overlap_words: int = 48) -> list[str]:
+    raw = str(text or "").strip()
+    if not raw:
+        return []
+
+    if max_words < 40:
+        max_words = 40
+    if overlap_words < 0:
+        overlap_words = 0
+    if overlap_words >= max_words:
+        overlap_words = max_words // 4
+
+    def _is_title(paragraph: str) -> bool:
+        lines = [line.strip() for line in str(paragraph or "").split("\n") if line.strip()]
+        if len(lines) != 1:
+            return False
+        line = lines[0]
+        words = line.split()
+        if len(words) > 12:
+            return False
+        return not line.endswith(".")
+
+    def _parse_page_blocks(full_text: str) -> list[tuple[int | None, str]]:
+        marker = re.compile(r"\[Page\s+(\d+)\]", flags=re.IGNORECASE)
+        matches = list(marker.finditer(full_text))
+        if not matches:
+            return [(None, full_text)]
+
+        blocks: list[tuple[int | None, str]] = []
+        for i, match in enumerate(matches):
+            page_num = None
+            try:
+                page_num = int(match.group(1))
+            except Exception:
+                page_num = None
+            start = match.end()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(full_text)
+            body = full_text[start:end].strip()
+            if body:
+                blocks.append((page_num, body))
+        return blocks
+
+    chunks: list[str] = []
+    page_blocks = _parse_page_blocks(raw)
+    for page_num, page_text in page_blocks:
+        paragraphs = [p.strip() for p in re.split(r"\n{2,}", page_text) if p.strip()]
+        if not paragraphs:
+            continue
+
+        merged_paragraphs: list[str] = []
+        idx = 0
+        while idx < len(paragraphs):
+            current = paragraphs[idx]
+            if _is_title(current) and idx + 1 < len(paragraphs):
+                merged_paragraphs.append(f"{current}\n{paragraphs[idx + 1]}")
+                idx += 2
+                continue
+            merged_paragraphs.append(current)
+            idx += 1
+
+        page_prefix = f"[Page {page_num}]\n" if page_num is not None else ""
+        current_parts: list[str] = []
+        current_words = 0
+
+        for para in merged_paragraphs:
+            para_words = len(para.split())
+            if para_words > max_words:
+                if current_parts:
+                    body = "\n\n".join(current_parts).strip()
+                    if body:
+                        chunks.append(f"{page_prefix}{body}".strip() if page_prefix else body)
+                    current_parts = []
+                    current_words = 0
+                # Fallback to original fixed-window word chunking for oversized paragraph.
+                for overflow in chunk_text(para, target_tokens=max_words, overlap_tokens=overlap_words):
+                    chunk = f"{page_prefix}{overflow}".strip() if page_prefix else overflow
+                    if chunk:
+                        chunks.append(chunk)
+                continue
+
+            if current_words + para_words <= max_words:
+                current_parts.append(para)
+                current_words += para_words
+                continue
+
+            body = "\n\n".join(current_parts).strip()
+            if body:
+                chunks.append(f"{page_prefix}{body}".strip() if page_prefix else body)
+            current_parts = [para]
+            current_words = para_words
+
+        if current_parts:
+            body = "\n\n".join(current_parts).strip()
+            if body:
+                chunks.append(f"{page_prefix}{body}".strip() if page_prefix else body)
+
+    return [c for c in chunks if str(c or "").strip()]
+
+
 def file_meta(path: str) -> tuple[str, str, int]:
     p = Path(path)
     return (p.name, p.suffix.lower().lstrip("."), os.path.getsize(path))
