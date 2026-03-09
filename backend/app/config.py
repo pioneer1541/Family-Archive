@@ -147,6 +147,7 @@ class Settings(BaseSettings):
     longdoc_sample_trigger_pages: int = 120
     longdoc_final_section_max: int = 18
     longdoc_final_semantic_max: int = 6
+    summary_parallel_workers: int = 4
 
     cookie_secure: bool = False  # Set to True when serving over HTTPS
 

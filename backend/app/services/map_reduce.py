@@ -2,11 +2,14 @@ import json
 import re
 import time
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.db import SessionLocal
 from app.logging_utils import get_logger, sanitize_log_context
 from app.models import Chunk, Document, DocumentStatus
 from app.schemas import (
@@ -227,32 +230,74 @@ def build_map_reduce_summary(
     total_pages = len(page_chunks)
     page_fallback_used = False
     _CHECKPOINT_INTERVAL = 10  # persist progress every N pages
+    parallel_workers = max(1, int(settings.summary_parallel_workers or 4))
+    checkpoint_lock = Lock()
     doc.mapreduce_job_status = f"pages_0/{total_pages}"
-    for idx, page_text in enumerate(page_chunks, start=1):
-        model_out = summarize_page_with_model(
-            page_text=page_text,
-            page_index=idx,
-            total_pages=total_pages,
-            title=title,
-            db=db,
-        )
-        if model_out is None:
-            model_out = _fallback_page_summary(page_text, idx)
-            page_fallback_used = True
-        page_summaries_en.append(str(model_out[0] or "").strip())
-        page_summaries_zh.append(str(model_out[1] or "").strip())
-        # Checkpoint: persist completed page summaries to DB every N pages so a
-        # mid-flight HTTP timeout does not lose all prior work.
-        if idx % _CHECKPOINT_INTERVAL == 0 or idx == total_pages:
+    page_summaries_en = [""] * total_pages
+    page_summaries_zh = [""] * total_pages
+
+    def _checkpoint_pages(completed_pages: int) -> None:
+        # Guard checkpoint writes so state persistence remains consistent.
+        with checkpoint_lock:
             try:
                 doc.mapreduce_page_summaries_json = json.dumps(
                     {"en": page_summaries_en, "zh": page_summaries_zh},
                     ensure_ascii=False,
                 )
-                doc.mapreduce_job_status = f"pages_{idx}/{total_pages}"
+                doc.mapreduce_job_status = f"pages_{completed_pages}/{total_pages}"
                 db.commit()
             except Exception:
                 db.rollback()
+
+    def _summarize_page_task(page_index: int, page_text: str) -> tuple[int, str, str, bool]:
+        local_db = SessionLocal()
+        try:
+            model_out = summarize_page_with_model(
+                page_text=page_text,
+                page_index=page_index,
+                total_pages=total_pages,
+                title=title,
+                db=local_db,
+            )
+        except Exception:
+            model_out = None
+        finally:
+            local_db.close()
+
+        used_fallback = model_out is None
+        if model_out is None:
+            model_out = _fallback_page_summary(page_text, page_index)
+        return (
+            page_index,
+            str(model_out[0] or "").strip(),
+            str(model_out[1] or "").strip(),
+            bool(used_fallback),
+        )
+
+    completed_pages = 0
+    with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
+        futures = {
+            executor.submit(_summarize_page_task, idx, page_text): (idx, page_text)
+            for idx, page_text in enumerate(page_chunks, start=1)
+        }
+        for future in as_completed(futures):
+            idx, page_text = futures[future]
+            try:
+                page_index, page_en, page_zh, used_fallback = future.result()
+            except Exception:
+                page_index = idx
+                page_en, page_zh = _fallback_page_summary(page_text, idx)
+                used_fallback = True
+
+            page_summaries_en[page_index - 1] = page_en
+            page_summaries_zh[page_index - 1] = page_zh
+            if used_fallback:
+                page_fallback_used = True
+
+            completed_pages += 1
+            # Checkpoint: persist completed page summaries every N finished tasks.
+            if completed_pages % _CHECKPOINT_INTERVAL == 0 or completed_pages == total_pages:
+                _checkpoint_pages(completed_pages)
 
     # Section chunks: 5-10 pages per section as required by long-document spec.
     section_size = max(5, min(10, int(chunk_group_size or 6)))
