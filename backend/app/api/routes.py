@@ -600,7 +600,7 @@ def upload_document(
         extra=sanitize_log_context(
             {
                 "job_id": job.id,
-                "filename": filename,
+                "uploaded_filename": filename,
             }
         ),
     )
