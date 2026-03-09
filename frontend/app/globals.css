@@ -3034,6 +3034,7 @@ a {
 .gmail-cred-table-wrap {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--border);
   border-radius: 10px;
 }
@@ -3238,9 +3239,7 @@ a {
     flex-wrap: wrap;
     gap: 6px;
   }
-  .gmail-cred-table-wrap {
-    overflow-x: auto;
-  }
+  .gmail-cred-actions { flex-wrap: wrap; }
   .setup-card { padding: 28px 20px; }
 }
 /* ========================================
