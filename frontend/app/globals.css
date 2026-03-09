@@ -121,7 +121,9 @@ a {
 .main {
   margin-left: 220px;
   flex: 1;
-  min-height: var(--app-height);
+  height: var(--app-height);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .topbar {
@@ -819,6 +821,7 @@ a {
   background: var(--surface);
   height: 100%;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: -8px 0 32px rgba(42, 33, 24, 0.15);
   animation: slideIn 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -1810,6 +1813,7 @@ a {
 .agent-messages {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 32px;
   display: flex;
   flex-direction: column;
@@ -2202,6 +2206,7 @@ a {
   outline: none;
   max-height: 140px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   line-height: 1.6;
   padding: 4px 0;
 }
