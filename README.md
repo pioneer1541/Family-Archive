@@ -227,6 +227,24 @@ cp your-key.pem nginx/ssl/key.pem
 docker compose --profile full up -d
 ```
 
+### Gmail 本地 OAuth 授权
+
+如果需要启用 Gmail 附件同步，可先在本地完成 OAuth 授权并生成 `token.json`：
+
+```bash
+# 1) 从 Google Cloud Console 下载 OAuth 客户端 credentials.json
+# 2) 运行本地授权脚本（默认端口 18080）
+python backend/scripts/gmail_auth.py \
+  --credentials /path/to/credentials.json \
+  --output /path/to/token.json
+```
+
+可选参数：
+- `--port`：指定本地回调端口（默认 `18080`）
+- `--output`：指定 token 输出路径（默认当前目录 `token.json`）
+
+授权成功后，脚本会提示后续步骤。你需要将 `credentials.json` 与生成的 `token.json` 放到服务可读取路径（例如容器中的 `/app/secrets/gmail/`），然后重启服务。
+
 ---
 
 ## 📖 常用命令
