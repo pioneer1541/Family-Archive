@@ -3230,7 +3230,6 @@ a {
   .settings-page {
     padding: 20px 16px;
     max-width: 100%;
-    overflow-x: hidden;
   }
   .settings-content {
     width: 100%;
@@ -3246,9 +3245,14 @@ a {
   .settings-tabs {
     flex-direction: row;
     flex-wrap: nowrap;
+    width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+    scrollbar-width: none;
     gap: 6px;
   }
+  .settings-tabs::-webkit-scrollbar { display: none; }
   .settings-tab {
     flex-shrink: 0;
     white-space: nowrap;
