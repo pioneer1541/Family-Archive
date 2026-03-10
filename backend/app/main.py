@@ -15,6 +15,7 @@ from app.auth import COOKIE_NAME, decode_access_token, ensure_default_admin, is_
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine, ensure_sqlite_runtime_schema
 from app.logging_utils import get_logger, sanitize_log_context
+from app.runtime_config import get_runtime_bool, get_runtime_int
 from app.services.mail_ingest import poll_mailbox_and_enqueue
 from app.services.nas import run_nas_scan
 from app.services.qdrant import embed_texts_async, ensure_collection_exists
@@ -25,22 +26,24 @@ is_production_env = os.getenv("ENV", "").strip().lower() == "production"
 
 
 async def _mail_poll_loop(stop_event: asyncio.Event) -> None:
-    interval = max(30, int(settings.mail_poll_interval_sec))
     while not stop_event.is_set():
         db = SessionLocal()
         try:
-            out = poll_mailbox_and_enqueue(db)
-            if str(out.get("detail") or "") not in {"", "ok"}:
-                logger.warning(
-                    "mail_poll_warn",
-                    extra=sanitize_log_context(
-                        {
-                            "status": "warn",
-                            "detail": str(out.get("detail") or ""),
-                            "polled_messages": int(out.get("polled_messages") or 0),
-                        }
-                    ),
-                )
+            enabled = get_runtime_bool("mail_poll_enabled", db)
+            interval = max(30, get_runtime_int("mail_poll_interval_sec", db))
+            if enabled:
+                out = poll_mailbox_and_enqueue(db)
+                if str(out.get("detail") or "") not in {"", "ok"}:
+                    logger.warning(
+                        "mail_poll_warn",
+                        extra=sanitize_log_context(
+                            {
+                                "status": "warn",
+                                "detail": str(out.get("detail") or ""),
+                                "polled_messages": int(out.get("polled_messages") or 0),
+                            }
+                        ),
+                    )
         except Exception as exc:
             logger.warning(
                 "mail_poll_loop_failed",
@@ -133,8 +136,7 @@ async def lifespan(_app: FastAPI):
             )
     if settings.nas_auto_scan_enabled:
         background_tasks.append(asyncio.create_task(_nas_scan_loop(stop_event)))
-    if settings.mail_poll_enabled:
-        background_tasks.append(asyncio.create_task(_mail_poll_loop(stop_event)))
+    background_tasks.append(asyncio.create_task(_mail_poll_loop(stop_event)))
     yield
     stop_event.set()
     for task in background_tasks:
