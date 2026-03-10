@@ -10,10 +10,13 @@ services:
       - .env.development
     volumes:
       - ./backend:/app
-      - ./data:/app/data
+      - ./data-dev:/app/data
       - ./secrets/gmail:/app/secrets/gmail:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /mnt/nas:/volume1/Family_Archives:ro
+    depends_on:
+      - redis-dev
+      - qdrant-dev
 
   fkv-worker:
     container_name: fkv-worker-dev
@@ -21,22 +24,56 @@ services:
       - .env.development
     volumes:
       - ./backend:/app
-      - ./data:/app/data
+      - ./data-dev:/app/data
       - ./secrets/gmail:/app/secrets/gmail:ro
       - /mnt/nas:/volume1/Family_Archives:ro
+    depends_on:
+      - redis-dev
+      - qdrant-dev
 
-  redis:
+  redis-dev:
+    image: redis:7-alpine
     container_name: fkv-redis-dev
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: 3
     ports:
       - "16380:6379"
+    volumes:
+      - ./data-dev/redis:/data
 
-  qdrant:
+  qdrant-dev:
+    image: qdrant/qdrant:v1.13.2
     container_name: fkv-qdrant-dev
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: 3
     ports:
       - "16334:6333"
+    volumes:
+      - ./data-dev/qdrant:/qdrant/storage
 
-  postgres:
+  postgres-dev:
+    image: postgres:15-alpine
     container_name: fkv-postgres-dev
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 100m
+        max-file: 5
+    environment:
+      - POSTGRES_DB=family_vault_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - ./data-dev/postgres:/var/lib/postgresql/data
 
   fkv-frontend:
     container_name: fkv-frontend-dev
@@ -46,3 +83,5 @@ services:
       - NEXT_PUBLIC_FKV_API_BASE=/api
       - FKV_INTERNAL_API_BASE=http://fkv-api:18080
       - NEXT_DIST_DIR=.next-runtime
+    depends_on:
+      - fkv-api
