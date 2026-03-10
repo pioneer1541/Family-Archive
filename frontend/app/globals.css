@@ -3227,7 +3227,15 @@ a {
 .btn-danger:hover { background: #fdecea; }
 
 @media (max-width: 768px) {
-  .settings-page { padding: 20px 16px; }
+  .settings-page {
+    padding: 20px 16px;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  .settings-content {
+    width: 100%;
+    overflow-x: hidden;
+  }
   .settings-layout { flex-direction: column; gap: 16px; }
   .settings-section .btn-secondary,
   .settings-section .btn-primary {
@@ -3252,7 +3260,22 @@ a {
   .settings-section-header {
     flex-wrap: wrap;
   }
-  .gmail-cred-table-wrap { max-width: 100%; }
+  .settings-field input[type="text"],
+  .settings-field input[type="url"],
+  .settings-field input[type="number"],
+  .settings-field input[type="password"],
+  .settings-field select {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .settings-form { max-width: 100%; }
+  .gmail-cred-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .gmail-cred-table { min-width: 480px; }
   .gmail-cred-actions { flex-wrap: wrap; gap: 8px; }
   .gmail-cred-actions .btn-secondary,
