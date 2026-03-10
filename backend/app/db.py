@@ -163,29 +163,40 @@ def ensure_sqlite_runtime_schema() -> None:
         if "users" in tables:
             user_cols = {str(row[1] or "") for row in conn.execute(text("PRAGMA table_info(users)"))}
             username_missing = "username" not in user_cols
-            try:
-                if username_missing:
+            if username_missing:
+                try:
                     conn.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR(64)"))
-                    existing_usernames: set[str] = set()
-                    user_rows = conn.execute(text("SELECT id, email FROM users ORDER BY id")).mappings().all()
-                    for row in user_rows:
-                        user_id = str(row.get("id") or "").strip()
-                        email = str(row.get("email") or "").strip().lower()
-                        if email == "admin@local":
-                            base_username = "admin"
-                        else:
-                            base_username = (email.split("@", 1)[0].strip().lower() if email else "") or "user"
-                        candidate = base_username[:64] or "user"
-                        suffix = 2
-                        while candidate in existing_usernames:
-                            suffix_str = f"_{suffix}"
-                            candidate = f"{base_username[: max(1, 64 - len(suffix_str))]}{suffix_str}"
-                            suffix += 1
-                        existing_usernames.add(candidate)
-                        conn.execute(
-                            text("UPDATE users SET username = :username WHERE id = :user_id"),
-                            {"username": candidate, "user_id": user_id},
-                        )
+                except Exception as exc:
+                    # If another process already added the column, continue with backfill/index.
+                    if "duplicate column name" not in str(exc).lower():
+                        raise
+            try:
+                existing_usernames = {
+                    str(row["username"]).strip()
+                    for row in conn.execute(text("SELECT username FROM users WHERE username IS NOT NULL")).mappings()
+                    if str(row["username"]).strip()
+                }
+                user_rows = conn.execute(
+                    text("SELECT id, email FROM users WHERE username IS NULL ORDER BY id")
+                ).mappings().all()
+                for row in user_rows:
+                    user_id = row["id"]
+                    email = str(row.get("email") or "").strip().lower()
+                    if email == "admin@local":
+                        base_username = "admin"
+                    else:
+                        base_username = (email.split("@", 1)[0].strip().lower() if email else "") or "user"
+                    candidate = base_username[:64] or "user"
+                    suffix = 2
+                    while candidate in existing_usernames:
+                        suffix_str = f"_{suffix}"
+                        candidate = f"{base_username[: max(1, 64 - len(suffix_str))]}{suffix_str}"
+                        suffix += 1
+                    existing_usernames.add(candidate)
+                    conn.execute(
+                        text("UPDATE users SET username = :username WHERE id = :user_id"),
+                        {"username": candidate, "user_id": user_id},
+                    )
                 conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users(username)"))
             except Exception as exc:
                 logger.warning(
