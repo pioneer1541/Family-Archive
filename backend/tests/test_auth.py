@@ -2,9 +2,9 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
-from app.auth import COOKIE_NAME, create_access_token, decode_access_token, verify_password
+from app.auth import COOKIE_NAME, create_access_token, decode_access_token, hash_password, update_user_password, verify_password
 from app.db import SessionLocal
-from app.models import User
+from app.models import AppSetting, User
 
 
 def _get_user_by_username(username: str) -> User | None:
@@ -158,3 +158,49 @@ def test_me_response_returns_username(admin_client):
     me = admin_client.get("/api/v1/auth/me", cookies={COOKIE_NAME: cookie})
     assert me.status_code == 200
     assert me.json()["username"] == "meuser"
+
+
+def test_admin_login_does_not_fallback_to_app_settings_hash(client):
+    with SessionLocal() as db:
+        admin = db.execute(select(User).where(User.username == "admin")).scalar_one()
+        admin.password_hash = hash_password("UsersTableOnly123!")
+        legacy = db.get(AppSetting, "admin_password_hash")
+        if legacy is None:
+            legacy = AppSetting(key="admin_password_hash", value=hash_password("LegacyOnly123!"))
+            db.add(legacy)
+        else:
+            legacy.value = hash_password("LegacyOnly123!")
+        db.commit()
+
+    resp = client.post("/api/v1/auth/login", json={"username": "admin", "password": "LegacyOnly123!"})
+    assert resp.status_code == 401
+
+    ok = client.post("/api/v1/auth/login", json={"username": "admin", "password": "UsersTableOnly123!"})
+    assert ok.status_code == 200
+
+
+def test_update_admin_password_syncs_legacy_setting(client):
+    with SessionLocal() as db:
+        admin = db.execute(select(User).where(User.username == "admin")).scalar_one()
+        assert update_user_password(db, admin.id, "SyncedAdmin123!")
+
+    with SessionLocal() as db:
+        row = db.get(AppSetting, "admin_password_hash")
+        assert row is not None
+        assert verify_password("SyncedAdmin123!", row.value)
+
+
+def test_update_admin_password_inserts_legacy_setting_when_missing(client):
+    with SessionLocal() as db:
+        row = db.get(AppSetting, "admin_password_hash")
+        if row is not None:
+            db.delete(row)
+            db.commit()
+
+        admin = db.execute(select(User).where(User.username == "admin")).scalar_one()
+        assert update_user_password(db, admin.id, "SyncedInsert123!")
+
+    with SessionLocal() as db:
+        row = db.get(AppSetting, "admin_password_hash")
+        assert row is not None
+        assert verify_password("SyncedInsert123!", row.value)

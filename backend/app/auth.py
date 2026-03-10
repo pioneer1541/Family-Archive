@@ -130,6 +130,8 @@ def is_setup_complete(db: Session) -> bool:
     if result is not None:
         return True
 
+    # Initialization-only fallback: this is only for setup completeness checks,
+    # not a credential verification/authentication path.
     # Fall back to legacy admin_password_hash in app_settings.
     row = db.get(AppSetting, _ADMIN_PASSWORD_KEY)
     if row is not None and bool(row.value):
@@ -161,14 +163,7 @@ def set_admin_password(plain: str, db: Session) -> None:
 def verify_admin_password(plain: str, db: Session) -> bool:
     """Return True if plain matches the stored bcrypt hash for admin."""
     admin_user = ensure_default_admin(db)
-    if verify_password(plain, admin_user.password_hash):
-        return True
-
-    # Legacy fallback.
-    row = db.get(AppSetting, _ADMIN_PASSWORD_KEY)
-    if row is None:
-        return False
-    return verify_password(plain, row.value)
+    return verify_password(plain, admin_user.password_hash)
 
 
 # ---------------------------------------------------------------------------
@@ -243,8 +238,20 @@ def update_user_password(db: Session, user_id: str, new_password: str) -> bool:
     user = get_user_by_id(db, user_id)
     if user is None:
         return False
-    user.password_hash = hash_password(new_password)
+    hashed = hash_password(new_password)
+    user.password_hash = hashed
     user.updated_at = datetime.now(UTC)
+
+    # Keep legacy admin setting in sync for backward compatibility.
+    if user.role == "admin":
+        row = db.get(AppSetting, _ADMIN_PASSWORD_KEY)
+        if row is None:
+            row = AppSetting(key=_ADMIN_PASSWORD_KEY, value=hashed, updated_at=datetime.now(UTC))
+            db.add(row)
+        else:
+            row.value = hashed
+            row.updated_at = datetime.now(UTC)
+
     db.commit()
     return True
 

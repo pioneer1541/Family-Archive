@@ -35,8 +35,12 @@ def _normalize_username(raw: str) -> str:
 def upgrade() -> None:
     conn = op.get_bind()
     dialect = conn.dialect.name
+    inspector = sa.inspect(conn)
+    user_columns = {str(col.get("name") or "") for col in inspector.get_columns("users")}
+    user_indexes = {str(idx.get("name") or "") for idx in inspector.get_indexes("users")}
 
-    op.add_column("users", sa.Column("username", sa.String(length=64), nullable=True))
+    if "username" not in user_columns:
+        op.add_column("users", sa.Column("username", sa.String(length=64), nullable=True))
 
     rows = conn.execute(sa.text("SELECT id, email FROM users ORDER BY created_at ASC")).fetchall()
     used: set[str] = set()
@@ -60,7 +64,8 @@ def upgrade() -> None:
             batch_op.alter_column("email", existing_type=sa.String(length=255), nullable=True)
             batch_op.alter_column("username", existing_type=sa.String(length=64), nullable=False)
 
-    op.create_index("ix_users_username", "users", ["username"], unique=True)
+    if "ix_users_username" not in user_indexes:
+        op.create_index("ix_users_username", "users", ["username"], unique=True)
 
     # Ensure default admin/admin exists.
     admin = conn.execute(
@@ -86,10 +91,14 @@ def upgrade() -> None:
 def downgrade() -> None:
     conn = op.get_bind()
     dialect = conn.dialect.name
+    inspector = sa.inspect(conn)
+    user_columns = {str(col.get("name") or "") for col in inspector.get_columns("users")}
+    user_indexes = {str(idx.get("name") or "") for idx in inspector.get_indexes("users")}
 
     conn.execute(sa.text("DELETE FROM users WHERE email IS NULL AND username = 'admin'"))
 
-    op.drop_index("ix_users_username", table_name="users")
+    if "ix_users_username" in user_indexes:
+        op.drop_index("ix_users_username", table_name="users")
 
     if dialect == "postgresql":
         op.alter_column("users", "email", existing_type=sa.String(length=255), nullable=False)
@@ -97,4 +106,5 @@ def downgrade() -> None:
         with op.batch_alter_table("users") as batch_op:
             batch_op.alter_column("email", existing_type=sa.String(length=255), nullable=False)
 
-    op.drop_column("users", "username")
+    if "username" in user_columns:
+        op.drop_column("users", "username")

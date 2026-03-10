@@ -112,8 +112,18 @@ if [ "$DB_TYPE" = "postgres" ]; then
     log_success "PostgreSQL 已备份: $DB_BACKUP_ARTIFACT"
 elif [ -f "data/family_vault.db" ]; then
     DB_BACKUP_ARTIFACT="$TEMP_DIR/family_vault.db"
-    cp data/family_vault.db "$DB_BACKUP_ARTIFACT"
-    log_success "SQLite 数据库已备份"
+    if command -v sqlite3 >/dev/null 2>&1; then
+        # WAL 模式下先 checkpoint，再使用 SQLite 原生在线备份保证一致性。
+        sqlite3 data/family_vault.db "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null
+        sqlite3 data/family_vault.db ".backup \"$DB_BACKUP_ARTIFACT\""
+        log_success "SQLite 数据库已备份（checkpoint + .backup）"
+    else
+        log_warn "未找到 sqlite3，回退为文件复制（可能受 WAL 影响）"
+        cp data/family_vault.db "$DB_BACKUP_ARTIFACT"
+        [ -f data/family_vault.db-wal ] && cp data/family_vault.db-wal "$TEMP_DIR/family_vault.db-wal"
+        [ -f data/family_vault.db-shm ] && cp data/family_vault.db-shm "$TEMP_DIR/family_vault.db-shm"
+        log_success "SQLite 数据库文件已复制（含 WAL/SHM）"
+    fi
 else
     log_warn "未检测到可备份数据库（SQLite 文件不存在，且未配置 PostgreSQL URL）"
 fi
