@@ -790,3 +790,48 @@ class GmailCredentialDetail(BaseModel):
 class GmailCredentialListResponse(BaseModel):
     items: list[GmailCredentialItem]
     total: int
+
+
+# ---------------------------------------------------------------------------
+# LLM Provider schemas
+# ---------------------------------------------------------------------------
+
+
+class LLMProviderCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    provider_type: Literal["ollama", "openai", "kimi", "glm", "custom"] = "ollama"
+    base_url: str = Field(min_length=1, max_length=512)
+    api_key: str | None = None
+    model_name: str = Field(default="", max_length=255)
+    is_active: bool = True
+    is_default: bool = False
+
+
+class LLMProviderUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    provider_type: Literal["ollama", "openai", "kimi", "glm", "custom"] | None = None
+    base_url: str | None = Field(default=None, min_length=1, max_length=512)
+    api_key: str | None = None
+    model_name: str | None = Field(default=None, max_length=255)
+    is_active: bool | None = None
+    is_default: bool | None = None
+
+
+class LLMProviderResponse(BaseModel):
+    id: str
+    name: str
+    provider_type: str
+    base_url: str
+    has_api_key: bool
+    model_name: str
+    is_active: bool
+    is_default: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class LLMProviderTestResult(BaseModel):
+    ok: bool
+    latency_ms: int
+    models: list[str] = Field(default_factory=list)
+    error: str | None = None

@@ -5,6 +5,7 @@ LLM Router 路由器
 """
 
 from dataclasses import dataclass
+import re
 from typing import Dict, Optional
 
 from sqlalchemy.orm import Session
@@ -25,6 +26,9 @@ from app.utils.encryption import decrypt
 
 logger = get_logger(__name__)
 settings = get_settings()
+_UUID_PREFIX_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 @dataclass
@@ -54,27 +58,32 @@ class ModelKey:
         Returns:
             ModelKey 对象
         """
-        if ":" not in model_key:
+        value = str(model_key or "").strip()
+        if ":" not in value:
             # 向后兼容：没有前缀的默认为 local
-            return cls(source="local", model_name=model_key)
+            return cls(source="local", model_name=value)
 
-        parts = model_key.split(":", 1)
-        source = parts[0]
-        rest = parts[1]
+        parts = value.split(":", 1)
+        source = str(parts[0] or "").strip()
+        rest = str(parts[1] or "").strip()
 
         if source == "local":
             return cls(source="local", model_name=rest)
-        elif source == "cloud":
+        if source == "cloud":
             if "/" in rest:
                 provider_name, model_name = rest.split("/", 1)
                 return cls(source="cloud", model_name=model_name, provider_name=provider_name)
-            else:
-                # cloud:<model> 格式，provider_name 为 None
-                return cls(source="cloud", model_name=rest)
-        else:
-            # 未知前缀，作为向后兼容处理
-            logger.warning(f"未知的 model_key 前缀: {source}，作为 local 处理")
-            return cls(source="local", model_name=model_key)
+            # cloud:<model> 格式，provider_name 为 None
+            return cls(source="cloud", model_name=rest)
+
+        # 新格式：{provider_id}:{model_name}，provider_id 为 UUID。
+        # 旧格式本地模型（如 qwen3:4b-instruct）仍按 local 处理。
+        if _UUID_PREFIX_RE.match(source):
+            return cls(source="cloud", model_name=rest, provider_name=source)
+
+        # 未知前缀，作为向后兼容处理
+        logger.warning(f"未知的 model_key 前缀: {source}，作为 local 处理")
+        return cls(source="local", model_name=value)
 
     def __str__(self) -> str:
         if self.source == "local":

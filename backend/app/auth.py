@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AppSetting, User
+from app.utils.encryption import decrypt, encrypt
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -320,3 +321,13 @@ def get_current_user(db: Session, token: Optional[str]) -> Optional[User]:
     if ctx is None:
         return None
     return get_user_by_id(db, ctx.user_id)
+
+
+def encrypt_value(value: str | None) -> str | None:
+    """Encrypt a sensitive runtime value for database storage."""
+    return encrypt(value)
+
+
+def decrypt_value(value: str | None) -> str | None:
+    """Decrypt a sensitive runtime value from database storage."""
+    return decrypt(value)

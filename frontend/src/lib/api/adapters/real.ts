@@ -31,7 +31,11 @@ import type {
   UserResponse,
   GmailCredential,
   GmailCredentialCreate,
-  GmailCredentialUpdate
+  GmailCredentialUpdate,
+  LLMProvider,
+  LLMProviderCreate,
+  LLMProviderTestResult,
+  LLMProviderUpdate
 } from '../types';
 
 const API_BASE = process.env.NEXT_PUBLIC_FKV_API_BASE || '/api';
@@ -1396,6 +1400,71 @@ async function deleteGmailCredential(id: string): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// LLM Providers
+// ---------------------------------------------------------------------------
+
+async function getLLMProviders(): Promise<LLMProvider[]> {
+  const r = await fetch(`${API_BASE}/v1/llm/providers`);
+  if (!r.ok) return [];
+  const rows = (await r.json().catch(() => [])) as unknown;
+  return Array.isArray(rows) ? (rows as LLMProvider[]) : [];
+}
+
+async function createLLMProvider(data: LLMProviderCreate): Promise<LLMProvider> {
+  const r = await fetch(`${API_BASE}/v1/llm/providers`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String((err as {detail?: string})?.detail || 'Failed to create provider'));
+  }
+  return (await r.json()) as LLMProvider;
+}
+
+async function updateLLMProvider(id: string, data: LLMProviderUpdate): Promise<LLMProvider> {
+  const r = await fetch(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String((err as {detail?: string})?.detail || 'Failed to update provider'));
+  }
+  return (await r.json()) as LLMProvider;
+}
+
+async function deleteLLMProvider(id: string): Promise<void> {
+  const r = await fetch(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String((err as {detail?: string})?.detail || 'Failed to delete provider'));
+  }
+}
+
+async function testLLMProvider(id: string): Promise<LLMProviderTestResult> {
+  const r = await fetch(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}/test`, {
+    method: 'POST',
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String((err as {detail?: string})?.detail || 'Failed to test provider'));
+  }
+  return (await r.json()) as LLMProviderTestResult;
+}
+
+async function getLLMProviderModels(id: string): Promise<string[]> {
+  const r = await fetch(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}/models`);
+  if (!r.ok) return [];
+  const rows = (await r.json().catch(() => [])) as unknown;
+  return Array.isArray(rows) ? rows.map((item) => String(item || '').trim()).filter(Boolean) : [];
+}
+
 export function createRealAdapter(): KbApiClient {
   return {
     getDocs,
@@ -1433,5 +1502,11 @@ export function createRealAdapter(): KbApiClient {
     createGmailCredential,
     updateGmailCredential,
     deleteGmailCredential,
+    getLLMProviders,
+    createLLMProvider,
+    updateLLMProvider,
+    deleteLLMProvider,
+    testLLMProvider,
+    getLLMProviderModels,
   };
 }

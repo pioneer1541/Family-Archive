@@ -277,8 +277,35 @@ def get_runtime_setting(key: str, db: Session | None = None) -> str:
 
 
 def get_model_setting(model_key: str, db: Session | None = None) -> str:
-    """Semantic wrapper for model settings."""
-    return get_runtime_setting(model_key, db)
+    """Semantic wrapper for model settings.
+
+    Supports model values in these formats:
+      - Legacy plain model name: `qwen3:4b-instruct`
+      - Explicit local prefix: `local:qwen3:4b-instruct`
+      - Cloud prefix: `cloud:provider/model`
+      - Provider-id prefix: `{provider_id}:{model_name}`
+
+    For compatibility with legacy call-sites that still need only the model name,
+    this helper returns the model-name part for prefixed formats.
+    """
+    raw = str(get_runtime_setting(model_key, db) or "").strip()
+    if not raw:
+        return ""
+    if raw.startswith("local:"):
+        return raw.split(":", 1)[1].strip()
+    if raw.startswith("cloud:"):
+        rest = raw.split(":", 1)[1].strip()
+        if "/" in rest:
+            return rest.split("/", 1)[1].strip()
+        return rest
+
+    # Provider-id prefixed form: {provider_id}:{model_name}
+    # Keep legacy model strings like qwen3:4b-instruct unchanged.
+    if len(raw) > 37 and raw[8:9] == "-" and raw[13:14] == "-" and raw[18:19] == "-" and raw[23:24] == "-":
+        prefix, model_name = raw.split(":", 1)
+        if len(prefix) == 36:
+            return model_name.strip()
+    return raw
 
 
 def get_runtime_bool(key: str, db: Session | None = None) -> bool:

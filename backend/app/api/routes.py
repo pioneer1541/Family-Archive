@@ -25,7 +25,9 @@ from app.auth import (
     COOKIE_NAME,
     authenticate_user,
     create_access_token,
+    decrypt_value,
     decode_access_token,
+    encrypt_value,
     get_current_user as get_current_user_from_token,
     is_setup_complete,
     set_admin_password,
@@ -44,7 +46,9 @@ from app.models import (
     MailIngestionEvent,
     SyncRun,
     SyncRunItem,
+    User,
 )
+from app.llm_models.llm_provider import LLMProvider, ProviderType as LLMProviderType
 from app.schemas import (
     AgentExecuteRequest,
     AgentExecuteResponse,
@@ -85,6 +89,10 @@ from app.schemas import (
     ReprocessResponse,
     SearchRequest,
     SearchResponse,
+    LLMProviderCreate,
+    LLMProviderResponse,
+    LLMProviderTestResult,
+    LLMProviderUpdate,
     SyncLastResponse,
     SyncRunDetailResponse,
     SyncRunItemResponse,
@@ -101,6 +109,8 @@ from app.schemas import (
     TaskResponse,
     UploadResponse,
 )
+from app.services.llm_provider import LLMConfig, ProviderType as ServiceProviderType, create_provider
+from app.services.llm_router import get_router as get_llm_router
 from app.services.agent import execute_agent
 from app.services.agent_graph import stream_agent_graph
 from app.services.document_post_process import (
@@ -1857,6 +1867,231 @@ def restart_services(_: object = Depends(get_current_user)):
         "error": (f"Docker CLI is not available in this environment. Please run manually: {manual_cmd}"),
         "message": f"Please run manually: {manual_cmd}",
     }
+
+
+# ---------------------------------------------------------------------------
+# LLM Provider management
+# ---------------------------------------------------------------------------
+
+
+def _require_admin_user(current_user: User = Depends(get_current_user)) -> User:
+    if str(getattr(current_user, "role", "")).lower() != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required.")
+    return current_user
+
+
+def _to_llm_provider_response(provider: LLMProvider) -> LLMProviderResponse:
+    return LLMProviderResponse(
+        id=provider.id,
+        name=provider.name,
+        provider_type=str(provider.provider_type.value if hasattr(provider.provider_type, "value") else provider.provider_type),
+        base_url=provider.base_url,
+        has_api_key=bool(provider.api_key_encrypted),
+        model_name=provider.model_name or "",
+        is_active=bool(provider.is_active),
+        is_default=bool(provider.is_default),
+        created_at=provider.created_at,
+        updated_at=provider.updated_at,
+    )
+
+
+def _to_service_provider_type(provider_type: LLMProviderType) -> ServiceProviderType:
+    mapping = {
+        LLMProviderType.OLLAMA: ServiceProviderType.OLLAMA,
+        LLMProviderType.OPENAI: ServiceProviderType.OPENAI,
+        LLMProviderType.KIMI: ServiceProviderType.KIMI,
+        LLMProviderType.GLM: ServiceProviderType.GLM,
+        LLMProviderType.CUSTOM: ServiceProviderType.CUSTOM,
+    }
+    return mapping.get(provider_type, ServiceProviderType.CUSTOM)
+
+
+def _list_models_from_provider(provider: LLMProvider) -> list[str]:
+    base_url = str(provider.base_url or "").strip().rstrip("/")
+    if not base_url:
+        return []
+
+    if provider.provider_type == LLMProviderType.OLLAMA:
+        resp = requests.get(f"{base_url}/api/tags", timeout=15)
+        resp.raise_for_status()
+        rows = resp.json().get("models", [])
+        return [str(item.get("name") or "").strip() for item in rows if str(item.get("name") or "").strip()]
+
+    api_key = decrypt_value(provider.api_key_encrypted)
+    config = LLMConfig(
+        provider_type=_to_service_provider_type(provider.provider_type),
+        base_url=base_url,
+        api_key=api_key,
+        model_name=provider.model_name or "",
+        timeout=15,
+    )
+    client = create_provider(config).create_client()
+    rows = client.models.list()
+    data = getattr(rows, "data", rows) or []
+    out: list[str] = []
+    for item in data:
+        model_id = str(getattr(item, "id", "") or "").strip()
+        if model_id:
+            out.append(model_id)
+    return out
+
+
+def _clear_llm_provider_runtime_cache() -> None:
+    try:
+        get_llm_router().clear_cache()
+    except Exception:
+        pass
+
+
+@router.get("/llm/providers", response_model=list[LLMProviderResponse])
+def list_llm_providers(
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[LLMProviderResponse]:
+    providers = (
+        db.execute(select(LLMProvider).order_by(LLMProvider.is_default.desc(), LLMProvider.created_at.asc())).scalars().all()
+    )
+    return [_to_llm_provider_response(item) for item in providers]
+
+
+@router.post("/llm/providers", response_model=LLMProviderResponse)
+def create_llm_provider(
+    payload: LLMProviderCreate,
+    _: User = Depends(_require_admin_user),
+    db: Session = Depends(get_db),
+) -> LLMProviderResponse:
+    import uuid
+
+    provider = LLMProvider(
+        id=str(uuid.uuid4()),
+        name=str(payload.name).strip(),
+        provider_type=LLMProviderType(payload.provider_type),
+        base_url=str(payload.base_url).strip(),
+        api_key_encrypted=encrypt_value(str(payload.api_key or "").strip() or None),
+        model_name=str(payload.model_name or "").strip(),
+        is_active=bool(payload.is_active),
+        is_default=bool(payload.is_default),
+    )
+    if provider.is_default:
+        db.query(LLMProvider).update({LLMProvider.is_default: False})
+    db.add(provider)
+    db.commit()
+    db.refresh(provider)
+    _clear_llm_provider_runtime_cache()
+    return _to_llm_provider_response(provider)
+
+
+@router.put("/llm/providers/{provider_id}", response_model=LLMProviderResponse)
+def update_llm_provider(
+    provider_id: str,
+    payload: LLMProviderUpdate,
+    _: User = Depends(_require_admin_user),
+    db: Session = Depends(get_db),
+) -> LLMProviderResponse:
+    provider = db.get(LLMProvider, provider_id)
+    if provider is None:
+        raise HTTPException(status_code=404, detail="llm_provider_not_found")
+
+    if payload.name is not None:
+        provider.name = str(payload.name).strip()
+    if payload.provider_type is not None:
+        provider.provider_type = LLMProviderType(payload.provider_type)
+    if payload.base_url is not None:
+        provider.base_url = str(payload.base_url).strip()
+    if "api_key" in payload.model_fields_set:
+        provider.api_key_encrypted = encrypt_value(str(payload.api_key or "").strip() or None)
+    if payload.model_name is not None:
+        provider.model_name = str(payload.model_name or "").strip()
+    if payload.is_active is not None:
+        provider.is_active = bool(payload.is_active)
+        if (not provider.is_active) and provider.is_default:
+            provider.is_default = False
+    if payload.is_default is not None:
+        provider.is_default = bool(payload.is_default)
+        if provider.is_default:
+            db.query(LLMProvider).filter(LLMProvider.id != provider.id).update({LLMProvider.is_default: False})
+
+    db.commit()
+    db.refresh(provider)
+    _clear_llm_provider_runtime_cache()
+    return _to_llm_provider_response(provider)
+
+
+@router.delete("/llm/providers/{provider_id}")
+def delete_llm_provider(
+    provider_id: str,
+    _: User = Depends(_require_admin_user),
+    db: Session = Depends(get_db),
+):
+    provider = db.get(LLMProvider, provider_id)
+    if provider is None:
+        raise HTTPException(status_code=404, detail="llm_provider_not_found")
+
+    was_default = bool(provider.is_default)
+    db.delete(provider)
+    db.commit()
+
+    if was_default:
+        replacement = db.execute(
+            select(LLMProvider).where(LLMProvider.is_active.is_(True)).order_by(LLMProvider.created_at.asc()).limit(1)
+        ).scalar_one_or_none()
+        if replacement is not None:
+            replacement.is_default = True
+            db.commit()
+    _clear_llm_provider_runtime_cache()
+    return {"ok": True}
+
+
+@router.post("/llm/providers/{provider_id}/test", response_model=LLMProviderTestResult)
+def test_llm_provider(
+    provider_id: str,
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> LLMProviderTestResult:
+    provider_record = db.get(LLMProvider, provider_id)
+    if provider_record is None:
+        raise HTTPException(status_code=404, detail="llm_provider_not_found")
+
+    started = time.monotonic()
+    try:
+        config = LLMConfig(
+            provider_type=_to_service_provider_type(provider_record.provider_type),
+            base_url=str(provider_record.base_url or "").strip(),
+            api_key=decrypt_value(provider_record.api_key_encrypted),
+            model_name=str(provider_record.model_name or "").strip(),
+            timeout=15,
+        )
+        provider = create_provider(config)
+        ok = bool(provider.health_check())
+        models = _list_models_from_provider(provider_record) if ok else []
+        return LLMProviderTestResult(
+            ok=ok,
+            latency_ms=int((time.monotonic() - started) * 1000),
+            models=models,
+            error=None if ok else "provider_unreachable",
+        )
+    except Exception as exc:
+        return LLMProviderTestResult(
+            ok=False,
+            latency_ms=int((time.monotonic() - started) * 1000),
+            models=[],
+            error=str(exc),
+        )
+
+
+@router.get("/llm/providers/{provider_id}/models", response_model=list[str])
+def list_llm_provider_models(
+    provider_id: str,
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[str]:
+    provider_record = db.get(LLMProvider, provider_id)
+    if provider_record is None:
+        raise HTTPException(status_code=404, detail="llm_provider_not_found")
+    try:
+        return _list_models_from_provider(provider_record)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"llm_provider_models_failed:{type(exc).__name__}") from exc
 
 
 _root_router = APIRouter()

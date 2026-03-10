@@ -350,6 +350,48 @@ export interface GmailCredentialUpdate {
   client_secret?: string;
 }
 
+export type LLMProviderType = 'ollama' | 'openai' | 'kimi' | 'glm' | 'custom';
+
+export interface LLMProvider {
+  id: string;
+  name: string;
+  provider_type: LLMProviderType;
+  base_url: string;
+  has_api_key: boolean;
+  model_name: string;
+  is_active: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LLMProviderCreate {
+  name: string;
+  provider_type: LLMProviderType;
+  base_url: string;
+  api_key?: string;
+  model_name: string;
+  is_active: boolean;
+  is_default: boolean;
+}
+
+export interface LLMProviderUpdate {
+  name?: string;
+  provider_type?: LLMProviderType;
+  base_url?: string;
+  api_key?: string;
+  model_name?: string;
+  is_active?: boolean;
+  is_default?: boolean;
+}
+
+export interface LLMProviderTestResult {
+  ok: boolean;
+  latency_ms: number;
+  models: string[];
+  error?: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // API Client Interface
 // ---------------------------------------------------------------------------
@@ -395,4 +437,11 @@ export interface KbApiClient {
   createGmailCredential?(data: GmailCredentialCreate): Promise<GmailCredential>;
   updateGmailCredential?(id: string, data: GmailCredentialUpdate): Promise<GmailCredential>;
   deleteGmailCredential?(id: string): Promise<void>;
+  // LLM Providers
+  getLLMProviders?(): Promise<LLMProvider[]>;
+  createLLMProvider?(data: LLMProviderCreate): Promise<LLMProvider>;
+  updateLLMProvider?(id: string, data: LLMProviderUpdate): Promise<LLMProvider>;
+  deleteLLMProvider?(id: string): Promise<void>;
+  testLLMProvider?(id: string): Promise<LLMProviderTestResult>;
+  getLLMProviderModels?(id: string): Promise<string[]>;
 }

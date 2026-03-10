@@ -12,6 +12,10 @@ import type {
   GmailCredential,
   GmailCredentialCreate,
   GmailCredentialUpdate,
+  LLMProvider,
+  LLMProviderCreate,
+  LLMProviderType,
+  LLMProviderUpdate,
   UserResponse,
 } from '@src/lib/api/types';
 
@@ -19,6 +23,14 @@ import type {
 // Types
 // ---------------------------------------------------------------------------
 type TabKey = 'llm' | 'storage' | 'mail' | 'keywords' | 'account' | 'users';
+const LOCAL_PROVIDER_ID = '__local__';
+const PROVIDER_TYPE_OPTIONS: Array<{value: LLMProviderType; label: string}> = [
+  {value: 'ollama', label: 'Ollama'},
+  {value: 'openai', label: 'OpenAI'},
+  {value: 'kimi', label: 'Kimi'},
+  {value: 'glm', label: 'GLM'},
+  {value: 'custom', label: 'Custom'},
+];
 const RESTART_REQUIRED_KEYS = new Set([
   'planner_model',
   'synthesizer_model',
@@ -44,6 +56,38 @@ function maskClientId(clientId: string): string {
   return clientId.substring(0, 8) + '****' + clientId.substring(clientId.length - 4);
 }
 
+function parseModelSetting(raw: string, providers: LLMProvider[]): {providerId: string; modelName: string} {
+  const value = String(raw || '').trim();
+  if (!value) return {providerId: LOCAL_PROVIDER_ID, modelName: ''};
+  if (value.startsWith('local:')) {
+    return {providerId: LOCAL_PROVIDER_ID, modelName: value.slice('local:'.length).trim()};
+  }
+  if (value.startsWith('cloud:')) {
+    const rest = value.slice('cloud:'.length).trim();
+    if (rest.includes('/')) {
+      const [providerRef, modelNameRaw] = rest.split('/', 2);
+      const target = providers.find((item) => item.id === providerRef || item.name === providerRef);
+      if (target) return {providerId: target.id, modelName: String(modelNameRaw || '').trim()};
+    }
+    return {providerId: LOCAL_PROVIDER_ID, modelName: value};
+  }
+  const idx = value.indexOf(':');
+  if (idx > 0 && idx < value.length - 1) {
+    const left = value.slice(0, idx).trim();
+    const right = value.slice(idx + 1).trim();
+    const target = providers.find((item) => item.id === left);
+    if (target) return {providerId: target.id, modelName: right};
+  }
+  return {providerId: LOCAL_PROVIDER_ID, modelName: value};
+}
+
+function encodeModelSetting(selection: {providerId: string; modelName: string}): string {
+  const modelName = String(selection.modelName || '').trim();
+  if (!modelName) return '';
+  if (selection.providerId === LOCAL_PROVIDER_ID) return modelName;
+  return `${selection.providerId}:${modelName}`;
+}
+
 // ---------------------------------------------------------------------------
 // Helper components
 // ---------------------------------------------------------------------------
@@ -51,34 +95,6 @@ function StatusBadge({ok, label}: {ok: boolean | null; label: string}) {
   if (ok === null) return null;
   return (
     <span className={`badge ${ok ? 'badge-green' : 'badge-red'}`}>{label}</span>
-  );
-}
-
-function ModelSelect({
-  label, settingKey, value, models, onChange
-}: {
-  label: string; settingKey: string; value: string;
-  models: OllamaModel[]; onChange: (key: string, val: string) => void;
-}) {
-  const allOptions = models.length > 0
-    ? models.map((m) => m.name)
-    : (value ? [value] : []);
-  return (
-    <div className="settings-field">
-      <label htmlFor={settingKey}>{label}</label>
-      <select
-        id={settingKey}
-        value={value}
-        onChange={(e) => onChange(settingKey, e.target.value)}
-      >
-        {allOptions.map((name) => (
-          <option key={name} value={name}>{name}</option>
-        ))}
-        {value && !allOptions.includes(value) && (
-          <option value={value}>{value}</option>
-        )}
-      </select>
-    </div>
   );
 }
 
@@ -147,6 +163,23 @@ export default function SettingsPage() {
   const [items, setItems] = useState<AppSettingItem[]>([]);
   const [patch, setPatch] = useState<Record<string, string>>({});
   const [models, setModels] = useState<OllamaModel[]>([]);
+  const [llmProviders, setLlmProviders] = useState<LLMProvider[]>([]);
+  const [llmProviderModels, setLlmProviderModels] = useState<Record<string, string[]>>({});
+  const [llmProvidersLoading, setLlmProvidersLoading] = useState(false);
+  const [llmProviderFormOpen, setLlmProviderFormOpen] = useState(false);
+  const [llmProviderEditId, setLlmProviderEditId] = useState<string | null>(null);
+  const [llmProviderForm, setLlmProviderForm] = useState<LLMProviderCreate>({
+    name: '',
+    provider_type: 'openai',
+    base_url: '',
+    api_key: '',
+    model_name: '',
+    is_active: true,
+    is_default: false,
+  });
+  const [llmProviderSaving, setLlmProviderSaving] = useState(false);
+  const [llmProviderError, setLlmProviderError] = useState('');
+  const [llmProviderTestingId, setLlmProviderTestingId] = useState<string | null>(null);
   const [connectivity, setConnectivity] = useState<ConnectivityStatus | null>(null);
   const [keywords, setKeywords] = useState<KeywordLists>({person_keywords: {}, pet_keywords: {}, location_keywords: {}});
   const [keywordsPatch, setKeywordsPatch] = useState<Partial<KeywordLists>>({});
@@ -187,6 +220,7 @@ export default function SettingsPage() {
   useEffect(() => {
     client.getSettings?.().then(setItems).catch(() => {});
     client.getOllamaModels?.().then(setModels).catch(() => {});
+    loadLLMProviders();
     client.getKeywords?.().then(setKeywords).catch(() => {});
     client.getMe?.().then((u) => setMe(u ?? null)).catch(() => setMe(null));
     loadGmailCredentials();
@@ -239,6 +273,35 @@ export default function SettingsPage() {
       setGmailCreds([]);
     } finally {
       setGmailLoading(false);
+    }
+  }
+
+  async function loadLLMProviders() {
+    if (!client.getLLMProviders) return;
+    setLlmProvidersLoading(true);
+    try {
+      const rows = await client.getLLMProviders();
+      setLlmProviders(rows);
+
+      if (client.getLLMProviderModels) {
+        const active = rows.filter((item) => item.is_active);
+        const settled = await Promise.allSettled(
+          active.map((item) => client.getLLMProviderModels?.(item.id) ?? Promise.resolve([]))
+        );
+        const next: Record<string, string[]> = {};
+        active.forEach((item, idx) => {
+          const result = settled[idx];
+          if (result.status === 'fulfilled') {
+            next[item.id] = result.value;
+          }
+        });
+        setLlmProviderModels(next);
+      }
+    } catch {
+      setLlmProviders([]);
+      setLlmProviderModels({});
+    } finally {
+      setLlmProvidersLoading(false);
     }
   }
 
@@ -516,6 +579,122 @@ export default function SettingsPage() {
 
   const gmailDeleteTarget = gmailCreds.find((cred) => cred.id === gmailDeleteId) ?? null;
 
+  function resetLLMProviderForm() {
+    setLlmProviderEditId(null);
+    setLlmProviderForm({
+      name: '',
+      provider_type: 'openai',
+      base_url: '',
+      api_key: '',
+      model_name: '',
+      is_active: true,
+      is_default: false,
+    });
+    setLlmProviderError('');
+  }
+
+  function handleLLMProviderCreate() {
+    resetLLMProviderForm();
+    setLlmProviderFormOpen(true);
+  }
+
+  function handleLLMProviderEdit(provider: LLMProvider) {
+    setLlmProviderEditId(provider.id);
+    setLlmProviderForm({
+      name: provider.name,
+      provider_type: provider.provider_type,
+      base_url: provider.base_url,
+      api_key: '',
+      model_name: provider.model_name,
+      is_active: provider.is_active,
+      is_default: provider.is_default,
+    });
+    setLlmProviderError('');
+    setLlmProviderFormOpen(true);
+  }
+
+  function handleLLMProviderCancel() {
+    setLlmProviderFormOpen(false);
+    resetLLMProviderForm();
+  }
+
+  async function handleLLMProviderSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!client.createLLMProvider || !client.updateLLMProvider) return;
+    if (!llmProviderForm.name.trim() || !llmProviderForm.base_url.trim()) {
+      setLlmProviderError(t('llmProviderValidation'));
+      return;
+    }
+    setLlmProviderSaving(true);
+    setLlmProviderError('');
+    try {
+      if (llmProviderEditId) {
+        const patch: LLMProviderUpdate = {
+          name: llmProviderForm.name.trim(),
+          provider_type: llmProviderForm.provider_type,
+          base_url: llmProviderForm.base_url.trim(),
+          model_name: llmProviderForm.model_name.trim(),
+          is_active: llmProviderForm.is_active,
+          is_default: llmProviderForm.is_default,
+        };
+        if (llmProviderForm.api_key && llmProviderForm.api_key.trim()) {
+          patch.api_key = llmProviderForm.api_key.trim();
+        }
+        await client.updateLLMProvider(llmProviderEditId, patch);
+        setToast(t('llmProviderUpdated'));
+      } else {
+        await client.createLLMProvider({
+          ...llmProviderForm,
+          name: llmProviderForm.name.trim(),
+          base_url: llmProviderForm.base_url.trim(),
+          model_name: llmProviderForm.model_name.trim(),
+          api_key: llmProviderForm.api_key?.trim() || undefined,
+        });
+        setToast(t('llmProviderCreated'));
+      }
+      setLlmProviderFormOpen(false);
+      resetLLMProviderForm();
+      await loadLLMProviders();
+      setTimeout(() => setToast(''), 3000);
+    } catch (err: unknown) {
+      setLlmProviderError(err instanceof Error ? err.message : t('llmProviderSaveError'));
+    } finally {
+      setLlmProviderSaving(false);
+    }
+  }
+
+  async function handleLLMProviderDelete(provider: LLMProvider) {
+    if (!client.deleteLLMProvider) return;
+    if (!window.confirm(t('llmProviderDeleteConfirm'))) return;
+    try {
+      await client.deleteLLMProvider(provider.id);
+      setToast(t('llmProviderDeleted'));
+      await loadLLMProviders();
+      setTimeout(() => setToast(''), 3000);
+    } catch (err: unknown) {
+      setToast(err instanceof Error ? err.message : t('llmProviderSaveError'));
+      setTimeout(() => setToast(''), 4000);
+    }
+  }
+
+  async function handleLLMProviderTest(provider: LLMProvider) {
+    if (!client.testLLMProvider) return;
+    setLlmProviderTestingId(provider.id);
+    try {
+      const result = await client.testLLMProvider(provider.id);
+      if (result.ok) {
+        setToast(t('llmProviderTestOk', {latency: result.latency_ms, count: result.models.length}));
+      } else {
+        setToast(result.error || t('llmProviderTestFail'));
+      }
+    } catch (err: unknown) {
+      setToast(err instanceof Error ? err.message : t('llmProviderTestFail'));
+    } finally {
+      setLlmProviderTestingId(null);
+      setTimeout(() => setToast(''), 4000);
+    }
+  }
+
   const MODEL_KEYS = ['summary_model', 'planner_model', 'synthesizer_model', 'embed_model', 'category_model', 'friendly_name_model', 'vl_extract_model'];
   const TIMEOUT_KEYS = ['summary_timeout_page_sec', 'summary_timeout_section_sec', 'summary_timeout_final_sec', 'agent_synth_timeout_sec'];
 
@@ -581,21 +760,147 @@ export default function SettingsPage() {
           {/* LLM Models Tab */}
           {tab === 'llm' && (
             <div className="settings-section">
+              <div className="settings-section-header">
+                <h3>{t('llmProviders')}</h3>
+                {isAdmin && (
+                  <button type="button" className="btn-primary" onClick={handleLLMProviderCreate}>
+                    {t('llmProviderAdd')}
+                  </button>
+                )}
+              </div>
+              {llmProvidersLoading ? (
+                <p className="settings-hint">{t('loading')}</p>
+              ) : llmProviders.length === 0 ? (
+                <p className="settings-hint">{t('llmProvidersEmpty')}</p>
+              ) : (
+                <div className="gmail-cred-table-wrap">
+                  <table className="gmail-cred-table">
+                    <thead>
+                      <tr>
+                        <th>{t('llmProviderName')}</th>
+                        <th>{t('llmProviderType')}</th>
+                        <th>{t('llmProviderBaseUrl')}</th>
+                        <th>{t('llmProviderModel')}</th>
+                        <th>{t('llmProviderStatus')}</th>
+                        <th>{t('actions')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {llmProviders.map((provider) => (
+                        <tr key={provider.id}>
+                          <td>{provider.name}</td>
+                          <td>{provider.provider_type}</td>
+                          <td className="gmail-cred-mono">{provider.base_url}</td>
+                          <td className="gmail-cred-mono">{provider.model_name || '-'}</td>
+                          <td>
+                            <span className={`badge ${provider.is_active ? 'badge-green' : 'badge-red'}`}>
+                              {provider.is_active ? t('llmProviderActive') : t('llmProviderInactive')}
+                            </span>
+                            {provider.is_default && (
+                              <span className="badge badge-green" style={{marginLeft: 6}}>
+                                {t('llmProviderDefault')}
+                              </span>
+                            )}
+                          </td>
+                          <td className="gmail-cred-actions">
+                            <button
+                              type="button"
+                              className="btn-secondary btn-sm"
+                              onClick={() => handleLLMProviderTest(provider)}
+                              disabled={llmProviderTestingId === provider.id}
+                            >
+                              {llmProviderTestingId === provider.id ? t('loading') : t('llmProviderTest')}
+                            </button>
+                            {isAdmin && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn-secondary btn-sm"
+                                  onClick={() => handleLLMProviderEdit(provider)}
+                                >
+                                  {t('edit')}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary btn-danger btn-sm"
+                                  onClick={() => handleLLMProviderDelete(provider)}
+                                >
+                                  {t('delete')}
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <hr className="settings-divider" />
+              <h3>{t('llmRoleModels')}</h3>
               {models.length === 0 && (
                 <p className="settings-hint">{t('modelLoadError')}</p>
               )}
               {MODEL_KEYS.map((key) => {
                 const meta = items.find((i) => i.key === key);
                 const label = isZh ? (meta?.label_zh ?? key) : (meta?.label_en ?? key);
+                const selection = parseModelSetting(getVal(key), llmProviders);
+                const selectedProviderId = selection.providerId;
+                const selectedProvider = llmProviders.find((item) => item.id === selectedProviderId) ?? null;
+                const modelOptions = selectedProviderId === LOCAL_PROVIDER_ID
+                  ? models.map((m) => m.name)
+                  : (llmProviderModels[selectedProviderId] ?? []);
+                const uniqueModelOptions = Array.from(new Set([
+                  ...modelOptions,
+                  selection.modelName,
+                  selectedProvider?.model_name || '',
+                ].filter(Boolean)));
                 return (
-                  <ModelSelect
-                    key={key}
-                    label={label}
-                    settingKey={key}
-                    value={getVal(key)}
-                    models={models}
-                    onChange={setVal}
-                  />
+                  <div key={key} className="settings-field">
+                    <label>{label}</label>
+                    <div className="settings-input-row">
+                      <select
+                        value={selectedProviderId}
+                        onChange={(e) => {
+                          const next = encodeModelSetting({
+                            providerId: e.target.value,
+                            modelName: selection.modelName,
+                          });
+                          setVal(key, next);
+                        }}
+                      >
+                        <option value={LOCAL_PROVIDER_ID}>{t('llmProviderLocal')}</option>
+                        {llmProviders
+                          .filter((item) => item.is_active)
+                          .map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                      </select>
+                      <input
+                        type="text"
+                        list={`model-list-${key}`}
+                        value={selection.modelName}
+                        onChange={(e) => {
+                          setVal(
+                            key,
+                            encodeModelSetting({
+                              providerId: selectedProviderId,
+                              modelName: e.target.value,
+                            })
+                          );
+                        }}
+                        placeholder={t('llmModelName')}
+                      />
+                      <datalist id={`model-list-${key}`}>
+                        {uniqueModelOptions.map((name) => (
+                          <option key={name} value={name} />
+                        ))}
+                      </datalist>
+                    </div>
+                  </div>
                 );
               })}
               <hr className="settings-divider" />
@@ -633,6 +938,91 @@ export default function SettingsPage() {
                       : t('connFail')}
                   />
                 )}
+              </div>
+            </div>
+          )}
+
+          {llmProviderFormOpen && (
+            <div className="settings-restart-dialog" onClick={handleLLMProviderCancel}>
+              <div className="settings-restart-content gmail-modal-content" onClick={(e) => e.stopPropagation()}>
+                <h3>{llmProviderEditId ? t('llmProviderEdit') : t('llmProviderCreate')}</h3>
+                <form onSubmit={handleLLMProviderSubmit} className="settings-form">
+                  <div className="settings-field">
+                    <label>{t('llmProviderName')}</label>
+                    <input
+                      type="text"
+                      value={llmProviderForm.name}
+                      onChange={(e) => setLlmProviderForm((prev) => ({...prev, name: e.target.value}))}
+                      required
+                    />
+                  </div>
+                  <div className="settings-field">
+                    <label>{t('llmProviderType')}</label>
+                    <select
+                      value={llmProviderForm.provider_type}
+                      onChange={(e) => setLlmProviderForm((prev) => ({...prev, provider_type: e.target.value as LLMProviderType}))}
+                    >
+                      {PROVIDER_TYPE_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>{item.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="settings-field">
+                    <label>{t('llmProviderBaseUrl')}</label>
+                    <input
+                      type="url"
+                      value={llmProviderForm.base_url}
+                      onChange={(e) => setLlmProviderForm((prev) => ({...prev, base_url: e.target.value}))}
+                      required
+                    />
+                  </div>
+                  <div className="settings-field">
+                    <label>{t('llmProviderApiKey')}</label>
+                    <input
+                      type="password"
+                      value={llmProviderForm.api_key || ''}
+                      onChange={(e) => setLlmProviderForm((prev) => ({...prev, api_key: e.target.value}))}
+                      placeholder={llmProviderEditId ? t('llmProviderApiKeyKeep') : ''}
+                    />
+                  </div>
+                  <div className="settings-field">
+                    <label>{t('llmProviderModel')}</label>
+                    <input
+                      type="text"
+                      value={llmProviderForm.model_name}
+                      onChange={(e) => setLlmProviderForm((prev) => ({...prev, model_name: e.target.value}))}
+                    />
+                  </div>
+                  <div className="settings-field">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={llmProviderForm.is_active}
+                        onChange={(e) => setLlmProviderForm((prev) => ({...prev, is_active: e.target.checked}))}
+                      />{' '}
+                      {t('llmProviderActive')}
+                    </label>
+                  </div>
+                  <div className="settings-field">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={llmProviderForm.is_default}
+                        onChange={(e) => setLlmProviderForm((prev) => ({...prev, is_default: e.target.checked}))}
+                      />{' '}
+                      {t('llmProviderDefault')}
+                    </label>
+                  </div>
+                  {llmProviderError && <p className="settings-hint" style={{color: '#c0392b'}}>{llmProviderError}</p>}
+                  <div className="settings-form-actions">
+                    <button type="button" className="btn-secondary" onClick={handleLLMProviderCancel}>
+                      {t('cancel')}
+                    </button>
+                    <button type="submit" className="btn-primary" disabled={llmProviderSaving}>
+                      {llmProviderSaving ? t('loading') : (llmProviderEditId ? t('llmProviderUpdate') : t('llmProviderCreate'))}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}
