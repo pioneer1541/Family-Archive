@@ -197,14 +197,82 @@ def ensure_sqlite_runtime_schema() -> None:
                         text("UPDATE users SET username = :username WHERE id = :user_id"),
                         {"username": candidate, "user_id": user_id},
                     )
-                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users(username)"))
             except Exception as exc:
                 logger.warning(
-                    "sqlite_users_username_migration_failed",
+                    "sqlite_users_username_backfill_failed",
                     extra=sanitize_log_context(
                         {
                             "status": "warn",
-                            "error_code": "sqlite_users_username_migration_failed",
+                            "error_code": "sqlite_users_username_backfill_failed",
+                            "table": "users",
+                            "column": "username",
+                            "detail": str(exc),
+                        }
+                    ),
+                )
+            try:
+                usernames_in_use = {
+                    str(row["username"]).strip()
+                    for row in conn.execute(text("SELECT username FROM users WHERE username IS NOT NULL")).mappings()
+                    if str(row["username"]).strip()
+                }
+                duplicate_usernames = conn.execute(
+                    text(
+                        """
+                        SELECT username
+                        FROM users
+                        WHERE username IS NOT NULL
+                        GROUP BY username
+                        HAVING COUNT(*) > 1
+                        """
+                    )
+                ).mappings().all()
+                for dup in duplicate_usernames:
+                    username = dup["username"]
+                    dup_rows = conn.execute(
+                        text("SELECT id FROM users WHERE username = :username ORDER BY id"),
+                        {"username": username},
+                    ).mappings().all()
+                    if len(dup_rows) <= 1:
+                        continue
+                    base_username = (str(username or "").strip()[:64] or "user")
+                    usernames_in_use.discard(base_username)
+                    suffix = 2
+                    for row in dup_rows[1:]:
+                        user_id = row["id"]
+                        candidate = f"{base_username[: max(1, 64 - len(f'_{suffix}'))]}_{suffix}"
+                        while candidate in usernames_in_use:
+                            suffix += 1
+                            candidate = f"{base_username[: max(1, 64 - len(f'_{suffix}'))]}_{suffix}"
+                        conn.execute(
+                            text("UPDATE users SET username = :username WHERE id = :user_id"),
+                            {"username": candidate, "user_id": user_id},
+                        )
+                        usernames_in_use.add(candidate)
+                        suffix += 1
+                    usernames_in_use.add(base_username)
+            except Exception as exc:
+                logger.warning(
+                    "sqlite_users_username_dedup_failed",
+                    extra=sanitize_log_context(
+                        {
+                            "status": "warn",
+                            "error_code": "sqlite_users_username_dedup_failed",
+                            "table": "users",
+                            "column": "username",
+                            "detail": str(exc),
+                        }
+                    ),
+                )
+            try:
+                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users(username)"))
+            except Exception as exc:
+                logger.warning(
+                    "sqlite_users_username_index_failed",
+                    extra=sanitize_log_context(
+                        {
+                            "status": "warn",
+                            "error_code": "sqlite_users_username_index_failed",
                             "table": "users",
                             "column": "username",
                             "detail": str(exc),
