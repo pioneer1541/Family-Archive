@@ -87,7 +87,7 @@ def test_nas_scan_endpoint_incremental(client, tmp_path: Path, monkeypatch):
     assert body3["queued"] is True
 
 
-def test_mail_poll_downloads_attachment_and_creates_event(client, tmp_path: Path, monkeypatch):
+def test_mail_poll_downloads_attachment_and_creates_event(authed_client, tmp_path: Path, monkeypatch):
     payload_txt = base64.urlsafe_b64encode(b"Energy bill notice for April.").decode().rstrip("=")
     full_payload = {
         "payload": {
@@ -113,13 +113,13 @@ def test_mail_poll_downloads_attachment_and_creates_event(client, tmp_path: Path
     monkeypatch.setattr(mail_ingest.settings, "mail_allowed_extensions", ["txt"])
     monkeypatch.setattr(mail_ingest.settings, "mail_query", "has:attachment")
     monkeypatch.setattr(mail_ingest.settings, "mail_max_results", 10)
-    r_cfg = client.patch(
+    r_cfg = authed_client.patch(
         "/v1/settings",
         json={"nas_default_source_dir": str(nas_root), "mail_attachment_subdir": "email_attachments"},
     )
     assert r_cfg.status_code == 200
 
-    r = client.post("/v1/mail/poll", json={"max_results": 5})
+    r = authed_client.post("/v1/mail/poll", json={"max_results": 5})
     assert r.status_code == 200
     out = r.json()
     assert out["polled_messages"] == 1
@@ -128,21 +128,24 @@ def test_mail_poll_downloads_attachment_and_creates_event(client, tmp_path: Path
     assert out["queued"] is True
     assert out["job_id"]
 
-    rs = client.post("/v1/search", json={"query": "energy bill notice", "top_k": 5, "query_lang": "en", "ui_lang": "en"})
+    rs = authed_client.post(
+        "/v1/search",
+        json={"query": "energy bill notice", "top_k": 5, "query_lang": "en", "ui_lang": "en"},
+    )
     assert rs.status_code == 200
     hits = rs.json().get("hits") or []
     assert len(hits) >= 1
     assert any(str(item.get("source_type") or "") == "mail" for item in hits)
     assert all("/" in str(item.get("category_path") or "") for item in hits)
 
-    ev = client.get("/v1/mail/events?limit=20&offset=0")
+    ev = authed_client.get("/v1/mail/events?limit=20&offset=0")
     assert ev.status_code == 200
     items = ev.json().get("items") or []
     assert len(items) >= 1
     assert any(str(it.get("status") or "") == "downloaded" for it in items)
     assert any("email_attachments" in str(it.get("attachment_path") or "") for it in items)
 
-    r2 = client.post("/v1/mail/poll", json={"max_results": 5})
+    r2 = authed_client.post("/v1/mail/poll", json={"max_results": 5})
     assert r2.status_code == 200
     out2 = r2.json()
     assert out2["processed_messages"] == 0
@@ -237,15 +240,15 @@ def test_mail_poll_skips_inline_image_asset(client, tmp_path: Path, monkeypatch)
     assert any(str(it.get("attachment_name") or "") == "image003.png" and str(it.get("detail") or "") == "inline_asset" for it in items)
 
 
-def test_connectivity_health_reports_nas_read_write(client, tmp_path: Path):
+def test_connectivity_health_reports_nas_read_write(authed_client, tmp_path: Path):
     nas_root = tmp_path / "nas_for_connectivity"
     nas_root.mkdir(parents=True, exist_ok=True)
 
     # 通过 settings 写入运行时配置，模拟用户在 UI 中配置 NAS 目录。
-    r_patch = client.patch("/v1/settings", json={"nas_default_source_dir": str(nas_root)})
+    r_patch = authed_client.patch("/v1/settings", json={"nas_default_source_dir": str(nas_root)})
     assert r_patch.status_code == 200
 
-    r_conn = client.get("/v1/health/connectivity")
+    r_conn = authed_client.get("/v1/health/connectivity")
     assert r_conn.status_code == 200
     body = r_conn.json()
     nas = body.get("nas") or {}

@@ -72,3 +72,15 @@ def reset_database(request):
 def client():
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture
+def admin_client(client: TestClient):
+    login_resp = client.post("/api/v1/auth/login", json={"username": "admin", "password": "admin"})
+    assert login_resp.status_code == 200
+    yield client
+
+
+@pytest.fixture
+def authed_client(admin_client: TestClient):
+    yield admin_client

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 from cryptography.fernet import Fernet, InvalidToken
@@ -34,11 +35,12 @@ def test_key_management_uses_env_first(monkeypatch, tmp_path):
 
 def test_key_management_creates_home_key_file(monkeypatch, tmp_path):
     _reset_singleton()
-    monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.delenv("FAMILY_VAULT_ENCRYPTION_KEY", raising=False)
+    key_file = Path("/app/data/.family-vault/encryption.key")
+    if not os.access("/app", os.W_OK):
+        pytest.skip("requires writable /app directory")
 
     encryptor = encryption.APIKeyEncryptor()
-    key_file = tmp_path / ".family-vault" / "encryption.key"
 
     assert key_file.exists()
     assert key_file.read_bytes() == encryptor.key
