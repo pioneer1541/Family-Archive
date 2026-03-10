@@ -848,14 +848,13 @@ export default function SettingsPage() {
                 const selection = parseModelSetting(getVal(key), llmProviders);
                 const selectedProviderId = selection.providerId;
                 const selectedProvider = llmProviders.find((item) => item.id === selectedProviderId) ?? null;
-                const modelOptions = selectedProviderId === LOCAL_PROVIDER_ID
+                const modelOptions = (selectedProviderId === LOCAL_PROVIDER_ID
                   ? models.map((m) => m.name)
-                  : (llmProviderModels[selectedProviderId] ?? []);
-                const uniqueModelOptions = Array.from(new Set([
-                  ...modelOptions,
-                  selection.modelName,
-                  selectedProvider?.model_name || '',
-                ].filter(Boolean)));
+                  : (llmProviderModels[selectedProviderId] ?? [])).filter(Boolean);
+                const uniqueModelOptions = Array.from(new Set(modelOptions));
+                const selectedModelName = uniqueModelOptions.includes(selection.modelName)
+                  ? selection.modelName
+                  : (uniqueModelOptions[0] ?? '');
                 return (
                   <div key={key} className="settings-field">
                     <label>{label}</label>
@@ -863,9 +862,18 @@ export default function SettingsPage() {
                       <select
                         value={selectedProviderId}
                         onChange={(e) => {
+                          const nextProviderId = e.target.value;
+                          const nextProvider = llmProviders.find((item) => item.id === nextProviderId) ?? null;
+                          const nextModelOptions = (nextProviderId === LOCAL_PROVIDER_ID
+                            ? models.map((m) => m.name)
+                            : (llmProviderModels[nextProviderId] ?? [])).filter(Boolean);
+                          const defaultProviderModel = String(nextProvider?.model_name || '').trim();
+                          const nextModelName = defaultProviderModel && nextModelOptions.includes(defaultProviderModel)
+                            ? defaultProviderModel
+                            : (nextModelOptions[0] ?? defaultProviderModel);
                           const next = encodeModelSetting({
-                            providerId: e.target.value,
-                            modelName: selection.modelName,
+                            providerId: nextProviderId,
+                            modelName: nextModelName,
                           });
                           setVal(key, next);
                         }}
@@ -879,26 +887,41 @@ export default function SettingsPage() {
                             </option>
                           ))}
                       </select>
-                      <input
-                        type="text"
-                        list={`model-list-${key}`}
-                        value={selection.modelName}
-                        onChange={(e) => {
-                          setVal(
-                            key,
-                            encodeModelSetting({
-                              providerId: selectedProviderId,
-                              modelName: e.target.value,
-                            })
-                          );
-                        }}
-                        placeholder={t('llmModelName')}
-                      />
-                      <datalist id={`model-list-${key}`}>
-                        {uniqueModelOptions.map((name) => (
-                          <option key={name} value={name} />
-                        ))}
-                      </datalist>
+                      {uniqueModelOptions.length > 0 ? (
+                        <select
+                          value={selectedModelName}
+                          onChange={(e) => {
+                            setVal(
+                              key,
+                              encodeModelSetting({
+                                providerId: selectedProviderId,
+                                modelName: e.target.value,
+                              })
+                            );
+                          }}
+                        >
+                          {uniqueModelOptions.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={selection.modelName}
+                          onChange={(e) => {
+                            setVal(
+                              key,
+                              encodeModelSetting({
+                                providerId: selectedProviderId,
+                                modelName: e.target.value,
+                              })
+                            );
+                          }}
+                          placeholder={t('llmModelName')}
+                        />
+                      )}
                     </div>
                   </div>
                 );
