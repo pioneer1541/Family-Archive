@@ -160,6 +160,46 @@ def ensure_sqlite_runtime_schema() -> None:
                 "token_expiry",
                 "ALTER TABLE gmail_credentials ADD COLUMN token_expiry DATETIME",
             )
+        if "users" in tables:
+            user_cols = {str(row[1] or "") for row in conn.execute(text("PRAGMA table_info(users)"))}
+            username_missing = "username" not in user_cols
+            try:
+                if username_missing:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR(64)"))
+                    existing_usernames: set[str] = set()
+                    user_rows = conn.execute(text("SELECT id, email FROM users ORDER BY id")).mappings().all()
+                    for row in user_rows:
+                        user_id = str(row.get("id") or "").strip()
+                        email = str(row.get("email") or "").strip().lower()
+                        if email == "admin@local":
+                            base_username = "admin"
+                        else:
+                            base_username = (email.split("@", 1)[0].strip().lower() if email else "") or "user"
+                        candidate = base_username[:64] or "user"
+                        suffix = 2
+                        while candidate in existing_usernames:
+                            suffix_str = f"_{suffix}"
+                            candidate = f"{base_username[: max(1, 64 - len(suffix_str))]}{suffix_str}"
+                            suffix += 1
+                        existing_usernames.add(candidate)
+                        conn.execute(
+                            text("UPDATE users SET username = :username WHERE id = :user_id"),
+                            {"username": candidate, "user_id": user_id},
+                        )
+                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users(username)"))
+            except Exception as exc:
+                logger.warning(
+                    "sqlite_users_username_migration_failed",
+                    extra=sanitize_log_context(
+                        {
+                            "status": "warn",
+                            "error_code": "sqlite_users_username_migration_failed",
+                            "table": "users",
+                            "column": "username",
+                            "detail": str(exc),
+                        }
+                    ),
+                )
 
 
 def get_db():
