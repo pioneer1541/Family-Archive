@@ -125,14 +125,14 @@ class LLMRouter:
             return self._providers[cache_key]
 
         # 查询数据库
-        query = db.query(LLMProvider).filter(LLMProvider.is_active is True)
+        query = db.query(LLMProvider).filter(LLMProvider.is_active.is_(True))
 
         if provider_name:
             # 按名称或 ID 匹配
             query = query.filter((LLMProvider.name == provider_name) | (LLMProvider.id == provider_name))
         else:
             # 获取默认 Provider
-            query = query.filter(LLMProvider.is_default is True)
+            query = query.filter(LLMProvider.is_default.is_(True))
 
         provider_record = query.first()
 
