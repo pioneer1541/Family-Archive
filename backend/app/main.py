@@ -8,8 +8,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from app import models  # noqa: F401
-from app import llm_models  # noqa: F401
+from app import (
+    llm_models,  # noqa: F401
+    models,  # noqa: F401
+)
 from app.api.routes import router
 from app.auth import COOKIE_NAME, decode_access_token, ensure_default_admin, is_setup_complete
 from app.config import get_settings

@@ -200,7 +200,9 @@ def admin_create_user(
         )
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Username already exists.") from None
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Username already exists."
+        ) from None
     return _to_user_response(user)
 
 

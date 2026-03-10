@@ -175,9 +175,7 @@ def get_user_by_username(db: Session, username: str) -> Optional[User]:
     normalized = normalize_username(username)
     if not normalized:
         return None
-    return db.execute(
-        select(User).where(User.username == normalized, User.deleted_at.is_(None))
-    ).scalar_one_or_none()
+    return db.execute(select(User).where(User.username == normalized, User.deleted_at.is_(None))).scalar_one_or_none()
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[User]:

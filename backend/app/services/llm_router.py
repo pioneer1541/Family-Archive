@@ -4,8 +4,8 @@ LLM Router 路由器
 支持回退机制
 """
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 from typing import Dict, Optional
 
 from sqlalchemy.orm import Session
@@ -26,9 +26,7 @@ from app.utils.encryption import decrypt
 
 logger = get_logger(__name__)
 settings = get_settings()
-_UUID_PREFIX_RE = re.compile(
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-)
+_UUID_PREFIX_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 
 @dataclass

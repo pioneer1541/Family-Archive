@@ -67,9 +67,7 @@ def _translate_query_to_en(query: str, db: Session | None = None) -> str:
             _translation_cache.pop(oldest_key, None)
         logger.debug(
             "search_translate_cache_store",
-            extra=sanitize_log_context(
-                {"query_len": len(cache_key), "translated_len": len(translated)}
-            ),
+            extra=sanitize_log_context({"query_len": len(cache_key), "translated_len": len(translated)}),
         )
         return translated
     except Exception as exc:

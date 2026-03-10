@@ -25,16 +25,20 @@ from app.auth import (
     COOKIE_NAME,
     authenticate_user,
     create_access_token,
-    decrypt_value,
     decode_access_token,
+    decrypt_value,
     encrypt_value,
-    get_current_user as get_current_user_from_token,
     is_setup_complete,
     set_admin_password,
     update_user_password,
 )
+from app.auth import (
+    get_current_user as get_current_user_from_token,
+)
 from app.celery_app import celery_app
 from app.config import get_settings
+from app.llm_models.llm_provider import LLMProvider
+from app.llm_models.llm_provider import ProviderType as LLMProviderType
 from app.logging_utils import get_logger, sanitize_log_context
 from app.models import (
     AppSetting,
@@ -48,7 +52,6 @@ from app.models import (
     SyncRunItem,
     User,
 )
-from app.llm_models.llm_provider import LLMProvider, ProviderType as LLMProviderType
 from app.schemas import (
     AgentExecuteRequest,
     AgentExecuteResponse,
@@ -72,6 +75,10 @@ from app.schemas import (
     IngestionJobCreateRequest,
     IngestionJobDeleteResponse,
     IngestionJobResponse,
+    LLMProviderCreate,
+    LLMProviderResponse,
+    LLMProviderTestResult,
+    LLMProviderUpdate,
     MailEventItem,
     MailEventsResponse,
     MailHealthResponse,
@@ -89,10 +96,6 @@ from app.schemas import (
     ReprocessResponse,
     SearchRequest,
     SearchResponse,
-    LLMProviderCreate,
-    LLMProviderResponse,
-    LLMProviderTestResult,
-    LLMProviderUpdate,
     SyncLastResponse,
     SyncRunDetailResponse,
     SyncRunItemResponse,
@@ -109,8 +112,6 @@ from app.schemas import (
     TaskResponse,
     UploadResponse,
 )
-from app.services.llm_provider import LLMConfig, ProviderType as ServiceProviderType, create_provider
-from app.services.llm_router import get_router as get_llm_router
 from app.services.agent import execute_agent
 from app.services.agent_graph import stream_agent_graph
 from app.services.document_post_process import (
@@ -127,6 +128,9 @@ from app.services.governance import (
     load_snapshots_from_dir,
 )
 from app.services.ingestion import enqueue_ingestion_job, parse_retry_meta
+from app.services.llm_provider import LLMConfig, create_provider
+from app.services.llm_provider import ProviderType as ServiceProviderType
+from app.services.llm_router import get_router as get_llm_router
 from app.services.llm_summary import (
     normalize_vehicle_insurance_summary,
     prompt_snapshot,
@@ -314,7 +318,9 @@ def _build_gmail_callback_uri(origin: str) -> str:
     return f"{origin.rstrip('/')}/gmail/callback"
 
 
-def _resolve_gmail_redirect_uri(request: Request, stored_redirect_uri: str | None, requested_redirect_uri: str | None) -> str:
+def _resolve_gmail_redirect_uri(
+    request: Request, stored_redirect_uri: str | None, requested_redirect_uri: str | None
+) -> str:
     configured_origin = _normalize_origin(settings.google_redirect_uri)
     if configured_origin:
         return _build_gmail_callback_uri(configured_origin)
@@ -1684,6 +1690,7 @@ def get_ollama_models(db: Session = Depends(get_db)):
 def connectivity_health(db: Session = Depends(get_db)):
     """Check connectivity to Ollama, Qdrant, NAS, and Gmail."""
     import time
+
     from app.models import GmailCredentials
 
     ollama_url = get_runtime_setting("ollama_base_url", db)
@@ -1714,9 +1721,7 @@ def connectivity_health(db: Session = Depends(get_db)):
 
     def _test_gmail_connection() -> dict:
         active_cred_count = db.execute(
-            select(func.count())
-            .select_from(GmailCredentials)
-            .where(GmailCredentials.is_active.is_(True))
+            select(func.count()).select_from(GmailCredentials).where(GmailCredentials.is_active.is_(True))
         ).scalar_one()
         token_count = db.execute(
             select(func.count())
@@ -1884,7 +1889,9 @@ def _to_llm_provider_response(provider: LLMProvider) -> LLMProviderResponse:
     return LLMProviderResponse(
         id=provider.id,
         name=provider.name,
-        provider_type=str(provider.provider_type.value if hasattr(provider.provider_type, "value") else provider.provider_type),
+        provider_type=str(
+            provider.provider_type.value if hasattr(provider.provider_type, "value") else provider.provider_type
+        ),
         base_url=provider.base_url,
         has_api_key=bool(provider.api_key_encrypted),
         model_name=provider.model_name or "",
@@ -1949,7 +1956,9 @@ def list_llm_providers(
     db: Session = Depends(get_db),
 ) -> list[LLMProviderResponse]:
     providers = (
-        db.execute(select(LLMProvider).order_by(LLMProvider.is_default.desc(), LLMProvider.created_at.asc())).scalars().all()
+        db.execute(select(LLMProvider).order_by(LLMProvider.is_default.desc(), LLMProvider.created_at.asc()))
+        .scalars()
+        .all()
     )
     return [_to_llm_provider_response(item) for item in providers]
 
