@@ -3,6 +3,7 @@ services:
     build: ./backend
     container_name: fkv-api
     restart: unless-stopped
+    user: "1000:1000"
     logging:
       driver: json-file
       options:
@@ -66,6 +67,7 @@ services:
       disable: true
     container_name: fkv-worker
     restart: unless-stopped
+    user: "1000:1000"
     logging:
       driver: json-file
       options:
