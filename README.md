@@ -159,7 +159,11 @@ cd Family-Archive
 cp .env.example .env
 sed -i "s|<replace-with-your-secret>|$(openssl rand -hex 32)|" .env
 
-# 3. 构建并启动
+# 3. 准备数据目录权限（容器以 1000:1000 运行）
+mkdir -p data
+sudo chown -R 1000:1000 data
+
+# 4. 构建并启动
 docker compose up -d
 ```
 
