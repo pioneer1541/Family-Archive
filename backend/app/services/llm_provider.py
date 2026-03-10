@@ -27,6 +27,7 @@ class LLMResponse:
     """LLM 响应数据类"""
 
     content: str
+    reasoning_content: Optional[str] = None
     usage: Optional[Dict[str, int]] = None
     model: Optional[str] = None
     finish_reason: Optional[str] = None
@@ -143,9 +144,15 @@ class OpenAICompatibleProvider(LLMProviderInterface):
             params["max_tokens"] = max_tokens
 
         response = client.chat.completions.create(**params)
+        message = response.choices[0].message
+        reasoning_content = getattr(message, "reasoning_content", None)
+        content = message.content or ""
+        if not content and reasoning_content:
+            content = reasoning_content
 
         return LLMResponse(
-            content=response.choices[0].message.content or "",
+            content=content,
+            reasoning_content=reasoning_content,
             usage=response.usage.model_dump() if response.usage else None,
             model=response.model,
             finish_reason=response.choices[0].finish_reason,
