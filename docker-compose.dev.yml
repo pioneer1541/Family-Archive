@@ -1,0 +1,48 @@
+# 开发环境配置 - 继承 docker-compose.yml 并覆盖
+# 使用方式: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+services:
+  fkv-api:
+    container_name: fkv-api-dev
+    ports:
+      - "18280:18080"
+    env_file:
+      - .env.development
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+      - ./secrets/gmail:/app/secrets/gmail:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /mnt/nas:/volume1/Family_Archives:ro
+
+  fkv-worker:
+    container_name: fkv-worker-dev
+    env_file:
+      - .env.development
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+      - ./secrets/gmail:/app/secrets/gmail:ro
+      - /mnt/nas:/volume1/Family_Archives:ro
+
+  redis:
+    container_name: fkv-redis-dev
+    ports:
+      - "16380:6379"
+
+  qdrant:
+    container_name: fkv-qdrant-dev
+    ports:
+      - "16334:6333"
+
+  postgres:
+    container_name: fkv-postgres-dev
+
+  fkv-frontend:
+    container_name: fkv-frontend-dev
+    ports:
+      - "18281:18081"
+    environment:
+      - NEXT_PUBLIC_FKV_API_BASE=/api
+      - FKV_INTERNAL_API_BASE=http://fkv-api:18080
+      - NEXT_DIST_DIR=.next-runtime
