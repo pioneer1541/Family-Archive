@@ -27,6 +27,7 @@ is_production_env = os.getenv("ENV", "").strip().lower() == "production"
 
 async def _mail_poll_loop(stop_event: asyncio.Event) -> None:
     while not stop_event.is_set():
+        interval = 30
         db = SessionLocal()
         try:
             enabled = get_runtime_bool("mail_poll_enabled", db)
