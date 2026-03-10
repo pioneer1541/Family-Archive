@@ -66,10 +66,11 @@ async def _mail_poll_loop(stop_event: asyncio.Event) -> None:
 
 
 async def _nas_scan_loop(stop_event: asyncio.Event) -> None:
-    interval = max(60, int(settings.nas_scan_interval_sec))
     while not stop_event.is_set():
+        interval = 60
         db = SessionLocal()
         try:
+            interval = max(60, get_runtime_int("nas_scan_interval_sec", db))
             run_nas_scan(db, paths=[settings.nas_default_source_dir], recursive=True)
         except Exception as exc:
             logger.warning(

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     auto_create_schema: bool = True
     ingestion_retry_max_retries: int = 2
     ingestion_retry_base_delay_sec: int = 5
-    sqlite_busy_timeout_ms: int = 5000
+    sqlite_busy_timeout_ms: int = 30000
     pg_pool_pre_ping: bool = True
     pg_pool_recycle: int = 1800
     pg_pool_size: int = 20

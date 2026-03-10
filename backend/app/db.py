@@ -2,8 +2,10 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.config import get_settings
+from app.logging_utils import get_logger, sanitize_log_context
 
 settings = get_settings()
+logger = get_logger(__name__)
 
 connect_args = {}
 engine_kwargs = {"future": True}
@@ -51,28 +53,78 @@ def ensure_sqlite_runtime_schema() -> None:
     if not settings.database_url.startswith("sqlite"):
         return
     with engine.begin() as conn:
+        def _sqlite_add_column_if_missing(table: str, cols: set[str], column: str, ddl: str) -> None:
+            if column in cols:
+                return
+            try:
+                conn.execute(text(ddl))
+            except Exception as exc:
+                logger.warning(
+                    "sqlite_alter_table_failed",
+                    extra=sanitize_log_context(
+                        {
+                            "status": "warn",
+                            "error_code": "sqlite_alter_table_failed",
+                            "table": table,
+                            "column": column,
+                            "detail": str(exc),
+                        }
+                    ),
+                )
+
         tables = {str(row[0] or "") for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
         if "documents" not in tables:
             return
         cols = {str(row[1] or "") for row in conn.execute(text("PRAGMA table_info(documents)"))}
-        if "phash" not in cols:
-            conn.execute(text("ALTER TABLE documents ADD COLUMN phash VARCHAR(32)"))
-        if "summary_quality_state" not in cols:
-            conn.execute(text("ALTER TABLE documents ADD COLUMN summary_quality_state VARCHAR(24) DEFAULT 'unknown'"))
-        if "summary_last_error" not in cols:
-            conn.execute(text("ALTER TABLE documents ADD COLUMN summary_last_error VARCHAR(240) DEFAULT ''"))
-        if "summary_model" not in cols:
-            conn.execute(text("ALTER TABLE documents ADD COLUMN summary_model VARCHAR(64) DEFAULT ''"))
-        if "summary_version" not in cols:
-            conn.execute(text("ALTER TABLE documents ADD COLUMN summary_version VARCHAR(32) DEFAULT 'prompt-v2'"))
-        if "category_version" not in cols:
-            conn.execute(text("ALTER TABLE documents ADD COLUMN category_version VARCHAR(32) DEFAULT 'taxonomy-v1'"))
-        if "name_version" not in cols:
-            conn.execute(text("ALTER TABLE documents ADD COLUMN name_version VARCHAR(32) DEFAULT 'name-v2'"))
-        if "source_available_cached" not in cols:
-            conn.execute(text("ALTER TABLE documents ADD COLUMN source_available_cached BOOLEAN DEFAULT 1"))
-        if "source_checked_at" not in cols:
-            conn.execute(text("ALTER TABLE documents ADD COLUMN source_checked_at DATETIME"))
+        _sqlite_add_column_if_missing("documents", cols, "phash", "ALTER TABLE documents ADD COLUMN phash VARCHAR(32)")
+        _sqlite_add_column_if_missing(
+            "documents",
+            cols,
+            "summary_quality_state",
+            "ALTER TABLE documents ADD COLUMN summary_quality_state VARCHAR(24) DEFAULT 'unknown'",
+        )
+        _sqlite_add_column_if_missing(
+            "documents",
+            cols,
+            "summary_last_error",
+            "ALTER TABLE documents ADD COLUMN summary_last_error VARCHAR(240) DEFAULT ''",
+        )
+        _sqlite_add_column_if_missing(
+            "documents",
+            cols,
+            "summary_model",
+            "ALTER TABLE documents ADD COLUMN summary_model VARCHAR(64) DEFAULT ''",
+        )
+        _sqlite_add_column_if_missing(
+            "documents",
+            cols,
+            "summary_version",
+            "ALTER TABLE documents ADD COLUMN summary_version VARCHAR(32) DEFAULT 'prompt-v2'",
+        )
+        _sqlite_add_column_if_missing(
+            "documents",
+            cols,
+            "category_version",
+            "ALTER TABLE documents ADD COLUMN category_version VARCHAR(32) DEFAULT 'taxonomy-v1'",
+        )
+        _sqlite_add_column_if_missing(
+            "documents",
+            cols,
+            "name_version",
+            "ALTER TABLE documents ADD COLUMN name_version VARCHAR(32) DEFAULT 'name-v2'",
+        )
+        _sqlite_add_column_if_missing(
+            "documents",
+            cols,
+            "source_available_cached",
+            "ALTER TABLE documents ADD COLUMN source_available_cached BOOLEAN DEFAULT 1",
+        )
+        _sqlite_add_column_if_missing(
+            "documents",
+            cols,
+            "source_checked_at",
+            "ALTER TABLE documents ADD COLUMN source_checked_at DATETIME",
+        )
         try:
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_phash ON documents(phash)"))
             conn.execute(
@@ -89,8 +141,12 @@ def ensure_sqlite_runtime_schema() -> None:
             pass  # 索引为纯性能优化，创建失败不中断 lifespan（测试环境 DB 状态可能短暂不稳定）
         if "mail_ingestion_events" in tables:
             mail_cols = {str(row[1] or "") for row in conn.execute(text("PRAGMA table_info(mail_ingestion_events)"))}
-            if "sync_run_id" not in mail_cols:
-                conn.execute(text("ALTER TABLE mail_ingestion_events ADD COLUMN sync_run_id VARCHAR(36)"))
+            _sqlite_add_column_if_missing(
+                "mail_ingestion_events",
+                mail_cols,
+                "sync_run_id",
+                "ALTER TABLE mail_ingestion_events ADD COLUMN sync_run_id VARCHAR(36)",
+            )
             conn.execute(
                 text(
                     "CREATE INDEX IF NOT EXISTS ix_mail_ingestion_events_sync_run_id ON mail_ingestion_events(sync_run_id)"
@@ -98,8 +154,12 @@ def ensure_sqlite_runtime_schema() -> None:
             )
         if "gmail_credentials" in tables:
             gmail_cols = {str(row[1] or "") for row in conn.execute(text("PRAGMA table_info(gmail_credentials)"))}
-            if "token_expiry" not in gmail_cols:
-                conn.execute(text("ALTER TABLE gmail_credentials ADD COLUMN token_expiry DATETIME"))
+            _sqlite_add_column_if_missing(
+                "gmail_credentials",
+                gmail_cols,
+                "token_expiry",
+                "ALTER TABLE gmail_credentials ADD COLUMN token_expiry DATETIME",
+            )
 
 
 def get_db():

@@ -56,6 +56,8 @@ services:
     depends_on:
       - redis
       - qdrant
+      # PostgreSQL 仅在 FAMILY_VAULT_DATABASE_URL 使用 postgresql://... 时需要；
+      # 默认 SQLite 模式下不会使用该服务。
       - postgres
 
   fkv-worker:
@@ -114,8 +116,12 @@ services:
     depends_on:
       - redis
       - qdrant
+      # PostgreSQL 仅在 FAMILY_VAULT_DATABASE_URL 使用 postgresql://... 时需要；
+      # 默认 SQLite 模式下不会使用该服务。
       - postgres
 
+  # 可选 PostgreSQL 服务：默认 SQLite 部署可保留但不会被使用。
+  # 仅当 FAMILY_VAULT_DATABASE_URL 配置为 postgresql://... 时启用。
   postgres:
     image: postgres:15-alpine
     container_name: fkv-postgres
