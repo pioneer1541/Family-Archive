@@ -12,6 +12,8 @@ import type {
   GmailCredential,
   GmailCredentialCreate,
   GmailCredentialUpdate,
+  GmailDeviceAuthStart,
+  GmailDeviceAuthComplete,
   LLMProvider,
   LLMProviderCreate,
   LLMProviderType,
@@ -203,9 +205,18 @@ export default function SettingsPage() {
   const [gmailError, setGmailError] = useState("");
   const [gmailSaving, setGmailSaving] = useState(false);
   const [gmailAuthorizingId, setGmailAuthorizingId] = useState<string | null>(null);
+  const [gmailDeviceSession, setGmailDeviceSession] = useState<GmailDeviceAuthStart | null>(null);
+  const [gmailDeviceStarting, setGmailDeviceStarting] = useState(false);
+  const [gmailDeviceStatus, setGmailDeviceStatus] = useState<'idle' | 'pending' | 'completed' | 'expired'>('idle');
+  const [gmailDeviceError, setGmailDeviceError] = useState('');
+  const [gmailDeviceRemainingSec, setGmailDeviceRemainingSec] = useState(0);
   // Gmail 删除确认
   const [gmailDeleteId, setGmailDeleteId] = useState<string | null>(null);
   const authPollingRef = useRef<number | null>(null);
+  const deviceAuthPollingRef = useRef<number | null>(null);
+  const deviceAuthCountdownRef = useRef<number | null>(null);
+  const deviceAuthBusyRef = useRef(false);
+  const deviceAuthPollIntervalSecRef = useRef(5);
   const oauthNoticeHandledRef = useRef(false);
   const [originUrl, setOriginUrl] = useState('');
   // Admin users tab
@@ -569,11 +580,96 @@ export default function SettingsPage() {
     }
   }
 
+  function stopGmailDeviceTimers() {
+    if (deviceAuthPollingRef.current !== null) {
+      window.clearInterval(deviceAuthPollingRef.current);
+      deviceAuthPollingRef.current = null;
+    }
+    if (deviceAuthCountdownRef.current !== null) {
+      window.clearInterval(deviceAuthCountdownRef.current);
+      deviceAuthCountdownRef.current = null;
+    }
+    deviceAuthBusyRef.current = false;
+  }
+
+  function startGmailDevicePolling(deviceCode: string, intervalSec: number) {
+    const safeIntervalSec = Math.max(intervalSec ?? 5, 5);
+    deviceAuthPollIntervalSecRef.current = safeIntervalSec;
+    if (deviceAuthPollingRef.current !== null) {
+      window.clearInterval(deviceAuthPollingRef.current);
+      deviceAuthPollingRef.current = null;
+    }
+    deviceAuthPollingRef.current = window.setInterval(() => {
+      void pollGmailDeviceAuth(deviceCode);
+    }, safeIntervalSec * 1000);
+  }
+
+  async function pollGmailDeviceAuth(deviceCode: string) {
+    if (!client.completeGmailDeviceAuth || deviceAuthBusyRef.current) return;
+    deviceAuthBusyRef.current = true;
+    try {
+      const result: GmailDeviceAuthComplete = await client.completeGmailDeviceAuth(deviceCode);
+      if (result.status === 'completed') {
+        stopGmailDeviceTimers();
+        setGmailDeviceStatus('completed');
+        setGmailDeviceError('');
+        setToast(tg('deviceToastSuccess'));
+        setTimeout(() => setToast(''), 3000);
+        loadGmailCredentials();
+      } else if (result.status === 'slow_down') {
+        const nextIntervalSec = Math.min(deviceAuthPollIntervalSecRef.current + 5, 60);
+        startGmailDevicePolling(deviceCode, nextIntervalSec);
+      }
+    } catch (err) {
+      stopGmailDeviceTimers();
+      setGmailDeviceStatus('expired');
+      setGmailDeviceError(err instanceof Error ? err.message : tg('deviceToastFailed'));
+    } finally {
+      deviceAuthBusyRef.current = false;
+    }
+  }
+
+  async function handleStartDeviceAuth() {
+    if (!client.startGmailDeviceAuth) return;
+    stopGmailDeviceTimers();
+    setGmailDeviceStarting(true);
+    setGmailDeviceError('');
+    setGmailDeviceStatus('idle');
+    setGmailDeviceSession(null);
+    setGmailDeviceRemainingSec(0);
+    try {
+      const session = await client.startGmailDeviceAuth();
+      if (!session.device_code || !session.user_code || !session.verification_url) {
+        throw new Error(tg('deviceToastFailed'));
+      }
+      setGmailDeviceSession(session);
+      setGmailDeviceStatus('pending');
+      setGmailDeviceRemainingSec(Math.max(0, Number(session.expires_in || 0)));
+      deviceAuthCountdownRef.current = window.setInterval(() => {
+        setGmailDeviceRemainingSec((prev) => {
+          if (prev <= 1) {
+            stopGmailDeviceTimers();
+            setGmailDeviceStatus('expired');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      startGmailDevicePolling(session.device_code, session.interval ?? 5);
+    } catch (err) {
+      setGmailDeviceStatus('expired');
+      setGmailDeviceError(err instanceof Error ? err.message : tg('deviceToastFailed'));
+    } finally {
+      setGmailDeviceStarting(false);
+    }
+  }
+
   useEffect(() => {
     return () => {
       if (authPollingRef.current !== null) {
         window.clearInterval(authPollingRef.current);
       }
+      stopGmailDeviceTimers();
     };
   }, []);
 
@@ -1168,8 +1264,53 @@ export default function SettingsPage() {
                 />
               </div>
               <hr className="settings-divider" />
+              <div className="gmail-quick-auth-card">
+                <h3>{tg('quickTitle')}</h3>
+                <p className="settings-hint">{tg('quickHint')}</p>
+                {gmailDeviceSession && (
+                  <div className="gmail-device-code-wrap">
+                    <div className="gmail-device-code-row">
+                      <span>{tg('deviceCodeLabel')}</span>
+                      <code className="gmail-device-code">{gmailDeviceSession.user_code}</code>
+                    </div>
+                    <p className="settings-hint">
+                      {tg('verificationUrlLabel')}:
+                      <a
+                        href={gmailDeviceSession.verification_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="gmail-guide-link"
+                      >
+                        {gmailDeviceSession.verification_url}
+                      </a>
+                    </p>
+                    <p className="settings-hint">
+                      {tg('remainingLabel')}: {gmailDeviceRemainingSec}s
+                    </p>
+                    {gmailDeviceStatus === 'pending' && (
+                      <p className="settings-hint">{tg('devicePending')}</p>
+                    )}
+                    {gmailDeviceStatus === 'completed' && (
+                      <p className="settings-hint gmail-device-ok">{tg('deviceCompleted')}</p>
+                    )}
+                    {gmailDeviceStatus === 'expired' && (
+                      <p className="settings-hint gmail-device-error">{tg('deviceExpired')}</p>
+                    )}
+                  </div>
+                )}
+                {gmailDeviceError && <p className="setup-error">{gmailDeviceError}</p>}
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleStartDeviceAuth}
+                  disabled={gmailDeviceStarting}
+                >
+                  {gmailDeviceStarting ? t('loading') : tg('quickStart')}
+                </button>
+              </div>
+              <hr className="settings-divider" />
               <div className="settings-section-header">
-                <h3>{tg('credentials')}</h3>
+                <h3>{tg('advancedTitle')}</h3>
                 <div className="settings-section-header-actions">
                   <button
                     type="button"
@@ -1180,7 +1321,7 @@ export default function SettingsPage() {
                   </button>
                   <button
                     type="button"
-                    className="btn-primary"
+                    className="btn-secondary"
                     onClick={handleGmailCreate}
                     disabled={gmailFormOpen}
                   >
@@ -1188,7 +1329,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
-              <p className="settings-hint">{tg('hint')}</p>
+              <p className="settings-hint">{tg('advancedHint')}</p>
 
               {gmailLoading ? (
                 <p className="settings-hint">{t('loading')}</p>

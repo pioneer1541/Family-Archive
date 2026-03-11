@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     friendly_name_model: str = "lfm2:latest"
     vl_extract_model: str = "qwen3-vl:2b"
     google_redirect_uri: str = "http://localhost:18181/gmail/callback"
+    google_client_id: str = ""
+    google_client_secret: str = ""
     summary_timeout_sec: int = 12
     agent_synth_timeout_sec: int = 25
     agent_context_mode: str = "smart_followup"

@@ -32,6 +32,8 @@ import type {
   GmailCredential,
   GmailCredentialCreate,
   GmailCredentialUpdate,
+  GmailDeviceAuthStart,
+  GmailDeviceAuthComplete,
   LLMProvider,
   LLMProviderCreate,
   LLMProviderTestResult,
@@ -41,6 +43,8 @@ import type {
 const API_BASE = process.env.NEXT_PUBLIC_FKV_API_BASE || '/api';
 const GMAIL_V1_BASE = `${API_BASE}/v1/gmail/credentials`;
 const GMAIL_LEGACY_BASE = `${API_BASE}/gmail/credentials`;
+const GMAIL_DEVICE_V1_BASE = `${API_BASE}/v1/gmail/device-auth`;
+const GMAIL_DEVICE_LEGACY_BASE = `${API_BASE}/gmail/device-auth`;
 const DOC_CACHE_MAX = 200;
 const DOC_CACHE_TTL_MS = 10 * 60 * 1000;
 const docCache = new Map<string, {doc: KbDoc; ts: number}>();
@@ -1313,6 +1317,22 @@ async function fetchGmailWithFallback(pathSuffix = '', init?: RequestInit): Prom
   throw new Error('Gmail credentials endpoint unreachable');
 }
 
+async function fetchGmailDeviceWithFallback(pathSuffix = '', init?: RequestInit): Promise<Response> {
+  const urls = [`${GMAIL_DEVICE_V1_BASE}${pathSuffix}`, `${GMAIL_DEVICE_LEGACY_BASE}${pathSuffix}`];
+  let fallback: Response | null = null;
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, init);
+      if (response.status !== 404) return response;
+      fallback = response;
+    } catch {
+      // Try next endpoint variant.
+    }
+  }
+  if (fallback) return fallback;
+  throw new Error('Gmail device auth endpoint unreachable');
+}
+
 
 // ---------------------------------------------------------------------------
 // Gmail Credentials
@@ -1354,6 +1374,42 @@ async function getGmailAuthUrl(credId: string, redirectUri?: string): Promise<{a
   const authUrl = String(data?.auth_url || '').trim();
   if (!authUrl) throw new Error('Invalid Gmail auth URL response');
   return {auth_url: authUrl};
+}
+
+async function startGmailDeviceAuth(): Promise<GmailDeviceAuthStart> {
+  const r = await fetchGmailDeviceWithFallback('', {
+    method: 'POST',
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String(err?.detail || 'Failed to start Gmail quick auth'));
+  }
+  const data = await r.json().catch(() => ({}));
+  return {
+    device_code: String(data?.device_code || '').trim(),
+    user_code: String(data?.user_code || '').trim(),
+    verification_url: String(data?.verification_url || '').trim(),
+    expires_in: Number(data?.expires_in || 0),
+    interval: Number(data?.interval || 5),
+  };
+}
+
+async function completeGmailDeviceAuth(deviceCode: string): Promise<GmailDeviceAuthComplete> {
+  const r = await fetchGmailDeviceWithFallback('/complete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({device_code: deviceCode}),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String(err?.detail || 'Failed to complete Gmail quick auth'));
+  }
+  const data = await r.json().catch(() => ({}));
+  const status = String(data?.status || '').trim();
+  return {
+    status: status === 'completed' ? 'completed' : (status === 'slow_down' ? 'slow_down' : 'pending'),
+    credential_id: String(data?.credential_id || '').trim() || null,
+  };
 }
 
 async function createGmailCredential(data: GmailCredentialCreate): Promise<GmailCredential> {
@@ -1499,6 +1555,8 @@ export function createRealAdapter(): KbApiClient {
     deleteUser,
     getGmailCredentials,
     getGmailAuthUrl,
+    startGmailDeviceAuth,
+    completeGmailDeviceAuth,
     createGmailCredential,
     updateGmailCredential,
     deleteGmailCredential,

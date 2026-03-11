@@ -2116,6 +2116,140 @@ router = _root_router
 # ---------------------------------------------------------------------------
 
 
+class GmailDeviceAuthStartResponse(BaseModel):
+    device_code: str
+    user_code: str
+    verification_url: str
+    expires_in: int
+    interval: int
+
+
+class GmailDeviceAuthCompleteRequest(BaseModel):
+    device_code: str
+
+
+def _build_device_flow_credential_name() -> str:
+    ts = dt.datetime.now(dt.UTC).strftime("%Y-%m-%d %H:%M")
+    return f"Quick Device Flow {ts}"
+
+
+@router.post("/gmail/device-auth", response_model=GmailDeviceAuthStartResponse)
+def gmail_device_auth_start(
+    _: object = Depends(get_current_user),
+) -> GmailDeviceAuthStartResponse:
+    client_id = str(settings.google_client_id or "").strip()
+    if not client_id:
+        raise HTTPException(status_code=500, detail="google_client_id_not_configured")
+
+    try:
+        resp = requests.post(
+            "https://oauth2.googleapis.com/device/code",
+            data={
+                "client_id": client_id,
+                "scope": "openid email profile https://www.googleapis.com/auth/gmail.readonly",
+            },
+            timeout=20,
+        )
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=f"device_code_request_failed:{type(exc).__name__}") from exc
+
+    payload: dict = {}
+    try:
+        payload = dict(resp.json() or {})
+    except Exception:
+        payload = {}
+    if resp.status_code >= 400:
+        detail = str(payload.get("error_description") or payload.get("error") or "device_code_request_failed")
+        raise HTTPException(status_code=resp.status_code, detail=detail)
+
+    device_code = str(payload.get("device_code") or "").strip()
+    user_code = str(payload.get("user_code") or "").strip()
+    verification_url = str(payload.get("verification_url") or payload.get("verification_uri") or "").strip()
+    if (not device_code) or (not user_code) or (not verification_url):
+        raise HTTPException(status_code=502, detail="invalid_device_code_response")
+
+    return GmailDeviceAuthStartResponse(
+        device_code=device_code,
+        user_code=user_code,
+        verification_url=verification_url,
+        expires_in=max(int(payload.get("expires_in") or 0), 0),
+        interval=max(int(payload.get("interval") or 5), 1),
+    )
+
+
+@router.post("/gmail/device-auth/complete")
+def gmail_device_auth_complete(
+    body: GmailDeviceAuthCompleteRequest,
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    device_code = str(body.device_code or "").strip()
+    if not device_code:
+        raise HTTPException(status_code=400, detail="device_code_required")
+
+    client_id = str(settings.google_client_id or "").strip()
+    client_secret = str(settings.google_client_secret or "").strip()
+    if (not client_id) or (not client_secret):
+        raise HTTPException(status_code=500, detail="google_device_flow_not_configured")
+
+    try:
+        token_resp = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "device_code": device_code,
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            },
+            timeout=20,
+        )
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=f"device_token_request_failed:{type(exc).__name__}") from exc
+
+    payload: dict = {}
+    try:
+        payload = dict(token_resp.json() or {})
+    except Exception:
+        payload = {}
+
+    if token_resp.status_code >= 400:
+        error_code = str(payload.get("error") or "").strip().lower()
+        if error_code in {"authorization_pending", "slow_down"}:
+            return {"status": "pending", "credential_id": None}
+        if error_code in {"expired_token", "access_denied", "invalid_grant"}:
+            raise HTTPException(status_code=400, detail=(error_code or "device_auth_failed"))
+        detail = str(payload.get("error_description") or payload.get("error") or "device_auth_failed")
+        raise HTTPException(status_code=token_resp.status_code, detail=detail)
+
+    access_token = str(payload.get("access_token") or "").strip()
+    if not access_token:
+        return {"status": "pending", "credential_id": None}
+
+    from app.models import GmailCredentials
+    from app.utils.encryption import encrypt
+
+    refresh_token = str(payload.get("refresh_token") or "").strip()
+    cred = GmailCredentials(
+        id=str(uuid.uuid4()),
+        name=_build_device_flow_credential_name(),
+        client_id=client_id,
+        client_secret_encrypted=encrypt(client_secret),
+        redirect_uri="device_flow",
+        token_encrypted=encrypt(access_token),
+        refresh_token_encrypted=encrypt(refresh_token) if refresh_token else None,
+        token_uri="https://oauth2.googleapis.com/token",
+        auth_uri="https://oauth2.googleapis.com/device/code",
+        scopes=str(payload.get("scope") or "https://www.googleapis.com/auth/gmail.readonly"),
+        is_active=True,
+    )
+    expires_in = int(payload.get("expires_in") or 0)
+    if expires_in > 0:
+        cred.token_expiry = dt.datetime.now(dt.UTC) + dt.timedelta(seconds=expires_in)
+    db.add(cred)
+    db.commit()
+    return {"status": "completed", "credential_id": cred.id}
+
+
 @router.get("/gmail/credentials")
 def list_gmail_credentials(
     _: object = Depends(get_current_user),
