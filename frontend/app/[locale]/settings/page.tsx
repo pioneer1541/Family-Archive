@@ -18,6 +18,7 @@ import type {
   LLMProviderCreate,
   LLMProviderType,
   LLMProviderUpdate,
+  LLMProviderValidateRequest,
   UserResponse,
 } from '@src/lib/api/types';
 
@@ -169,6 +170,7 @@ export default function SettingsPage() {
     is_default: false,
   });
   const [llmProviderSaving, setLlmProviderSaving] = useState(false);
+  const [llmProviderValidating, setLlmProviderValidating] = useState(false);
   const [llmProviderError, setLlmProviderError] = useState('');
   const [llmProviderTestingId, setLlmProviderTestingId] = useState<string | null>(null);
   const [connectivity, setConnectivity] = useState<ConnectivityStatus | null>(null);
@@ -738,6 +740,47 @@ export default function SettingsPage() {
     resetLLMProviderForm();
   }
 
+  function getLLMProviderErrorMessage(raw: string): string {
+    const detail = String(raw || '').trim();
+    if (!detail) return t('llmProviderSaveError');
+    if (detail === 'llm_provider_api_key_required') return t('llmProviderApiKeyRequired');
+    return detail;
+  }
+
+  async function validateLLMProviderForm(): Promise<{normalizedBaseUrl: string; models: string[]}> {
+    if (!client.validateLLMProvider) {
+      return {
+        normalizedBaseUrl: llmProviderForm.base_url.trim(),
+        models: [],
+      };
+    }
+    const payload: LLMProviderValidateRequest = {
+      provider_id: llmProviderEditId || undefined,
+      name: llmProviderForm.name.trim() || undefined,
+      provider_type: llmProviderForm.provider_type,
+      base_url: llmProviderForm.base_url.trim(),
+      model_name: llmProviderForm.model_name.trim(),
+      is_active: llmProviderForm.is_active,
+    };
+    if (llmProviderForm.api_key && llmProviderForm.api_key.trim()) {
+      payload.api_key = llmProviderForm.api_key.trim();
+    }
+
+    setLlmProviderValidating(true);
+    try {
+      const result = await client.validateLLMProvider(payload);
+      if (!result.ok) {
+        throw new Error(getLLMProviderErrorMessage(result.error || t('llmProviderTestFail')));
+      }
+      return {
+        normalizedBaseUrl: result.normalized_base_url || payload.base_url,
+        models: Array.isArray(result.models) ? result.models : [],
+      };
+    } finally {
+      setLlmProviderValidating(false);
+    }
+  }
+
   async function handleLLMProviderSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!client.createLLMProvider || !client.updateLLMProvider) return;
@@ -748,12 +791,13 @@ export default function SettingsPage() {
     setLlmProviderSaving(true);
     setLlmProviderError('');
     try {
+      const validation = await validateLLMProviderForm();
       let savedProvider: LLMProvider | null = null;
       if (llmProviderEditId) {
         const patch: LLMProviderUpdate = {
           name: llmProviderForm.name.trim(),
           provider_type: llmProviderForm.provider_type,
-          base_url: llmProviderForm.base_url.trim(),
+          base_url: validation.normalizedBaseUrl,
           model_name: llmProviderForm.model_name.trim(),
           is_active: llmProviderForm.is_active,
           is_default: llmProviderForm.is_default,
@@ -767,36 +811,28 @@ export default function SettingsPage() {
         savedProvider = await client.createLLMProvider({
           ...llmProviderForm,
           name: llmProviderForm.name.trim(),
-          base_url: llmProviderForm.base_url.trim(),
+          base_url: validation.normalizedBaseUrl,
           model_name: llmProviderForm.model_name.trim(),
           api_key: llmProviderForm.api_key?.trim() || undefined,
         });
         setToast(t('llmProviderCreated'));
       }
-      if (savedProvider && savedProvider.is_active && client.getLLMProviderModels) {
+      if (savedProvider) {
         const providerId = savedProvider.id;
-        try {
-          const providerModels = await client.getLLMProviderModels(providerId);
-          setLlmProviderModels((prev) => ({...prev, [providerId]: providerModels}));
-          setLlmProviderModelErrors((prev) => {
-            const next = {...prev};
-            delete next[providerId];
-            return next;
-          });
-        } catch (err: unknown) {
-          const message = err instanceof Error && err.message ? err.message : t('modelLoadError');
-          setLlmProviderModels((prev) => ({...prev, [providerId]: null}));
-          setLlmProviderModelErrors((prev) => ({...prev, [providerId]: message}));
-          setToast(t('llmProviderModelsLoadFailedOne', {name: savedProvider.name}));
-          setTimeout(() => setToast(''), 5000);
-        }
+        const providerModels = Array.from(new Set(validation.models.map((item) => String(item || '').trim()).filter(Boolean)));
+        setLlmProviderModels((prev) => ({...prev, [providerId]: providerModels}));
+        setLlmProviderModelErrors((prev) => {
+          const next = {...prev};
+          delete next[providerId];
+          return next;
+        });
       }
       setLlmProviderFormOpen(false);
       resetLLMProviderForm();
       await loadLLMProviders();
       setTimeout(() => setToast(''), 3000);
     } catch (err: unknown) {
-      setLlmProviderError(err instanceof Error ? err.message : t('llmProviderSaveError'));
+      setLlmProviderError(getLLMProviderErrorMessage(err instanceof Error ? err.message : t('llmProviderSaveError')));
     } finally {
       setLlmProviderSaving(false);
     }
@@ -822,12 +858,20 @@ export default function SettingsPage() {
     try {
       const result = await client.testLLMProvider(provider.id);
       if (result.ok) {
+        setLlmProviderModels((prev) => ({...prev, [provider.id]: result.models}));
+        setLlmProviderModelErrors((prev) => {
+          const next = {...prev};
+          delete next[provider.id];
+          return next;
+        });
         setToast(t('llmProviderTestOk', {latency: result.latency_ms, count: result.models.length}));
       } else {
-        setToast(result.error || t('llmProviderTestFail'));
+        const message = getLLMProviderErrorMessage(result.error || t('llmProviderTestFail'));
+        setLlmProviderModelErrors((prev) => ({...prev, [provider.id]: message}));
+        setToast(message);
       }
     } catch (err: unknown) {
-      setToast(err instanceof Error ? err.message : t('llmProviderTestFail'));
+      setToast(getLLMProviderErrorMessage(err instanceof Error ? err.message : t('llmProviderTestFail')));
     } finally {
       setLlmProviderTestingId(null);
       setTimeout(() => setToast(''), 4000);
@@ -912,36 +956,31 @@ export default function SettingsPage() {
               ) : llmProviders.length === 0 ? (
                 <p className="settings-hint">{t('llmProvidersEmpty')}</p>
               ) : (
-                <div className="llm-provider-table-wrap">
-                  <table className="llm-provider-table">
-                    <thead>
-                      <tr>
-                        <th>{t('llmProviderName')}</th>
-                        <th>{t('llmProviderType')}</th>
-                        <th>{t('llmProviderBaseUrl')}</th>
-                        <th>{t('llmProviderModel')}</th>
-                        <th>{t('llmProviderStatus')}</th>
-                        <th>{t('actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {llmProviders.map((provider) => (
-                        <tr key={provider.id}>
-                          <td data-label={t('llmProviderName')}>{provider.name}</td>
-                          <td data-label={t('llmProviderType')}>{provider.provider_type}</td>
-                          <td data-label={t('llmProviderBaseUrl')} className="gmail-cred-mono">{provider.base_url}</td>
-                          <td data-label={t('llmProviderModel')} className="gmail-cred-mono">{provider.model_name || '-'}</td>
-                          <td data-label={t('llmProviderStatus')}>
-                            <span className={`badge ${provider.is_active ? 'badge-green' : 'badge-red'}`}>
-                              {provider.is_active ? t('llmProviderActive') : t('llmProviderInactive')}
-                            </span>
-                            {provider.is_default && (
-                              <span className="badge badge-green" style={{marginLeft: 6}}>
-                                {t('llmProviderDefault')}
+                <div className="llm-provider-list">
+                  {llmProviders.map((provider) => {
+                    const providerModels = llmProviderModels[provider.id];
+                    const providerModelError = String(llmProviderModelErrors[provider.id] || '').trim();
+                    const modelCount = Array.isArray(providerModels) ? providerModels.length : 0;
+                    return (
+                      <article key={provider.id} className="llm-provider-card">
+                        <div className="llm-provider-card-header">
+                          <div>
+                            <div className="llm-provider-card-title-row">
+                              <h4>{provider.name}</h4>
+                              <span className="llm-provider-type-pill">{provider.provider_type}</span>
+                            </div>
+                            <div className="llm-provider-badges">
+                              <span className={`badge ${provider.is_active ? 'badge-green' : 'badge-red'}`}>
+                                {provider.is_active ? t('llmProviderActive') : t('llmProviderInactive')}
                               </span>
-                            )}
-                          </td>
-                          <td data-label={t('actions')} className="llm-provider-actions">
+                              {provider.is_default && (
+                                <span className="badge badge-green">
+                                  {t('llmProviderDefault')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="llm-provider-actions">
                             <button
                               type="button"
                               className="btn-secondary btn-sm"
@@ -968,11 +1007,32 @@ export default function SettingsPage() {
                                 </button>
                               </>
                             )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+                        <dl className="llm-provider-card-grid">
+                          <div>
+                            <dt>{t('llmProviderBaseUrl')}</dt>
+                            <dd className="gmail-cred-mono llm-provider-card-mono">{provider.base_url}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('llmProviderModel')}</dt>
+                            <dd className="gmail-cred-mono">{provider.model_name || '-'}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('llmProviderModels')}</dt>
+                            <dd>
+                              {providerModelError
+                                ? t('llmProviderModelsUnavailable')
+                                : (providerModels === null ? t('loading') : t('llmProviderModelCount', {count: modelCount}))}
+                            </dd>
+                          </div>
+                        </dl>
+                        {providerModelError && (
+                          <p className="settings-hint llm-provider-card-error">{providerModelError}</p>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               )}
 
@@ -1199,8 +1259,10 @@ export default function SettingsPage() {
                     <button type="button" className="btn-secondary" onClick={handleLLMProviderCancel}>
                       {t('cancel')}
                     </button>
-                    <button type="submit" className="btn-primary" disabled={llmProviderSaving}>
-                      {llmProviderSaving ? t('loading') : (llmProviderEditId ? t('llmProviderUpdate') : t('llmProviderCreate'))}
+                    <button type="submit" className="btn-primary" disabled={llmProviderSaving || llmProviderValidating}>
+                      {llmProviderSaving || llmProviderValidating
+                        ? t('llmProviderValidating')
+                        : (llmProviderEditId ? t('llmProviderUpdate') : t('llmProviderCreate'))}
                     </button>
                   </div>
                 </form>

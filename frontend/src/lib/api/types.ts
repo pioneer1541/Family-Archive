@@ -405,6 +405,24 @@ export interface LLMProviderTestResult {
   error?: string | null;
 }
 
+export interface LLMProviderValidateRequest {
+  provider_id?: string;
+  name?: string;
+  provider_type: LLMProviderType;
+  base_url: string;
+  api_key?: string;
+  model_name: string;
+  is_active: boolean;
+}
+
+export interface LLMProviderValidateResult {
+  ok: boolean;
+  latency_ms: number;
+  models: string[];
+  normalized_base_url: string;
+  error?: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // API Client Interface
 // ---------------------------------------------------------------------------
@@ -458,5 +476,6 @@ export interface KbApiClient {
   updateLLMProvider?(id: string, data: LLMProviderUpdate): Promise<LLMProvider>;
   deleteLLMProvider?(id: string): Promise<void>;
   testLLMProvider?(id: string): Promise<LLMProviderTestResult>;
+  validateLLMProvider?(data: LLMProviderValidateRequest): Promise<LLMProviderValidateResult>;
   getLLMProviderModels?(id: string): Promise<string[]>;
 }

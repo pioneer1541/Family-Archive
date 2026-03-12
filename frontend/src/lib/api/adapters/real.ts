@@ -37,7 +37,9 @@ import type {
   LLMProvider,
   LLMProviderCreate,
   LLMProviderTestResult,
-  LLMProviderUpdate
+  LLMProviderUpdate,
+  LLMProviderValidateRequest,
+  LLMProviderValidateResult
 } from '../types';
 
 const API_BASE = process.env.NEXT_PUBLIC_FKV_API_BASE || '/api';
@@ -1514,6 +1516,19 @@ async function testLLMProvider(id: string): Promise<LLMProviderTestResult> {
   return (await r.json()) as LLMProviderTestResult;
 }
 
+async function validateLLMProvider(data: LLMProviderValidateRequest): Promise<LLMProviderValidateResult> {
+  const r = await fetch(`${API_BASE}/v1/llm/providers/validate`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String((err as {detail?: string})?.detail || 'Failed to validate provider'));
+  }
+  return (await r.json()) as LLMProviderValidateResult;
+}
+
 async function getLLMProviderModels(id: string): Promise<string[]> {
   const r = await fetch(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}/models`);
   if (!r.ok) {
@@ -1568,6 +1583,7 @@ export function createRealAdapter(): KbApiClient {
     updateLLMProvider,
     deleteLLMProvider,
     testLLMProvider,
+    validateLLMProvider,
     getLLMProviderModels,
   };
 }

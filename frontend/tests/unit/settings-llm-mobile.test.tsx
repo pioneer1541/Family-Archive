@@ -7,6 +7,7 @@ type ProviderRow = {
   name: string;
   provider_type: 'openai' | 'ollama' | 'kimi' | 'glm' | 'custom';
   base_url: string;
+  has_api_key?: boolean;
   model_name: string;
   is_active: boolean;
   is_default: boolean;
@@ -23,6 +24,7 @@ const getLLMProvidersMock = vi.fn();
 const getLLMProviderModelsMock = vi.fn();
 const createLLMProviderMock = vi.fn();
 const updateLLMProviderMock = vi.fn();
+const validateLLMProviderMock = vi.fn();
 
 vi.mock('next-intl', () => ({
   useLocale: () => 'zh-CN',
@@ -43,6 +45,7 @@ vi.mock('@src/lib/api/kb-client', () => ({
     getLLMProviderModels: getLLMProviderModelsMock,
     createLLMProvider: createLLMProviderMock,
     updateLLMProvider: updateLLMProviderMock,
+    validateLLMProvider: validateLLMProviderMock,
     getKeywords: vi.fn().mockResolvedValue({person_keywords: {}, pet_keywords: {}, location_keywords: {}}),
     getMe: vi.fn().mockResolvedValue({id: 'u-1', username: 'admin', role: 'admin', created_at: nowIso, email: null}),
     getGmailCredentials: vi.fn().mockResolvedValue([]),
@@ -58,6 +61,7 @@ describe('Settings LLM provider/mobile behavior', () => {
         name: 'Cloud One',
         provider_type: 'openai',
         base_url: 'https://api.cloud-one.example/v1',
+        has_api_key: true,
         model_name: 'cloud-b',
         is_active: true,
         is_default: true,
@@ -100,6 +104,14 @@ describe('Settings LLM provider/mobile behavior', () => {
       const target = providersState.find((item) => item.id === id) ?? providersState[0];
       return {...target, ...payload, id} as ProviderRow;
     });
+    validateLLMProviderMock.mockReset();
+    validateLLMProviderMock.mockImplementation(async (payload: Record<string, unknown>) => ({
+      ok: true,
+      latency_ms: 18,
+      models: payload.base_url === 'https://api.cloud-two.example/v1' ? ['cloud-c', 'cloud-d'] : ['cloud-a', 'cloud-b'],
+      normalized_base_url: String(payload.base_url || ''),
+      error: null,
+    }));
   });
 
   it('fetches models for newly created cloud provider', async () => {
@@ -124,6 +136,7 @@ describe('Settings LLM provider/mobile behavior', () => {
     fireEvent.submit(form);
 
     await waitFor(() => {
+      expect(validateLLMProviderMock).toHaveBeenCalledTimes(1);
       expect(createLLMProviderMock).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
@@ -156,20 +169,8 @@ describe('Settings LLM provider/mobile behavior', () => {
     expect(modelOptions).not.toContain('local-x');
     expect(modelOptions).not.toContain('local-y');
 
-    const headerCount = document.querySelectorAll('.llm-provider-table thead th').length;
-    const firstRowCells = Array.from(document.querySelectorAll('.llm-provider-table tbody tr:first-child td'));
-    expect(firstRowCells.length).toBe(headerCount);
-    firstRowCells.forEach((cell) => {
-      expect((cell as HTMLTableCellElement).getAttribute('data-label')).toBeTruthy();
-    });
-    expect(firstRowCells.map((cell) => cell.getAttribute('data-label'))).toEqual([
-      'llmProviderName',
-      'llmProviderType',
-      'llmProviderBaseUrl',
-      'llmProviderModel',
-      'llmProviderStatus',
-      'actions',
-    ]);
+    expect(document.querySelectorAll('.llm-provider-card').length).toBe(1);
+    expect(document.querySelector('.llm-provider-card-grid')).toBeTruthy();
   });
 
   it('shows empty model state separately from fetch failure', async () => {
@@ -188,5 +189,27 @@ describe('Settings LLM provider/mobile behavior', () => {
     await waitFor(() => {
       expect(screen.getByText('llmProviderModelsLoadFailed')).toBeInTheDocument();
     });
+  });
+
+  it('keeps form open and blocks create when validation fails', async () => {
+    validateLLMProviderMock.mockRejectedValueOnce(new Error('llm_provider_api_key_required'));
+    render(<SettingsPage />);
+
+    const addButton = await screen.findByRole('button', {name: 'llmProviderAdd'});
+    fireEvent.click(addButton);
+    const form = document.querySelector('.settings-form') as HTMLFormElement;
+    const textInputs = form.querySelectorAll('input[type="text"]');
+    const baseUrlInput = form.querySelector('input[type="url"]') as HTMLInputElement;
+
+    fireEvent.change(textInputs[0], {target: {value: 'Cloud Two'}});
+    fireEvent.change(baseUrlInput, {target: {value: 'https://api.cloud-two.example/v1'}});
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(validateLLMProviderMock).toHaveBeenCalledTimes(1);
+    });
+    expect(createLLMProviderMock).not.toHaveBeenCalled();
+    expect(screen.getByText('llmProviderApiKeyRequired')).toBeInTheDocument();
+    expect(document.querySelector('.settings-form')).toBeTruthy();
   });
 });
