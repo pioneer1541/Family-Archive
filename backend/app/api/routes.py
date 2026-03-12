@@ -1901,7 +1901,7 @@ def _require_admin_user(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-def _to_llm_provider_response(provider: LLMProvider) -> LLMProviderResponse:
+def _to_llm_provider_response(provider: LLMProvider, warning: str | None = None) -> LLMProviderResponse:
     return LLMProviderResponse(
         id=provider.id,
         name=provider.name,
@@ -1915,6 +1915,7 @@ def _to_llm_provider_response(provider: LLMProvider) -> LLMProviderResponse:
         is_default=bool(provider.is_default),
         created_at=provider.created_at,
         updated_at=provider.updated_at,
+        warning=warning,
     )
 
 
@@ -1951,47 +1952,103 @@ def _require_provider_api_key(provider_type: LLMProviderType, api_key: str | Non
     return key
 
 
+def _extract_provider_error_status_code(exc: Exception) -> int | None:
+    status_code = getattr(exc, "status_code", None)
+    if isinstance(status_code, int):
+        return status_code
+    response = getattr(exc, "response", None)
+    response_status = getattr(response, "status_code", None)
+    if isinstance(response_status, int):
+        return response_status
+    return None
+
+
+def _probe_llm_provider_connection(
+    *,
+    provider_type: LLMProviderType,
+    base_url: str,
+    api_key: str | None,
+    model_name: str,
+) -> None:
+    normalized_model_name = str(model_name or "").strip()
+    if not normalized_model_name:
+        raise ValueError("model_name_required_when_models_endpoint_is_unavailable")
+
+    config = LLMConfig(
+        provider_type=_to_service_provider_type(provider_type),
+        base_url=_normalize_provider_base_url(provider_type, base_url).rstrip("/"),
+        api_key=_require_provider_api_key(provider_type, api_key),
+        model_name=normalized_model_name,
+        timeout=15,
+    )
+    provider = create_provider(config)
+    provider.chat_completion(
+        messages=[{"role": "user", "content": "ping"}],
+        model=normalized_model_name,
+        temperature=0,
+        max_tokens=1,
+    )
+
+
 def _list_models_from_config(
     provider_type: LLMProviderType,
     base_url: str,
     api_key: str | None,
     model_name: str = "",
-) -> list[str]:
+) -> tuple[list[str], bool]:
     base_url = _normalize_provider_base_url(provider_type, base_url).rstrip("/")
     if not base_url:
-        return []
+        return [], False
 
-    if provider_type == LLMProviderType.OLLAMA:
-        resp = requests.get(f"{base_url}/api/tags", timeout=15)
-        resp.raise_for_status()
-        rows = resp.json().get("models", [])
-        return [str(item.get("name") or "").strip() for item in rows if str(item.get("name") or "").strip()]
+    try:
+        if provider_type == LLMProviderType.OLLAMA:
+            resp = requests.get(f"{base_url}/api/tags", timeout=15)
+            resp.raise_for_status()
+            rows = resp.json().get("models", [])
+            return (
+                [str(item.get("name") or "").strip() for item in rows if str(item.get("name") or "").strip()],
+                True,
+            )
 
-    config = LLMConfig(
-        provider_type=_to_service_provider_type(provider_type),
-        base_url=base_url,
-        api_key=_require_provider_api_key(provider_type, api_key),
-        model_name=str(model_name or "").strip(),
-        timeout=15,
-    )
-    client = create_provider(config).create_client()
-    rows = client.models.list()
-    data = getattr(rows, "data", rows) or []
-    out: list[str] = []
-    for item in data:
-        model_id = str(getattr(item, "id", "") or "").strip()
-        if model_id:
-            out.append(model_id)
-    return out
+        config = LLMConfig(
+            provider_type=_to_service_provider_type(provider_type),
+            base_url=base_url,
+            api_key=_require_provider_api_key(provider_type, api_key),
+            model_name=str(model_name or "").strip(),
+            timeout=15,
+        )
+        client = create_provider(config).create_client()
+        rows = client.models.list()
+        data = getattr(rows, "data", rows) or []
+        out: list[str] = []
+        for item in data:
+            model_id = str(getattr(item, "id", "") or "").strip()
+            if model_id:
+                out.append(model_id)
+        return out, True
+    except Exception as exc:
+        logger.warning(
+            "llm_provider_models_list_failed",
+            extra=sanitize_log_context(
+                {
+                    "provider_type": provider_type.value,
+                    "base_url": base_url,
+                    "status_code": _extract_provider_error_status_code(exc),
+                    "exc_type": type(exc).__name__,
+                }
+            ),
+        )
+        return [], False
 
 
 def _list_models_from_provider(provider: LLMProvider) -> list[str]:
-    return _list_models_from_config(
+    models, _ = _list_models_from_config(
         provider_type=provider.provider_type,
         base_url=provider.base_url,
         api_key=decrypt_value(provider.api_key_encrypted),
         model_name=provider.model_name or "",
     )
+    return models
 
 
 def _sync_llm_provider_models(db: Session, provider_id: str, models: list[str]) -> None:
@@ -2024,17 +2081,28 @@ def _validate_llm_provider_config(
     base_url: str,
     api_key: str | None,
     model_name: str,
-) -> tuple[str, list[str], int]:
+) -> tuple[str, list[str], int, str | None]:
     normalized_base_url = _normalize_provider_base_url(provider_type, base_url)
     started = time.monotonic()
-    models = _list_models_from_config(
+    models, models_request_succeeded = _list_models_from_config(
         provider_type=provider_type,
         base_url=normalized_base_url,
         api_key=api_key,
         model_name=model_name,
     )
+    warning: str | None = None
+    if not models_request_succeeded:
+        if provider_type == LLMProviderType.OLLAMA:
+            raise ValueError("ollama_models_list_unavailable")
+        _probe_llm_provider_connection(
+            provider_type=provider_type,
+            base_url=normalized_base_url,
+            api_key=api_key,
+            model_name=model_name,
+        )
+        warning = "Provider connection validated via chat completion, but /models is unavailable. Configure the model name manually."
     latency_ms = int((time.monotonic() - started) * 1000)
-    return normalized_base_url, models, latency_ms
+    return normalized_base_url, models, latency_ms, warning
 
 
 def _clear_llm_provider_runtime_cache() -> None:
@@ -2073,7 +2141,7 @@ def validate_llm_provider(
         api_key = decrypt_value(existing.api_key_encrypted)
 
     try:
-        normalized_base_url, models, latency_ms = _validate_llm_provider_config(
+        normalized_base_url, models, latency_ms, warning = _validate_llm_provider_config(
             provider_type=provider_type,
             base_url=payload.base_url,
             api_key=api_key,
@@ -2084,6 +2152,7 @@ def validate_llm_provider(
             latency_ms=latency_ms,
             models=models,
             normalized_base_url=normalized_base_url,
+            warning=warning,
             error=None,
         )
     except HTTPException:
@@ -2094,6 +2163,7 @@ def validate_llm_provider(
             latency_ms=0,
             models=[],
             normalized_base_url=_normalize_provider_base_url(provider_type, payload.base_url),
+            warning=None,
             error=str(exc),
         )
 
@@ -2107,7 +2177,7 @@ def create_llm_provider(
     import uuid
 
     provider_type = LLMProviderType(payload.provider_type)
-    normalized_base_url, models, _ = _validate_llm_provider_config(
+    normalized_base_url, models, _, warning = _validate_llm_provider_config(
         provider_type=provider_type,
         base_url=payload.base_url,
         api_key=payload.api_key,
@@ -2130,7 +2200,7 @@ def create_llm_provider(
     db.commit()
     db.refresh(provider)
     _clear_llm_provider_runtime_cache()
-    return _to_llm_provider_response(provider)
+    return _to_llm_provider_response(provider, warning=warning)
 
 
 @router.put("/llm/providers/{provider_id}", response_model=LLMProviderResponse)
@@ -2156,8 +2226,9 @@ def update_llm_provider(
 
     models = _get_cached_llm_provider_models(db, provider.id)
     normalized_base_url = _normalize_provider_base_url(next_provider_type, next_base_url)
+    warning: str | None = None
     if next_is_active:
-        normalized_base_url, models, _ = _validate_llm_provider_config(
+        normalized_base_url, models, _, warning = _validate_llm_provider_config(
             provider_type=next_provider_type,
             base_url=next_base_url,
             api_key=next_api_key,
@@ -2185,7 +2256,7 @@ def update_llm_provider(
     db.commit()
     db.refresh(provider)
     _clear_llm_provider_runtime_cache()
-    return _to_llm_provider_response(provider)
+    return _to_llm_provider_response(provider, warning=warning)
 
 
 @router.delete("/llm/providers/{provider_id}")
@@ -2224,7 +2295,7 @@ def test_llm_provider(
         raise HTTPException(status_code=404, detail="llm_provider_not_found")
 
     try:
-        _, models, latency_ms = _validate_llm_provider_config(
+        _, models, latency_ms, warning = _validate_llm_provider_config(
             provider_type=provider_record.provider_type,
             base_url=provider_record.base_url,
             api_key=decrypt_value(provider_record.api_key_encrypted),
@@ -2236,6 +2307,7 @@ def test_llm_provider(
             ok=True,
             latency_ms=latency_ms,
             models=models,
+            warning=warning,
             error=None,
         )
     except Exception as exc:
@@ -2243,6 +2315,7 @@ def test_llm_provider(
             ok=False,
             latency_ms=0,
             models=[],
+            warning=None,
             error=str(exc),
         )
 

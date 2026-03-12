@@ -12,6 +12,10 @@ from urllib.parse import SplitResult, urlsplit, urlunsplit
 import requests
 from openai import OpenAI
 
+from app.logging_utils import get_logger, sanitize_log_context
+
+logger = get_logger(__name__)
+
 
 class ProviderType(str, Enum):
     """Provider 类型"""
@@ -153,6 +157,28 @@ class OpenAICompatibleProvider(LLMProviderInterface):
     适用于 OpenAI、Kimi、GLM 等 OpenAI API 兼容的 Provider
     """
 
+    @staticmethod
+    def _extract_error_status_code(exc: Exception) -> int | None:
+        status_code = getattr(exc, "status_code", None)
+        if isinstance(status_code, int):
+            return status_code
+        response = getattr(exc, "response", None)
+        response_status = getattr(response, "status_code", None)
+        if isinstance(response_status, int):
+            return response_status
+        return None
+
+    def _chat_probe(self) -> None:
+        model_name = str(self.config.model_name or "").strip()
+        if not model_name:
+            raise ValueError("model_name_required_for_health_check_probe")
+        self.chat_completion(
+            messages=[{"role": "user", "content": "ping"}],
+            model=model_name,
+            temperature=0,
+            max_tokens=1,
+        )
+
     def create_client(self) -> OpenAI:
         """创建 OpenAI 兼容客户端"""
         if self._client is None:
@@ -200,12 +226,39 @@ class OpenAICompatibleProvider(LLMProviderInterface):
         )
 
     def health_check(self) -> bool:
-        """健康检查：尝试列出模型"""
+        """健康检查：优先列出模型，失败后回退到最小 chat 请求"""
+        client = self.create_client()
         try:
-            client = self.create_client()
             client.models.list()
             return True
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "openai_compatible_models_list_failed",
+                extra=sanitize_log_context(
+                    {
+                        "provider_type": self.config.provider_type.value,
+                        "base_url": self.config.base_url,
+                        "status_code": self._extract_error_status_code(exc),
+                        "exc_type": type(exc).__name__,
+                    }
+                ),
+            )
+        try:
+            self._chat_probe()
+            return True
+        except Exception as exc:
+            logger.warning(
+                "openai_compatible_health_check_probe_failed",
+                extra=sanitize_log_context(
+                    {
+                        "provider_type": self.config.provider_type.value,
+                        "base_url": self.config.base_url,
+                        "model_name": self.config.model_name,
+                        "status_code": self._extract_error_status_code(exc),
+                        "exc_type": type(exc).__name__,
+                    }
+                ),
+            )
             return False
 
 

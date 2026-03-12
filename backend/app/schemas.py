@@ -828,12 +828,14 @@ class LLMProviderResponse(BaseModel):
     is_default: bool
     created_at: datetime
     updated_at: datetime
+    warning: str | None = None
 
 
 class LLMProviderTestResult(BaseModel):
     ok: bool
     latency_ms: int
     models: list[str] = Field(default_factory=list)
+    warning: str | None = None
     error: str | None = None
 
 
@@ -852,4 +854,5 @@ class LLMProviderValidateResult(BaseModel):
     latency_ms: int
     models: list[str] = Field(default_factory=list)
     normalized_base_url: str
+    warning: str | None = None
     error: str | None = None
