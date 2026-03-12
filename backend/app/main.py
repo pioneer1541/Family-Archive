@@ -25,6 +25,11 @@ from app.services.qdrant import embed_texts_async, ensure_collection_exists
 settings = get_settings()
 logger = get_logger(__name__)
 is_production_env = os.getenv("ENV", "").strip().lower() == "production"
+disable_background_tasks = os.getenv("FAMILY_VAULT_DISABLE_BACKGROUND_TASKS", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
 
 async def _mail_poll_loop(stop_event: asyncio.Event) -> None:
@@ -137,9 +142,10 @@ async def lifespan(_app: FastAPI):
                     }
                 ),
             )
-    if settings.nas_auto_scan_enabled:
-        background_tasks.append(asyncio.create_task(_nas_scan_loop(stop_event)))
-    background_tasks.append(asyncio.create_task(_mail_poll_loop(stop_event)))
+    if not disable_background_tasks:
+        if settings.nas_auto_scan_enabled:
+            background_tasks.append(asyncio.create_task(_nas_scan_loop(stop_event)))
+        background_tasks.append(asyncio.create_task(_mail_poll_loop(stop_event)))
     yield
     stop_event.set()
     for task in background_tasks:

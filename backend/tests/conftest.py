@@ -1,9 +1,10 @@
+import asyncio
 import os
 import sys
 from pathlib import Path
 
+import httpx
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError
@@ -21,11 +22,55 @@ os.environ["FAMILY_VAULT_QDRANT_ENABLE"] = "0"
 os.environ["FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED"] = "0"
 os.environ["FAMILY_VAULT_MAIL_POLL_ENABLED"] = "0"
 os.environ["FAMILY_VAULT_BCRYPT_ROUNDS"] = "4"
+os.environ["FAMILY_VAULT_DISABLE_BACKGROUND_TASKS"] = "1"
 
 from app.db import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
 
 _DB_BACKEND = make_url(str(os.environ["FAMILY_VAULT_DATABASE_URL"])).get_backend_name()
+
+
+class SyncASGIClient:
+    """Synchronous facade using one-shot asyncio.run with per-request lifespan."""
+
+    def __init__(self, asgi_app):
+        self._app = asgi_app
+        self._cookies = httpx.Cookies()
+
+    async def _request_once(self, method: str, url: str, **kwargs) -> httpx.Response:
+        async with self._app.router.lifespan_context(self._app):
+            transport = httpx.ASGITransport(app=self._app)
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://testserver",
+                follow_redirects=True,
+                cookies=self._cookies,
+            ) as client:
+                response = await client.request(method, url, **kwargs)
+                self._cookies = httpx.Cookies(client.cookies)
+                return response
+
+    def request(self, method: str, url: str, **kwargs) -> httpx.Response:
+        return asyncio.run(self._request_once(method, url, **kwargs))
+
+    def get(self, url: str, **kwargs) -> httpx.Response:
+        return self.request("GET", url, **kwargs)
+
+    def post(self, url: str, **kwargs) -> httpx.Response:
+        return self.request("POST", url, **kwargs)
+
+    def patch(self, url: str, **kwargs) -> httpx.Response:
+        return self.request("PATCH", url, **kwargs)
+
+    def put(self, url: str, **kwargs) -> httpx.Response:
+        return self.request("PUT", url, **kwargs)
+
+    def delete(self, url: str, **kwargs) -> httpx.Response:
+        return self.request("DELETE", url, **kwargs)
+
+    @property
+    def cookies(self):
+        return self._cookies
 
 
 def _wal_checkpoint() -> None:
@@ -70,17 +115,16 @@ def reset_database(request):
 
 @pytest.fixture
 def client():
-    with TestClient(app) as c:
-        yield c
+    yield SyncASGIClient(app)
 
 
 @pytest.fixture
-def admin_client(client: TestClient):
-    login_resp = client.post("/api/v1/auth/login", json={"username": "admin", "password": "admin"})
+def admin_client(client):
+    login_resp = client.post("/v1/auth/login", json={"username": "admin", "password": "admin"})
     assert login_resp.status_code == 200
     yield client
 
 
 @pytest.fixture
-def authed_client(admin_client: TestClient):
+def authed_client(admin_client):
     yield admin_client

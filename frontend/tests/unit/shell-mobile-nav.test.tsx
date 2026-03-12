@@ -109,6 +109,7 @@ describe('App shell mobile drawer and bottom tabs', () => {
   it('hides bottom tab when virtual keyboard is open', async () => {
     let resizeHandler: (() => void) | null = null;
     const vv = {
+      offsetTop: 180,
       height: 420,
       addEventListener: (_event: string, cb: () => void) => {
         resizeHandler = cb;
@@ -135,6 +136,11 @@ describe('App shell mobile drawer and bottom tabs', () => {
     await waitFor(() => {
       expect(document.documentElement.style.getPropertyValue('--keyboard-open')).toBe('1');
     });
+    const viewportBottom = Math.min(window.innerHeight, vv.offsetTop + vv.height);
+    const expectedKeyboardOffset = Math.max(0, Math.round(window.innerHeight - viewportBottom));
+    expect(document.documentElement.style.getPropertyValue('--app-height')).toBe('600px');
+    expect(document.documentElement.style.getPropertyValue('--keyboard-offset')).toBe(`${expectedKeyboardOffset}px`);
+    expect(document.documentElement.dataset.keyboardOpen).toBe('true');
 
     expect(typeof resizeHandler === 'function' || resizeHandler === null).toBe(true);
   });

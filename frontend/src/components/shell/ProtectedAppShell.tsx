@@ -14,6 +14,7 @@ import {SyncViewerProvider} from '@src/lib/ui-state/sync-viewer';
 import {TopbarProvider} from '@src/lib/ui-state/topbar';
 import {AuthGuard} from '@src/components/auth/AuthGuard';
 import {normalizePath} from '@src/lib/utils/paths';
+import {isEditableField, parsePxValue, shouldScrollFocusedField} from '@src/lib/mobile/focusVisibility';
 
 const DetailOverlay = dynamic(() => import('@src/components/overlay/DetailOverlay').then((mod) => mod.DetailOverlay), {ssr: false});
 const DocumentContentOverlay = dynamic(() => import('@src/components/overlay/DocumentContentOverlay').then((mod) => mod.DocumentContentOverlay), {ssr: false});
@@ -51,24 +52,75 @@ export function ProtectedAppShell({children}: {children: ReactNode}) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const root = document.documentElement;
+    let focusTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const ensureFocusedFieldVisible = () => {
+      const active = document.activeElement;
+      if (!isEditableField(active)) return;
+
+      const vv = window.visualViewport;
+      const viewportTop = Math.round(vv?.offsetTop ?? 0);
+      const viewportHeight = Math.round(vv?.height ?? window.innerHeight);
+      const rect = active.getBoundingClientRect();
+      const topbarHeight = parsePxValue(
+        root.style.getPropertyValue('--topbar-height') || getComputedStyle(root).getPropertyValue('--topbar-height'),
+        57
+      );
+      const isKeyboardOpen = root.dataset.keyboardOpen === 'true';
+      const bottomTabBar = document.querySelector<HTMLElement>('.bottom-tab-bar');
+      const fixedBottomHeight = isKeyboardOpen ? 0 : Math.round(bottomTabBar?.offsetHeight ?? 0);
+
+      if (
+        shouldScrollFocusedField({
+          windowWidth: window.innerWidth,
+          viewportTop,
+          viewportHeight,
+          topbarHeight,
+          fixedBottomHeight,
+          rectTop: rect.top,
+          rectBottom: rect.bottom
+        })
+      ) {
+        active.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'auto'});
+      }
+    };
+
+    const scheduleFocusCorrection = () => {
+      if (focusTimer) window.clearTimeout(focusTimer);
+      focusTimer = window.setTimeout(() => {
+        ensureFocusedFieldVisible();
+      }, 120);
+    };
 
     const updateViewportState = () => {
       const vv = window.visualViewport;
+      const viewportTop = Math.round(vv?.offsetTop ?? 0);
       const viewportHeight = Math.round(vv?.height ?? window.innerHeight);
-      root.style.setProperty('--app-height', `${viewportHeight}px`);
-      const keyboardDelta = Math.max(0, Math.round(window.innerHeight - (vv?.height ?? window.innerHeight)));
+      const viewportBottom = Math.min(window.innerHeight, viewportTop + viewportHeight);
+      root.style.setProperty('--app-height', `${viewportBottom}px`);
+      const keyboardDelta = Math.max(0, Math.round(window.innerHeight - viewportBottom));
       const isKeyboardOpen = keyboardDelta >= 140;
       root.style.setProperty('--keyboard-open', isKeyboardOpen ? '1' : '0');
+      root.style.setProperty('--keyboard-offset', `${keyboardDelta}px`);
+      root.dataset.keyboardOpen = isKeyboardOpen ? 'true' : 'false';
+      if (isKeyboardOpen) scheduleFocusCorrection();
     };
 
     updateViewportState();
+    document.addEventListener('focusin', scheduleFocusCorrection, true);
     window.addEventListener('resize', updateViewportState, {passive: true});
     window.visualViewport?.addEventListener('resize', updateViewportState, {passive: true});
+    window.visualViewport?.addEventListener('scroll', scheduleFocusCorrection, {passive: true});
 
     return () => {
+      if (focusTimer) window.clearTimeout(focusTimer);
+      document.removeEventListener('focusin', scheduleFocusCorrection, true);
       window.removeEventListener('resize', updateViewportState);
       window.visualViewport?.removeEventListener('resize', updateViewportState);
+      window.visualViewport?.removeEventListener('scroll', scheduleFocusCorrection);
       root.style.setProperty('--keyboard-open', '0');
+      root.style.setProperty('--keyboard-offset', '0px');
+      root.dataset.keyboardOpen = 'false';
     };
   }, []);
 

@@ -33,21 +33,6 @@ const PROVIDER_TYPE_OPTIONS: Array<{value: LLMProviderType; label: string}> = [
   {value: 'glm', label: 'GLM'},
   {value: 'custom', label: 'Custom'},
 ];
-const RESTART_REQUIRED_KEYS = new Set([
-  'planner_model',
-  'synthesizer_model',
-  'embed_model',
-  'summary_model',
-  'category_model',
-  'friendly_name_model',
-  'vl_extract_model',
-  'summary_timeout_page_sec',
-  'summary_timeout_section_sec',
-  'summary_timeout_final_sec',
-  'agent_synth_timeout_sec',
-  'ollama_base_url',
-]);
-
 // ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
@@ -58,7 +43,7 @@ function maskClientId(clientId: string): string {
   return clientId.substring(0, 8) + '****' + clientId.substring(clientId.length - 4);
 }
 
-function parseModelSetting(raw: string, providers: LLMProvider[]): {providerId: string; modelName: string} {
+export function parseModelSetting(raw: string, providers: LLMProvider[]): {providerId: string; modelName: string} {
   const value = String(raw || '').trim();
   if (!value) return {providerId: LOCAL_PROVIDER_ID, modelName: ''};
   if (value.startsWith('local:')) {
@@ -70,6 +55,7 @@ function parseModelSetting(raw: string, providers: LLMProvider[]): {providerId: 
       const [providerRef, modelNameRaw] = rest.split('/', 2);
       const target = providers.find((item) => item.id === providerRef || item.name === providerRef);
       if (target) return {providerId: target.id, modelName: String(modelNameRaw || '').trim()};
+      return {providerId: LOCAL_PROVIDER_ID, modelName: String(modelNameRaw || '').trim()};
     }
     return {providerId: LOCAL_PROVIDER_ID, modelName: value};
   }
@@ -79,6 +65,7 @@ function parseModelSetting(raw: string, providers: LLMProvider[]): {providerId: 
     const right = value.slice(idx + 1).trim();
     const target = providers.find((item) => item.id === left);
     if (target) return {providerId: target.id, modelName: right};
+    return {providerId: LOCAL_PROVIDER_ID, modelName: value};
   }
   return {providerId: LOCAL_PROVIDER_ID, modelName: value};
 }
@@ -164,9 +151,11 @@ export default function SettingsPage() {
   const [tab, setTab] = useState<TabKey>('llm');
   const [items, setItems] = useState<AppSettingItem[]>([]);
   const [patch, setPatch] = useState<Record<string, string>>({});
-  const [models, setModels] = useState<OllamaModel[]>([]);
+  const [models, setModels] = useState<OllamaModel[] | null>(null);
+  const [modelsError, setModelsError] = useState('');
   const [llmProviders, setLlmProviders] = useState<LLMProvider[]>([]);
-  const [llmProviderModels, setLlmProviderModels] = useState<Record<string, string[]>>({});
+  const [llmProviderModels, setLlmProviderModels] = useState<Record<string, string[] | null>>({});
+  const [llmProviderModelErrors, setLlmProviderModelErrors] = useState<Record<string, string>>({});
   const [llmProvidersLoading, setLlmProvidersLoading] = useState(false);
   const [llmProviderFormOpen, setLlmProviderFormOpen] = useState(false);
   const [llmProviderEditId, setLlmProviderEditId] = useState<string | null>(null);
@@ -228,9 +217,26 @@ export default function SettingsPage() {
   const localDirPickerRef = useRef<HTMLInputElement | null>(null);
   const isAdmin = me?.role === 'admin';
 
+  async function loadLocalModels() {
+    if (!client.getOllamaModels) {
+      setModels([]);
+      setModelsError('');
+      return;
+    }
+    setModels(null);
+    setModelsError('');
+    try {
+      const rows = await client.getOllamaModels();
+      setModels(Array.isArray(rows) ? rows : []);
+    } catch (err: unknown) {
+      setModels(null);
+      setModelsError(err instanceof Error && err.message ? err.message : t('modelLoadError'));
+    }
+  }
+
   useEffect(() => {
     client.getSettings?.().then(setItems).catch(() => {});
-    client.getOllamaModels?.().then(setModels).catch(() => {});
+    loadLocalModels();
     loadLLMProviders();
     client.getKeywords?.().then(setKeywords).catch(() => {});
     client.getMe?.().then((u) => setMe(u ?? null)).catch(() => setMe(null));
@@ -293,24 +299,43 @@ export default function SettingsPage() {
     try {
       const rows = await client.getLLMProviders();
       setLlmProviders(rows);
+      setLlmProviderModelErrors({});
 
       if (client.getLLMProviderModels) {
         const active = rows.filter((item) => item.is_active);
+        const loadingState: Record<string, string[] | null> = {};
+        active.forEach((item) => {
+          loadingState[item.id] = null;
+        });
+        setLlmProviderModels(loadingState);
+
         const settled = await Promise.allSettled(
           active.map((item) => client.getLLMProviderModels?.(item.id) ?? Promise.resolve([]))
         );
-        const next: Record<string, string[]> = {};
+        const next: Record<string, string[] | null> = {};
+        const nextErrors: Record<string, string> = {};
+        const failedNames: string[] = [];
         active.forEach((item, idx) => {
           const result = settled[idx];
           if (result.status === 'fulfilled') {
             next[item.id] = result.value;
+          } else {
+            next[item.id] = null;
+            nextErrors[item.id] = result.reason instanceof Error ? result.reason.message : t('modelLoadError');
+            failedNames.push(item.name);
           }
         });
         setLlmProviderModels(next);
+        setLlmProviderModelErrors(nextErrors);
+        if (failedNames.length > 0) {
+          setToast(t('llmProviderModelsLoadFailed', {names: failedNames.join(', ')}));
+          setTimeout(() => setToast(''), 5000);
+        }
       }
     } catch {
       setLlmProviders([]);
       setLlmProviderModels({});
+      setLlmProviderModelErrors({});
     } finally {
       setLlmProvidersLoading(false);
     }
@@ -351,8 +376,7 @@ export default function SettingsPage() {
         if (!r.ok) {
           throw new Error((result as {detail?: string})?.detail || 'Settings update failed');
         }
-        const hasRestartKey = Object.keys(patch).some((key) => RESTART_REQUIRED_KEYS.has(key));
-        if (result?.restart_required || hasRestartKey) {
+        if (result?.restart_required) {
           setRestartRequired(true);
         }
       }
@@ -724,6 +748,7 @@ export default function SettingsPage() {
     setLlmProviderSaving(true);
     setLlmProviderError('');
     try {
+      let savedProvider: LLMProvider | null = null;
       if (llmProviderEditId) {
         const patch: LLMProviderUpdate = {
           name: llmProviderForm.name.trim(),
@@ -736,10 +761,10 @@ export default function SettingsPage() {
         if (llmProviderForm.api_key && llmProviderForm.api_key.trim()) {
           patch.api_key = llmProviderForm.api_key.trim();
         }
-        await client.updateLLMProvider(llmProviderEditId, patch);
+        savedProvider = await client.updateLLMProvider(llmProviderEditId, patch);
         setToast(t('llmProviderUpdated'));
       } else {
-        await client.createLLMProvider({
+        savedProvider = await client.createLLMProvider({
           ...llmProviderForm,
           name: llmProviderForm.name.trim(),
           base_url: llmProviderForm.base_url.trim(),
@@ -747,6 +772,24 @@ export default function SettingsPage() {
           api_key: llmProviderForm.api_key?.trim() || undefined,
         });
         setToast(t('llmProviderCreated'));
+      }
+      if (savedProvider && savedProvider.is_active && client.getLLMProviderModels) {
+        const providerId = savedProvider.id;
+        try {
+          const providerModels = await client.getLLMProviderModels(providerId);
+          setLlmProviderModels((prev) => ({...prev, [providerId]: providerModels}));
+          setLlmProviderModelErrors((prev) => {
+            const next = {...prev};
+            delete next[providerId];
+            return next;
+          });
+        } catch (err: unknown) {
+          const message = err instanceof Error && err.message ? err.message : t('modelLoadError');
+          setLlmProviderModels((prev) => ({...prev, [providerId]: null}));
+          setLlmProviderModelErrors((prev) => ({...prev, [providerId]: message}));
+          setToast(t('llmProviderModelsLoadFailedOne', {name: savedProvider.name}));
+          setTimeout(() => setToast(''), 5000);
+        }
       }
       setLlmProviderFormOpen(false);
       resetLLMProviderForm();
@@ -869,8 +912,8 @@ export default function SettingsPage() {
               ) : llmProviders.length === 0 ? (
                 <p className="settings-hint">{t('llmProvidersEmpty')}</p>
               ) : (
-                <div className="gmail-cred-table-wrap">
-                  <table className="gmail-cred-table">
+                <div className="llm-provider-table-wrap">
+                  <table className="llm-provider-table">
                     <thead>
                       <tr>
                         <th>{t('llmProviderName')}</th>
@@ -884,11 +927,11 @@ export default function SettingsPage() {
                     <tbody>
                       {llmProviders.map((provider) => (
                         <tr key={provider.id}>
-                          <td>{provider.name}</td>
-                          <td>{provider.provider_type}</td>
-                          <td className="gmail-cred-mono">{provider.base_url}</td>
-                          <td className="gmail-cred-mono">{provider.model_name || '-'}</td>
-                          <td>
+                          <td data-label={t('llmProviderName')}>{provider.name}</td>
+                          <td data-label={t('llmProviderType')}>{provider.provider_type}</td>
+                          <td data-label={t('llmProviderBaseUrl')} className="gmail-cred-mono">{provider.base_url}</td>
+                          <td data-label={t('llmProviderModel')} className="gmail-cred-mono">{provider.model_name || '-'}</td>
+                          <td data-label={t('llmProviderStatus')}>
                             <span className={`badge ${provider.is_active ? 'badge-green' : 'badge-red'}`}>
                               {provider.is_active ? t('llmProviderActive') : t('llmProviderInactive')}
                             </span>
@@ -898,7 +941,7 @@ export default function SettingsPage() {
                               </span>
                             )}
                           </td>
-                          <td className="gmail-cred-actions">
+                          <td data-label={t('actions')} className="llm-provider-actions">
                             <button
                               type="button"
                               className="btn-secondary btn-sm"
@@ -935,18 +978,23 @@ export default function SettingsPage() {
 
               <hr className="settings-divider" />
               <h3>{t('llmRoleModels')}</h3>
-              {models.length === 0 && (
-                <p className="settings-hint">{t('modelLoadError')}</p>
-              )}
+              {models === null && !modelsError && <p className="settings-hint">{t('loading')}</p>}
+              {models === null && modelsError && <p className="settings-hint" style={{color: '#c0392b'}}>{modelsError}</p>}
+              {models !== null && models.length === 0 && <p className="settings-hint">{t('modelListEmpty')}</p>}
               {MODEL_KEYS.map((key) => {
                 const meta = items.find((i) => i.key === key);
                 const label = isZh ? (meta?.label_zh ?? key) : (meta?.label_en ?? key);
                 const selection = parseModelSetting(getVal(key), llmProviders);
                 const selectedProviderId = selection.providerId;
                 const selectedProvider = llmProviders.find((item) => item.id === selectedProviderId) ?? null;
+                const isLocalProvider = selectedProviderId === LOCAL_PROVIDER_ID;
+                const selectedProviderModels = isLocalProvider ? null : llmProviderModels[selectedProviderId];
+                const selectedProviderModelError = isLocalProvider
+                  ? modelsError
+                  : String(llmProviderModelErrors[selectedProviderId] || '').trim();
                 const modelOptions = (selectedProviderId === LOCAL_PROVIDER_ID
-                  ? models.map((m) => m.name)
-                  : (llmProviderModels[selectedProviderId] ?? [])).filter(Boolean);
+                  ? (models ?? []).map((m) => m.name)
+                  : (selectedProviderModels ?? [])).filter(Boolean);
                 const uniqueModelOptions = Array.from(new Set(modelOptions));
                 const selectedModelName = uniqueModelOptions.includes(selection.modelName)
                   ? selection.modelName
@@ -961,7 +1009,7 @@ export default function SettingsPage() {
                           const nextProviderId = e.target.value;
                           const nextProvider = llmProviders.find((item) => item.id === nextProviderId) ?? null;
                           const nextModelOptions = (nextProviderId === LOCAL_PROVIDER_ID
-                            ? models.map((m) => m.name)
+                            ? (models ?? []).map((m) => m.name)
                             : (llmProviderModels[nextProviderId] ?? [])).filter(Boolean);
                           const defaultProviderModel = String(nextProvider?.model_name || '').trim();
                           const nextModelName = defaultProviderModel && nextModelOptions.includes(defaultProviderModel)
@@ -1019,6 +1067,20 @@ export default function SettingsPage() {
                         />
                       )}
                     </div>
+                    {!isLocalProvider && selectedProviderModels === null && !selectedProviderModelError && (
+                      <p className="settings-hint">{t('loading')}</p>
+                    )}
+                    {selectedProviderModelError && (
+                      <p className="settings-hint" style={{color: '#c0392b'}}>
+                        {t('llmProviderModelsLoadFailedOne', {name: selectedProvider?.name || selectedProviderId})}
+                      </p>
+                    )}
+                    {isLocalProvider && models !== null && !modelsError && models.length === 0 && (
+                      <p className="settings-hint">{t('modelListEmpty')}</p>
+                    )}
+                    {!isLocalProvider && selectedProviderModels !== null && !selectedProviderModelError && selectedProviderModels.length === 0 && (
+                      <p className="settings-hint">{t('modelListEmpty')}</p>
+                    )}
                   </div>
                 );
               })}

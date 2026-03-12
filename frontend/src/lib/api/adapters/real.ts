@@ -1516,7 +1516,10 @@ async function testLLMProvider(id: string): Promise<LLMProviderTestResult> {
 
 async function getLLMProviderModels(id: string): Promise<string[]> {
   const r = await fetch(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}/models`);
-  if (!r.ok) return [];
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String((err as {detail?: string})?.detail || 'Failed to load provider models'));
+  }
   const rows = (await r.json().catch(() => [])) as unknown;
   return Array.isArray(rows) ? rows.map((item) => String(item || '').trim()).filter(Boolean) : [];
 }

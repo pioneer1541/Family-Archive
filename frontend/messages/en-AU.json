@@ -172,7 +172,6 @@
     "nasWritable": "Writable",
     "yes": "Yes",
     "no": "No",
-    "modelLoadError": "Unable to load model list",
     "sourceType": "Source Type",
     "sourceTypeLocal": "Local Folder",
     "sourceTypeNas": "NAS Folder",
@@ -262,7 +261,11 @@
     "llmProviderTestFail": "Connection test failed",
     "llmRoleModels": "Role Model Settings",
     "llmProviderLocal": "Local Ollama",
-    "llmModelName": "Model Name"
+    "llmModelName": "Model Name",
+    "modelLoadError": "Unable to load model list",
+    "modelListEmpty": "No models found",
+    "llmProviderModelsLoadFailed": "Failed to load provider models: {names}",
+    "llmProviderModelsLoadFailedOne": "Failed to load models for {name}"
   },
   "login": {
     "subtitle": "Sign in to continue",

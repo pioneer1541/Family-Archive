@@ -128,7 +128,7 @@ from app.services.governance import (
     load_snapshots_from_dir,
 )
 from app.services.ingestion import enqueue_ingestion_job, parse_retry_meta
-from app.services.llm_provider import LLMConfig, create_provider
+from app.services.llm_provider import LLMConfig, create_provider, normalize_ollama_base_url
 from app.services.llm_provider import ProviderType as ServiceProviderType
 from app.services.llm_router import get_router as get_llm_router
 from app.services.llm_summary import (
@@ -1553,6 +1553,13 @@ RESTART_REQUIRED_KEYS = {
 }
 
 
+def _normalize_setting_for_restart_compare(key: str, value: str) -> str:
+    value_str = str(value)
+    if key == "ollama_base_url":
+        return normalize_ollama_base_url(value_str)
+    return value_str
+
+
 def _setting_source(key: str, db: Session) -> str:
     env_var, _ = _RUNTIME_CONFIGURABLE[key]
     row = db.get(AppSetting, key)
@@ -1595,10 +1602,16 @@ def patch_settings(
     db: Session = Depends(get_db),
 ):
     """Update one or more settings in the DB."""
+    changed_keys: set[str] = set()
     for key, value in body.items():
         if key not in _RUNTIME_CONFIGURABLE:
             raise HTTPException(status_code=400, detail=f"Unknown setting: {key!r}")
+        previous_value = str(get_runtime_setting(key, db))
         str_value = str(value) if not isinstance(value, str) else value
+        if _normalize_setting_for_restart_compare(key, previous_value) != _normalize_setting_for_restart_compare(
+            key, str_value
+        ):
+            changed_keys.add(key)
         row = db.get(AppSetting, key)
         if row is None:
             row = AppSetting(key=key, value=str_value, updated_at=dt.datetime.now(dt.UTC))
@@ -1609,8 +1622,8 @@ def patch_settings(
     db.commit()
     invalidate_runtime_cache(*list(body.keys()))
 
-    # Check if restart is required
-    restart_required = bool(set(body.keys()) & RESTART_REQUIRED_KEYS)
+    # Restart is only required when the effective value actually changed.
+    restart_required = bool(changed_keys & RESTART_REQUIRED_KEYS)
     return {"ok": True, "restart_required": restart_required}
 
 
@@ -1913,8 +1926,15 @@ def _to_service_provider_type(provider_type: LLMProviderType) -> ServiceProvider
     return mapping.get(provider_type, ServiceProviderType.CUSTOM)
 
 
+def _normalize_provider_base_url(provider_type: LLMProviderType, base_url: str) -> str:
+    value = str(base_url or "").strip()
+    if provider_type == LLMProviderType.OLLAMA:
+        return normalize_ollama_base_url(value)
+    return value
+
+
 def _list_models_from_provider(provider: LLMProvider) -> list[str]:
-    base_url = str(provider.base_url or "").strip().rstrip("/")
+    base_url = _normalize_provider_base_url(provider.provider_type, provider.base_url).rstrip("/")
     if not base_url:
         return []
 
@@ -1975,7 +1995,7 @@ def create_llm_provider(
         id=str(uuid.uuid4()),
         name=str(payload.name).strip(),
         provider_type=LLMProviderType(payload.provider_type),
-        base_url=str(payload.base_url).strip(),
+        base_url=_normalize_provider_base_url(LLMProviderType(payload.provider_type), payload.base_url),
         api_key_encrypted=encrypt_value(str(payload.api_key or "").strip() or None),
         model_name=str(payload.model_name or "").strip(),
         is_active=bool(payload.is_active),
@@ -2006,7 +2026,7 @@ def update_llm_provider(
     if payload.provider_type is not None:
         provider.provider_type = LLMProviderType(payload.provider_type)
     if payload.base_url is not None:
-        provider.base_url = str(payload.base_url).strip()
+        provider.base_url = _normalize_provider_base_url(provider.provider_type, payload.base_url)
     if "api_key" in payload.model_fields_set:
         provider.api_key_encrypted = encrypt_value(str(payload.api_key or "").strip() or None)
     if payload.model_name is not None:
@@ -2065,7 +2085,7 @@ def test_llm_provider(
     try:
         config = LLMConfig(
             provider_type=_to_service_provider_type(provider_record.provider_type),
-            base_url=str(provider_record.base_url or "").strip(),
+            base_url=_normalize_provider_base_url(provider_record.provider_type, provider_record.base_url),
             api_key=decrypt_value(provider_record.api_key_encrypted),
             model_name=str(provider_record.model_name or "").strip(),
             timeout=15,

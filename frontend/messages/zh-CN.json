@@ -172,7 +172,6 @@
     "nasWritable": "可写",
     "yes": "是",
     "no": "否",
-    "modelLoadError": "无法加载模型列表",
     "sourceType": "源类型",
     "sourceTypeLocal": "本地文件夹",
     "sourceTypeNas": "NAS 文件夹",
@@ -262,7 +261,11 @@
     "llmProviderTestFail": "连接测试失败",
     "llmRoleModels": "模型角色配置",
     "llmProviderLocal": "本地 Ollama",
-    "llmModelName": "模型名称"
+    "llmModelName": "模型名称",
+    "modelLoadError": "无法加载模型列表",
+    "modelListEmpty": "未找到可用模型",
+    "llmProviderModelsLoadFailed": "加载 Provider 模型失败：{names}",
+    "llmProviderModelsLoadFailedOne": "加载 {name} 的模型失败"
   },
   "login": {
     "subtitle": "请登录以继续",

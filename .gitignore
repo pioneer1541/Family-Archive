@@ -23,6 +23,7 @@ frontend/.next-runtime/
 frontend/.turbo/
 frontend/test-results/
 frontend/playwright-report/
+frontend/tsconfig.tsbuildinfo
 
 # Data
 data/
