@@ -4,6 +4,7 @@ LLM call abstractions.
 """
 
 import asyncio
+import json
 from typing import Any
 
 from app.config import get_settings
@@ -12,14 +13,6 @@ from app.schemas import AgentExecuteRequest, PlannerDecision
 from app.services.llm_provider import create_provider, LLMConfig, ProviderType
 
 settings = get_settings()
-
-
-def _get_event_loop():
-    """Get or create event loop."""
-    try:
-        return asyncio.get_event_loop()
-    except RuntimeError:
-        return asyncio.new_event_loop()
 
 
 def _get_provider_for_model(model_name: str):
@@ -61,9 +54,8 @@ def _call_router_sync(query: str, model: str) -> dict[str, Any]:
     )
     
     # Parse response
-    import json
     result = json.loads(response.content)
-    
+
     return {
         "route": result.get("route", "lookup"),
         "confidence": result.get("confidence", 0.8),
@@ -79,11 +71,11 @@ async def call_router_llm(query: str, db=None) -> dict[str, Any]:
     Runs sync call in thread pool to avoid blocking event loop.
     """
     try:
-        # Get router model from settings
+        # Get router model from settings (before entering thread)
         model = get_runtime_setting("planner_model", db)
         
         # Run sync call in thread pool
-        loop = _get_event_loop()
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(None, _call_router_sync, query, model)
         return result
         
@@ -102,13 +94,10 @@ def _call_synthesizer_sync(
     planner: PlannerDecision,
     bundle: dict[str, Any],
     trace_id: str,
-    db=None
+    model: str
 ) -> dict[str, Any] | None:
     """Synchronous synthesizer LLM call."""
-    # Get synthesizer model
-    model = get_runtime_setting("synthesizer_model", db)
-    
-    # Create provider
+    # Create provider (model passed in, no db access)
     provider = _get_provider_for_model(model)
     
     # Build synthesis prompt (simplified version of _synth_prompt)
@@ -144,9 +133,8 @@ def _call_synthesizer_sync(
     )
     
     # Parse response
-    import json
     result = json.loads(response.content)
-    
+
     # Ensure required fields
     if "short_summary" not in result:
         result["short_summary"] = {"en": result.get("content", ""), "zh": result.get("content", "")}
@@ -167,10 +155,13 @@ async def call_synthesizer_llm(
     Runs sync call in thread pool to avoid blocking event loop.
     """
     try:
-        # Run sync call in thread pool
-        loop = _get_event_loop()
+        # Get synthesizer model from settings (before entering thread)
+        model = get_runtime_setting("synthesizer_model", db)
+        
+        # Run sync call in thread pool (pass model string, not db session)
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
-            None, _call_synthesizer_sync, req, planner, bundle, trace_id, db
+            None, _call_synthesizer_sync, req, planner, bundle, trace_id, model
         )
         return result
         

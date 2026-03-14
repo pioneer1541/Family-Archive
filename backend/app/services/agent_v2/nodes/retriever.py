@@ -3,6 +3,7 @@
 Document retrieval and context building.
 """
 
+import asyncio
 from typing import Any
 
 from app.logging_utils import get_logger
@@ -42,8 +43,9 @@ async def retriever_node(state: AgentGraphState, config: dict[str, Any] | None =
             category_filter=req.get("category_filter"),
         )
         
-        # Call existing search service
-        search_result = search_documents(db, search_req)
+        # Call existing search service in thread pool to avoid blocking
+        loop = asyncio.get_running_loop()
+        search_result = await loop.run_in_executor(None, search_documents, db, search_req)
         
         hits = search_result.hits if search_result else []
         
