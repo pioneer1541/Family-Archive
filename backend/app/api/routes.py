@@ -1273,6 +1273,7 @@ async def agent_v2_execute_stream(
     """
     import asyncio
     from app.services.agent_v2.streaming import stream_agent_execution
+    from app.services.agent_v2.graph import graph as agent_v2_graph
 
     trace_id = f"agt-{uuid.uuid4().hex[:12]}"
 
@@ -1286,7 +1287,7 @@ async def agent_v2_execute_stream(
                 "loop_count": 0,
             }
 
-            async for event in stream_agent_execution(graph, initial_state, {"configurable": {"db": db}}):
+            async for event in stream_agent_execution(agent_v2_graph, initial_state, {"configurable": {"db": db}}):
                 yield f"data: {json.dumps(event.to_dict(), ensure_ascii=False)}\n\n"
 
         except Exception as exc:
