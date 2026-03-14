@@ -16,11 +16,11 @@ class TestRouterNode:
     
     def test_is_chitchat_rule_based(self):
         """Test rule-based chitchat detection."""
-        assert _is_chitchat_rule_based("你好") == True
-        assert _is_chitchat_rule_based("hello") == True
-        assert _is_chitchat_rule_based("thanks") == True
-        assert _is_chitchat_rule_based("查询我的保险") == False
-        assert _is_chitchat_rule_based("This is a long query about insurance") == False
+        assert _is_chitchat_rule_based("你好")
+        assert _is_chitchat_rule_based("hello")
+        assert _is_chitchat_rule_based("thanks")
+        assert not _is_chitchat_rule_based("查询我的保险")
+        assert not _is_chitchat_rule_based("This is a long query about insurance")
     
     def test_router_chitchat_rule(self):
         """Test router returns chitchat for greeting."""
@@ -62,21 +62,21 @@ class TestChitchatNode:
         
         result = chitchat_node(state)
         
-        assert result["terminal"] == True
+        assert result["terminal"]
         assert result["terminal_reason"] == "chitchat_complete"
         # Response is randomly selected from templates, just check it's not empty
         assert len(result["final_card_payload"]["content"]) > 0
-    
+
     def test_chitchat_en(self):
         """Test chitchat in English."""
         state: AgentGraphState = {
             "req": {"query": "hello", "ui_lang": "en"},
             "trace_id": "test-abc",
         }
-        
+
         result = chitchat_node(state)
-        
-        assert result["terminal"] == True
+
+        assert result["terminal"]
         assert result["terminal_reason"] == "chitchat_complete"
         # Response is randomly selected from templates, just check it's not empty
         assert len(result["final_card_payload"]["content"]) > 0

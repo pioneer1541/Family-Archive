@@ -102,9 +102,9 @@ class TestSynthesizerNode:
         
         result = anyio.run(synthesizer_node, state)
         
-        assert result["terminal"] == True
+        assert result["terminal"]
         assert "没有找到相关信息" in result["final_card_payload"]["short_summary"]["zh"]
-    
+
     def test_synthesizer_with_context(self):
         """Test synthesizer with context chunks."""
         state: AgentGraphState = {
@@ -142,6 +142,6 @@ class TestSynthesizerNode:
         with patch("app.services.agent_v2.nodes.synthesizer.call_synthesizer_llm", mock_llm):
             result = anyio.run(synthesizer_node, state)
         
-        assert result["terminal"] == True
+        assert result["terminal"]
         assert result["terminal_reason"] == "answer_complete"
         assert result["final_card_payload"]["title"] == "Insurance Information"
