@@ -36,7 +36,7 @@ async def router_node(state: AgentGraphState) -> dict[str, Any]:
     
     # Rule-based short-circuit for chitchat
     if _is_chitchat_rule_based(query):
-        logger.info("router_chitchat_rule", query=query, trace_id=trace_id)
+        logger.info("router_chitchat_rule: query=%s trace_id=%s", query, trace_id)
         return {
             "router": {
                 "route": "chitchat",
@@ -51,7 +51,7 @@ async def router_node(state: AgentGraphState) -> dict[str, Any]:
     # Check cache
     cache_key = f"router:v1:{hash(query)}"
     if cached := await get_cache(cache_key):
-        logger.info("router_cache_hit", query=query, trace_id=trace_id)
+        logger.info("router_cache_hit: query=%s trace_id=%s", query, trace_id)
         return {
             "router": cached,
             "route": cached.get("route", "lookup"),
@@ -75,11 +75,11 @@ async def router_node(state: AgentGraphState) -> dict[str, Any]:
         await set_cache(cache_key, result, ttl=300)
         
         logger.info(
-            "router_llm_success",
-            query=query,
-            route=route,
-            confidence=result.get("confidence"),
-            trace_id=trace_id,
+            "router_llm_success: query=%s route=%s confidence=%s trace_id=%s",
+            query,
+            route,
+            result.get("confidence"),
+            trace_id,
         )
         
         return {
@@ -89,7 +89,7 @@ async def router_node(state: AgentGraphState) -> dict[str, Any]:
         }
         
     except Exception as e:
-        logger.error("router_llm_failed", query=query, error=str(e), trace_id=trace_id)
+        logger.error("router_llm_failed: query=%s error=%s trace_id=%s", query, str(e), trace_id)
         
         # Fallback to safe default
         fallback = {

@@ -3,7 +3,7 @@
 Unit tests for agent_v2 nodes.
 """
 
-import pytest
+import anyio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.agent_v2.state import AgentGraphState
@@ -22,22 +22,20 @@ class TestRouterNode:
         assert _is_chitchat_rule_based("查询我的保险") == False
         assert _is_chitchat_rule_based("This is a long query about insurance") == False
     
-    @pytest.mark.asyncio
-    async def test_router_chitchat_rule(self):
+    def test_router_chitchat_rule(self):
         """Test router returns chitchat for greeting."""
         state: AgentGraphState = {
             "req": {"query": "你好", "ui_lang": "zh"},
             "trace_id": "test-123",
         }
         
-        result = await router_node(state)
+        result = anyio.run(router_node, state)
         
         assert result["route"] == "chitchat"
         assert result["route_reason"] == "rule_based"
         assert result["router"]["confidence"] == 1.0
     
-    @pytest.mark.asyncio
-    async def test_router_fallback_on_error(self):
+    def test_router_fallback_on_error(self):
         """Test router falls back to lookup on error."""
         state: AgentGraphState = {
             "req": {"query": "some complex query", "ui_lang": "zh"},
@@ -46,7 +44,7 @@ class TestRouterNode:
         
         # Mock the LLM call to fail
         with patch("app.services.agent_v2.nodes.router.call_router_llm", side_effect=Exception("LLM error")):
-            result = await router_node(state)
+            result = anyio.run(router_node, state)
         
         assert result["route"] == "lookup"
         assert "error_fallback" in result["route_reason"]
