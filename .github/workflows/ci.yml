@@ -40,9 +40,20 @@ jobs:
       - name: Format (ruff)
         run: ruff format app
 
-      - name: Lint (ruff)
-        run: ruff check --fix app
-        continue-on-error: false
+      - name: Fix lint issues (ruff)
+        run: ruff check --fix app || true
+
+      - name: Commit fixes if any
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (git commit -m "style: auto-fix lint issues" && git push)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lint check (fail on remaining issues)
+        run: ruff check app
 
       - name: Test (pytest)
         env:
