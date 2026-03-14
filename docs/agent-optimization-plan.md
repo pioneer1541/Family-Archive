@@ -100,23 +100,25 @@
 
 ---
 
-## 4. 执行路线（已确认）
+## 4. 执行路线
 
 **路线**: C → D → A → B
 
-### Phase 1: 方案C - LangGraph重构（2-3周）
+### Phase 1: 方案C - LangGraph重构 ✅ 已完成
 - 彻底重写Agent流程，建立现代化架构基础
 - 为后续优化打下可维护、可扩展的底子
+- **交付**: `feature/agent-v2-langgraph` 已合并
 
-### Phase 2: 方案D - 单LLM模式（1-2周）
+### Phase 2: 方案D - 单LLM模式 ✅ 已完成
 - 在LangGraph架构上实现单LLM调用
-- 成本优化核心：2次调用 → 1次调用
+- 成本优化核心：2次调用 → 1次调用（简单查询）
+- **交付**: `docs/agent-optimization-phase2-design.md`
 
-### Phase 3: 方案A - P1快速优化（1-2天）
+### Phase 3: 方案A - P1快速优化 ⏳ 计划中
 - 在稳定架构上做精细调优
-- Router缓存、Chitchat短路、模型分级
+- Router缓存、Chitchat短路优化、模型分级
 
-### Phase 4: 方案B - 流式输出（3-5天）
+### Phase 4: 方案B - 流式输出 ⏳ 计划中
 - 最终用户体验优化
 - 渐进显示、降低感知延迟
 
