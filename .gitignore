@@ -47,3 +47,4 @@ backups/
 # Development environment
 .env.development
 data-dev/
+venv/

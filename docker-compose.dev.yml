@@ -23,7 +23,7 @@ services:
       - FAMILY_VAULT_QDRANT_ENABLE=1
       - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
       - FAMILY_VAULT_JWT_SECRET=${FAMILY_VAULT_JWT_SECRET}
-      - FAMILY_VAULT_ALLOWED_ORIGINS=["http://localhost:18281","http://127.0.0.1:18281"]
+      - FAMILY_VAULT_ALLOWED_ORIGINS=["http://localhost:18281","http://127.0.0.1:18281","http://192.168.1.209:18281"]
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "18080"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -54,7 +54,7 @@ services:
     env_file:
       - .env.development
     environment:
-      - FAMILY_VAULT_ALLOWED_ORIGINS=["http://localhost:18281","http://127.0.0.1:18281"]
+      - FAMILY_VAULT_ALLOWED_ORIGINS=["http://localhost:18281","http://127.0.0.1:18281","http://192.168.1.209:18281"]
       - FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER=0
       - FAMILY_VAULT_REDIS_URL=redis://redis-dev:6379/0
       - FAMILY_VAULT_QDRANT_URL=http://qdrant-dev:6333
@@ -62,7 +62,6 @@ services:
       - FAMILY_VAULT_QDRANT_ENABLE=1
       - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
       - FAMILY_VAULT_JWT_SECRET=${FAMILY_VAULT_JWT_SECRET}
-      - FAMILY_VAULT_ALLOWED_ORIGINS=["http://localhost:18281","http://127.0.0.1:18281"]
       - FAMILY_VAULT_CELERY_WORKER_CONCURRENCY=2
     command:
       [

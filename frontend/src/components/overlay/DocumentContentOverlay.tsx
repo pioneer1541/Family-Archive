@@ -94,7 +94,7 @@ export function DocumentContentOverlay() {
 
     let alive = true;
     setTextLoading(true);
-    fetch(doc.downloadUrl)
+    fetch(doc.downloadUrl, {credentials: 'include'})
       .then(async (res) => {
         if (!res.ok) return '';
         return await res.text();

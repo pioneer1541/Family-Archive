@@ -6,13 +6,52 @@ from app.services.llm_provider import LLMConfig, OllamaProvider, ProviderType as
 
 
 def test_normalize_ollama_base_url_accepts_root_v1_and_api() -> None:
+    # Basic URLs
     assert normalize_ollama_base_url("http://192.168.1.162:11434") == "http://192.168.1.162:11434"
+    assert normalize_ollama_base_url("http://192.168.1.162:11434/") == "http://192.168.1.162:11434"
+    
+    # /v1 suffix removal
     assert normalize_ollama_base_url("http://192.168.1.162:11434/v1") == "http://192.168.1.162:11434"
     assert normalize_ollama_base_url("http://192.168.1.162:11434/v1/") == "http://192.168.1.162:11434"
+    assert normalize_ollama_base_url("http://192.168.1.162:11434/V1") == "http://192.168.1.162:11434"  # case insensitive
+    assert normalize_ollama_base_url("http://192.168.1.162:11434/V1/") == "http://192.168.1.162:11434"
+    
+    # /api suffix removal (MUST handle /api and /api/)
     assert normalize_ollama_base_url("http://192.168.1.162:11434/api") == "http://192.168.1.162:11434"
     assert normalize_ollama_base_url("http://192.168.1.162:11434/api/") == "http://192.168.1.162:11434"
+    assert normalize_ollama_base_url("http://192.168.1.162:11434/API") == "http://192.168.1.162:11434"  # case insensitive
+    assert normalize_ollama_base_url("http://192.168.1.162:11434/API/") == "http://192.168.1.162:11434"
+    
+    # Combined suffixes
     assert normalize_ollama_base_url("http://192.168.1.162:11434/v1/api/") == "http://192.168.1.162:11434"
+    assert normalize_ollama_base_url("http://192.168.1.162:11434/api/v1") == "http://192.168.1.162:11434"
+    
+    # Nested paths with /api
     assert normalize_ollama_base_url("http://192.168.1.162:11434/custom/api") == "http://192.168.1.162:11434/custom"
+    assert normalize_ollama_base_url("http://192.168.1.162:11434/custom/api/") == "http://192.168.1.162:11434/custom"
+    assert normalize_ollama_base_url("http://192.168.1.162:11434/path/to/api") == "http://192.168.1.162:11434/path/to"
+
+
+def test_normalize_ollama_base_url_strips_api_suffix() -> None:
+    """Explicitly test that /api and /api/ suffixes are stripped (Claude Review requirement)."""
+    # Standard /api suffix
+    assert normalize_ollama_base_url("http://localhost:11434/api") == "http://localhost:11434"
+    assert normalize_ollama_base_url("http://localhost:11434/api/") == "http://localhost:11434"
+    
+    # With trailing slashes
+    assert normalize_ollama_base_url("http://host:11434/api//") == "http://host:11434"
+    
+    # Case insensitive
+    assert normalize_ollama_base_url("http://localhost:11434/API") == "http://localhost:11434"
+    assert normalize_ollama_base_url("http://localhost:11434/Api/") == "http://localhost:11434"
+    
+    # With subpath
+    assert normalize_ollama_base_url("http://host:11434/ollama/api") == "http://host:11434/ollama"
+    assert normalize_ollama_base_url("http://host:11434/ollama/api/") == "http://host:11434/ollama"
+    
+    # Combined with /v1
+    assert normalize_ollama_base_url("http://localhost:11434/v1/api") == "http://localhost:11434"
+    assert normalize_ollama_base_url("http://localhost:11434/api/v1") == "http://localhost:11434"
 
 
 def test_normalize_provider_base_url_only_for_ollama() -> None:

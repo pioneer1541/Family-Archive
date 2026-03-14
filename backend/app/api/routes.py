@@ -1552,7 +1552,6 @@ RESTART_REQUIRED_KEYS = {
     "summary_timeout_section_sec",
     "summary_timeout_final_sec",
     "agent_synth_timeout_sec",
-    "ollama_base_url",
 }
 
 

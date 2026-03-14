@@ -367,12 +367,16 @@ export default function SettingsPage() {
 
   const handleSave = useCallback(async () => {
     setSaving(true);
+    const hasSettingsPatch = Object.keys(patch).length > 0;
+    const hasKeywordsPatch = Object.keys(keywordsPatch).length > 0;
+    const ollamaUrlChanged = 'ollama_base_url' in patch;
     try {
-      if (Object.keys(patch).length > 0) {
+      if (hasSettingsPatch) {
         const r = await fetch('/api/v1/settings', {
           method: 'PATCH',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(patch),
+          credentials: 'include',
         });
         const result = await r.json().catch(() => ({}));
         if (!r.ok) {
@@ -382,9 +386,35 @@ export default function SettingsPage() {
           setRestartRequired(true);
         }
       }
-      if (Object.keys(keywordsPatch).length > 0) await client.updateKeywords?.(keywordsPatch);
+      if (hasKeywordsPatch) await client.updateKeywords?.(keywordsPatch);
+
+      // 先获取最新设置，确保 UI 显示最新值后再清空 patch
+      let freshSettings: AppSettingItem[] | undefined;
+      try {
+        freshSettings = await client.getSettings?.();
+        if (freshSettings) setItems(freshSettings);
+      } catch {
+        // noop: 即使获取失败，也继续清空 patch，避免重复提交
+      }
+
       setPatch({});
       setKeywordsPatch({});
+
+      // 如果修改了 Ollama 地址，刷新模型列表和连通性状态
+      if (ollamaUrlChanged) {
+        if (client.getOllamaModels) {
+          setModels(null);
+          setModelsError('');
+          client.getOllamaModels()
+            .then((rows) => setModels(Array.isArray(rows) ? rows : []))
+            .catch(() => { setModels(null); setModelsError(t('modelLoadError')); });
+        }
+        if (client.getConnectivity) {
+          client.getConnectivity()
+            .then((result) => setConnectivity(result))
+            .catch(() => {});
+        }
+      }
       setToast(t('saved'));
       setTimeout(() => setToast(''), 3000);
     } catch {
@@ -1475,16 +1505,16 @@ export default function SettingsPage() {
                     <tbody>
                       {gmailCreds.map((cred) => (
                         <tr key={cred.id}>
-                          <td>{cred.name}</td>
-                          <td className="gmail-cred-mono">{maskClientId(cred.client_id)}</td>
-                          <td>
+                          <td data-label={tg('tableName')}>{cred.name}</td>
+                          <td data-label={tg('tableClientId')} className="gmail-cred-mono">{maskClientId(cred.client_id)}</td>
+                          <td data-label={tg('tableStatus')}>
                             <span className={`badge ${cred.has_token ? 'badge-green' : 'badge-red'}`}>
                               {cred.has_token ? tg('statusAuthorized') : tg('statusUnauthorized')}
                             </span>
                           </td>
-                          <td>{new Date(cred.created_at).toLocaleDateString(locale)}</td>
-                          <td>{new Date(cred.updated_at).toLocaleDateString(locale)}</td>
-                          <td className="gmail-cred-actions">
+                          <td data-label={tg('tableCreatedAt')}>{new Date(cred.created_at).toLocaleDateString(locale)}</td>
+                          <td data-label={tg('tableUpdatedAt')}>{new Date(cred.updated_at).toLocaleDateString(locale)}</td>
+                          <td data-label={tg('tableActions')} className="gmail-cred-actions">
                             <button
                               type="button"
                               className="btn-secondary"
@@ -1780,10 +1810,10 @@ export default function SettingsPage() {
                     <tbody>
                       {users.map((u) => (
                         <tr key={u.id}>
-                          <td>{u.username}</td>
-                          <td>{u.role || 'user'}</td>
-                          <td>{new Date(u.created_at).toLocaleDateString(locale)}</td>
-                          <td>
+                          <td data-label={t('username')}>{u.username}</td>
+                          <td data-label={t('role')}>{u.role || 'user'}</td>
+                          <td data-label={t('createdAt')}>{new Date(u.created_at).toLocaleDateString(locale)}</td>
+                          <td data-label={t('actions')}>
                             <button
                               type="button"
                               className="btn-secondary btn-danger"
