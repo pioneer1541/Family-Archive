@@ -1257,6 +1257,56 @@ def agent_execute_stream(
     )
 
 
+@router.post("/agent/v2/execute/stream")
+async def agent_v2_execute_stream(
+    payload: AgentExecuteRequest,
+    db: Session = Depends(get_db),
+    _: object = Depends(get_current_user),
+) -> StreamingResponse:
+    """Phase 4: Streaming execution for Agent V2.
+
+    Returns SSE events for progressive response display:
+    - classifier: Query classification result
+    - router: Routing decision
+    - retrieve: Retrieval progress
+    - synthesize: Answer chunks (streaming)
+    """
+    import asyncio
+    from app.services.agent_v2.streaming import stream_agent_execution
+
+    trace_id = f"agt-{uuid.uuid4().hex[:12]}"
+
+    async def _event_generator():
+        try:
+            initial_state = {
+                "req": payload.model_dump(),
+                "trace_id": trace_id,
+                "timing": {"start_ms": int(time.time() * 1000)},
+                "loop_budget": 3,
+                "loop_count": 0,
+            }
+
+            async for event in stream_agent_execution(graph, initial_state, {"configurable": {"db": db}}):
+                yield f"data: {json.dumps(event.to_dict(), ensure_ascii=False)}\n\n"
+
+        except Exception as exc:
+            logger.error("agent_v2_stream_error", extra={"trace_id": trace_id, "error": str(exc)})
+            error_event = {
+                "event_type": "error",
+                "node": "stream",
+                "data": {"error": str(exc), "error_type": type(exc).__name__},
+                "trace_id": trace_id,
+                "timestamp": time.time(),
+            }
+            yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        _event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @router.post("/summaries/map-reduce", response_model=MapReduceSummaryResponse)
 def map_reduce_summary(payload: MapReduceSummaryRequest, db: Session = Depends(get_db)) -> MapReduceSummaryResponse:
     try:
