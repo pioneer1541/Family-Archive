@@ -31,7 +31,7 @@ async def synthesizer_node(state: AgentGraphState, config: dict[str, Any] | None
     
     # Handle insufficient context
     if not context_chunks:
-        logger.warning("synthesizer_no_context", extra={"trace_id": trace_id, "query": query})
+        logger.warning("synthesizer_no_context: trace_id=%s query=%s", trace_id, query)
         return {
             "final_card_payload": {
                 "title": "Family Vault",
@@ -64,6 +64,9 @@ async def synthesizer_node(state: AgentGraphState, config: dict[str, Any] | None
             confidence=router_data.get("confidence", 0.8),
             ui_lang=ui_lang,
             query_lang=req_data.get("query_lang", ui_lang),
+            doc_scope=req_data.get("doc_scope") or {},
+            actions=router_data.get("actions", ["search_documents"]),
+            fallback=router_data.get("fallback", "search_semantic"),
         )
         
         # Create request object
@@ -83,8 +86,10 @@ async def synthesizer_node(state: AgentGraphState, config: dict[str, Any] | None
         )
         
         logger.info(
-            "synthesizer_success",
-            extra={"trace_id": trace_id, "query": query, "has_result": bool(result)}
+            "synthesizer_success: trace_id=%s query=%s has_result=%s",
+            trace_id,
+            query,
+            bool(result)
         )
         
         return {
@@ -98,7 +103,7 @@ async def synthesizer_node(state: AgentGraphState, config: dict[str, Any] | None
         }
         
     except Exception as e:
-        logger.error("synthesizer_failed", extra={"trace_id": trace_id, "query": query, "error": str(e)})
+        logger.error("synthesizer_failed: trace_id=%s query=%s error=%s", trace_id, query, str(e))
         
         # Fallback response
         return {
