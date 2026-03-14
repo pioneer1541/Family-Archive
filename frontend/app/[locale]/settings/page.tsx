@@ -44,7 +44,7 @@ function maskClientId(clientId: string): string {
   return clientId.substring(0, 8) + '****' + clientId.substring(clientId.length - 4);
 }
 
-export function parseModelSetting(raw: string, providers: LLMProvider[]): {providerId: string; modelName: string} {
+function parseModelSetting(raw: string, providers: LLMProvider[]): {providerId: string; modelName: string} {
   const value = String(raw || '').trim();
   if (!value) return {providerId: LOCAL_PROVIDER_ID, modelName: ''};
   if (value.startsWith('local:')) {
