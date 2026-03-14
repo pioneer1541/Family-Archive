@@ -108,11 +108,11 @@ Analyze the user's query and classify it as either "simple" or "complex".
 - "Extract all key terms" from a document
 
 Respond in JSON format:
-{
+{{
     "complexity": "simple" | "complex",
     "confidence": 0.0-1.0,
     "reason": "brief explanation"
-}
+}}
 
 User query: {query}
 """
