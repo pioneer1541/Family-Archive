@@ -12,10 +12,13 @@ import type {
   GmailCredential,
   GmailCredentialCreate,
   GmailCredentialUpdate,
+  GmailDeviceAuthStart,
+  GmailDeviceAuthComplete,
   LLMProvider,
   LLMProviderCreate,
   LLMProviderType,
   LLMProviderUpdate,
+  LLMProviderValidateRequest,
   UserResponse,
 } from '@src/lib/api/types';
 
@@ -31,21 +34,6 @@ const PROVIDER_TYPE_OPTIONS: Array<{value: LLMProviderType; label: string}> = [
   {value: 'glm', label: 'GLM'},
   {value: 'custom', label: 'Custom'},
 ];
-const RESTART_REQUIRED_KEYS = new Set([
-  'planner_model',
-  'synthesizer_model',
-  'embed_model',
-  'summary_model',
-  'category_model',
-  'friendly_name_model',
-  'vl_extract_model',
-  'summary_timeout_page_sec',
-  'summary_timeout_section_sec',
-  'summary_timeout_final_sec',
-  'agent_synth_timeout_sec',
-  'ollama_base_url',
-]);
-
 // ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
@@ -56,7 +44,7 @@ function maskClientId(clientId: string): string {
   return clientId.substring(0, 8) + '****' + clientId.substring(clientId.length - 4);
 }
 
-function parseModelSetting(raw: string, providers: LLMProvider[]): {providerId: string; modelName: string} {
+export function parseModelSetting(raw: string, providers: LLMProvider[]): {providerId: string; modelName: string} {
   const value = String(raw || '').trim();
   if (!value) return {providerId: LOCAL_PROVIDER_ID, modelName: ''};
   if (value.startsWith('local:')) {
@@ -68,6 +56,7 @@ function parseModelSetting(raw: string, providers: LLMProvider[]): {providerId: 
       const [providerRef, modelNameRaw] = rest.split('/', 2);
       const target = providers.find((item) => item.id === providerRef || item.name === providerRef);
       if (target) return {providerId: target.id, modelName: String(modelNameRaw || '').trim()};
+      return {providerId: LOCAL_PROVIDER_ID, modelName: String(modelNameRaw || '').trim()};
     }
     return {providerId: LOCAL_PROVIDER_ID, modelName: value};
   }
@@ -77,6 +66,7 @@ function parseModelSetting(raw: string, providers: LLMProvider[]): {providerId: 
     const right = value.slice(idx + 1).trim();
     const target = providers.find((item) => item.id === left);
     if (target) return {providerId: target.id, modelName: right};
+    return {providerId: LOCAL_PROVIDER_ID, modelName: value};
   }
   return {providerId: LOCAL_PROVIDER_ID, modelName: value};
 }
@@ -162,9 +152,11 @@ export default function SettingsPage() {
   const [tab, setTab] = useState<TabKey>('llm');
   const [items, setItems] = useState<AppSettingItem[]>([]);
   const [patch, setPatch] = useState<Record<string, string>>({});
-  const [models, setModels] = useState<OllamaModel[]>([]);
+  const [models, setModels] = useState<OllamaModel[] | null>(null);
+  const [modelsError, setModelsError] = useState('');
   const [llmProviders, setLlmProviders] = useState<LLMProvider[]>([]);
-  const [llmProviderModels, setLlmProviderModels] = useState<Record<string, string[]>>({});
+  const [llmProviderModels, setLlmProviderModels] = useState<Record<string, string[] | null>>({});
+  const [llmProviderModelErrors, setLlmProviderModelErrors] = useState<Record<string, string>>({});
   const [llmProvidersLoading, setLlmProvidersLoading] = useState(false);
   const [llmProviderFormOpen, setLlmProviderFormOpen] = useState(false);
   const [llmProviderEditId, setLlmProviderEditId] = useState<string | null>(null);
@@ -178,6 +170,7 @@ export default function SettingsPage() {
     is_default: false,
   });
   const [llmProviderSaving, setLlmProviderSaving] = useState(false);
+  const [llmProviderValidating, setLlmProviderValidating] = useState(false);
   const [llmProviderError, setLlmProviderError] = useState('');
   const [llmProviderTestingId, setLlmProviderTestingId] = useState<string | null>(null);
   const [connectivity, setConnectivity] = useState<ConnectivityStatus | null>(null);
@@ -203,9 +196,18 @@ export default function SettingsPage() {
   const [gmailError, setGmailError] = useState("");
   const [gmailSaving, setGmailSaving] = useState(false);
   const [gmailAuthorizingId, setGmailAuthorizingId] = useState<string | null>(null);
+  const [gmailDeviceSession, setGmailDeviceSession] = useState<GmailDeviceAuthStart | null>(null);
+  const [gmailDeviceStarting, setGmailDeviceStarting] = useState(false);
+  const [gmailDeviceStatus, setGmailDeviceStatus] = useState<'idle' | 'pending' | 'completed' | 'expired'>('idle');
+  const [gmailDeviceError, setGmailDeviceError] = useState('');
+  const [gmailDeviceRemainingSec, setGmailDeviceRemainingSec] = useState(0);
   // Gmail 删除确认
   const [gmailDeleteId, setGmailDeleteId] = useState<string | null>(null);
   const authPollingRef = useRef<number | null>(null);
+  const deviceAuthPollingRef = useRef<number | null>(null);
+  const deviceAuthCountdownRef = useRef<number | null>(null);
+  const deviceAuthBusyRef = useRef(false);
+  const deviceAuthPollIntervalSecRef = useRef(5);
   const oauthNoticeHandledRef = useRef(false);
   const [originUrl, setOriginUrl] = useState('');
   // Admin users tab
@@ -217,9 +219,26 @@ export default function SettingsPage() {
   const localDirPickerRef = useRef<HTMLInputElement | null>(null);
   const isAdmin = me?.role === 'admin';
 
+  async function loadLocalModels() {
+    if (!client.getOllamaModels) {
+      setModels([]);
+      setModelsError('');
+      return;
+    }
+    setModels(null);
+    setModelsError('');
+    try {
+      const rows = await client.getOllamaModels();
+      setModels(Array.isArray(rows) ? rows : []);
+    } catch (err: unknown) {
+      setModels(null);
+      setModelsError(err instanceof Error && err.message ? err.message : t('modelLoadError'));
+    }
+  }
+
   useEffect(() => {
     client.getSettings?.().then(setItems).catch(() => {});
-    client.getOllamaModels?.().then(setModels).catch(() => {});
+    loadLocalModels();
     loadLLMProviders();
     client.getKeywords?.().then(setKeywords).catch(() => {});
     client.getMe?.().then((u) => setMe(u ?? null)).catch(() => setMe(null));
@@ -282,24 +301,43 @@ export default function SettingsPage() {
     try {
       const rows = await client.getLLMProviders();
       setLlmProviders(rows);
+      setLlmProviderModelErrors({});
 
       if (client.getLLMProviderModels) {
         const active = rows.filter((item) => item.is_active);
+        const loadingState: Record<string, string[] | null> = {};
+        active.forEach((item) => {
+          loadingState[item.id] = null;
+        });
+        setLlmProviderModels(loadingState);
+
         const settled = await Promise.allSettled(
           active.map((item) => client.getLLMProviderModels?.(item.id) ?? Promise.resolve([]))
         );
-        const next: Record<string, string[]> = {};
+        const next: Record<string, string[] | null> = {};
+        const nextErrors: Record<string, string> = {};
+        const failedNames: string[] = [];
         active.forEach((item, idx) => {
           const result = settled[idx];
           if (result.status === 'fulfilled') {
             next[item.id] = result.value;
+          } else {
+            next[item.id] = null;
+            nextErrors[item.id] = result.reason instanceof Error ? result.reason.message : t('modelLoadError');
+            failedNames.push(item.name);
           }
         });
         setLlmProviderModels(next);
+        setLlmProviderModelErrors(nextErrors);
+        if (failedNames.length > 0) {
+          setToast(t('llmProviderModelsLoadFailed', {names: failedNames.join(', ')}));
+          setTimeout(() => setToast(''), 5000);
+        }
       }
     } catch {
       setLlmProviders([]);
       setLlmProviderModels({});
+      setLlmProviderModelErrors({});
     } finally {
       setLlmProvidersLoading(false);
     }
@@ -329,25 +367,54 @@ export default function SettingsPage() {
 
   const handleSave = useCallback(async () => {
     setSaving(true);
+    const hasSettingsPatch = Object.keys(patch).length > 0;
+    const hasKeywordsPatch = Object.keys(keywordsPatch).length > 0;
+    const ollamaUrlChanged = 'ollama_base_url' in patch;
     try {
-      if (Object.keys(patch).length > 0) {
+      if (hasSettingsPatch) {
         const r = await fetch('/api/v1/settings', {
           method: 'PATCH',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(patch),
+          credentials: 'include',
         });
         const result = await r.json().catch(() => ({}));
         if (!r.ok) {
           throw new Error((result as {detail?: string})?.detail || 'Settings update failed');
         }
-        const hasRestartKey = Object.keys(patch).some((key) => RESTART_REQUIRED_KEYS.has(key));
-        if (result?.restart_required || hasRestartKey) {
+        if (result?.restart_required) {
           setRestartRequired(true);
         }
       }
-      if (Object.keys(keywordsPatch).length > 0) await client.updateKeywords?.(keywordsPatch);
+      if (hasKeywordsPatch) await client.updateKeywords?.(keywordsPatch);
+
+      // 先获取最新设置，确保 UI 显示最新值后再清空 patch
+      let freshSettings: AppSettingItem[] | undefined;
+      try {
+        freshSettings = await client.getSettings?.();
+        if (freshSettings) setItems(freshSettings);
+      } catch {
+        // noop: 即使获取失败，也继续清空 patch，避免重复提交
+      }
+
       setPatch({});
       setKeywordsPatch({});
+
+      // 如果修改了 Ollama 地址，刷新模型列表和连通性状态
+      if (ollamaUrlChanged) {
+        if (client.getOllamaModels) {
+          setModels(null);
+          setModelsError('');
+          client.getOllamaModels()
+            .then((rows) => setModels(Array.isArray(rows) ? rows : []))
+            .catch(() => { setModels(null); setModelsError(t('modelLoadError')); });
+        }
+        if (client.getConnectivity) {
+          client.getConnectivity()
+            .then((result) => setConnectivity(result))
+            .catch(() => {});
+        }
+      }
       setToast(t('saved'));
       setTimeout(() => setToast(''), 3000);
     } catch {
@@ -569,11 +636,96 @@ export default function SettingsPage() {
     }
   }
 
+  function stopGmailDeviceTimers() {
+    if (deviceAuthPollingRef.current !== null) {
+      window.clearInterval(deviceAuthPollingRef.current);
+      deviceAuthPollingRef.current = null;
+    }
+    if (deviceAuthCountdownRef.current !== null) {
+      window.clearInterval(deviceAuthCountdownRef.current);
+      deviceAuthCountdownRef.current = null;
+    }
+    deviceAuthBusyRef.current = false;
+  }
+
+  function startGmailDevicePolling(deviceCode: string, intervalSec: number) {
+    const safeIntervalSec = Math.max(intervalSec ?? 5, 5);
+    deviceAuthPollIntervalSecRef.current = safeIntervalSec;
+    if (deviceAuthPollingRef.current !== null) {
+      window.clearInterval(deviceAuthPollingRef.current);
+      deviceAuthPollingRef.current = null;
+    }
+    deviceAuthPollingRef.current = window.setInterval(() => {
+      void pollGmailDeviceAuth(deviceCode);
+    }, safeIntervalSec * 1000);
+  }
+
+  async function pollGmailDeviceAuth(deviceCode: string) {
+    if (!client.completeGmailDeviceAuth || deviceAuthBusyRef.current) return;
+    deviceAuthBusyRef.current = true;
+    try {
+      const result: GmailDeviceAuthComplete = await client.completeGmailDeviceAuth(deviceCode);
+      if (result.status === 'completed') {
+        stopGmailDeviceTimers();
+        setGmailDeviceStatus('completed');
+        setGmailDeviceError('');
+        setToast(tg('deviceToastSuccess'));
+        setTimeout(() => setToast(''), 3000);
+        loadGmailCredentials();
+      } else if (result.status === 'slow_down') {
+        const nextIntervalSec = Math.min(deviceAuthPollIntervalSecRef.current + 5, 60);
+        startGmailDevicePolling(deviceCode, nextIntervalSec);
+      }
+    } catch (err) {
+      stopGmailDeviceTimers();
+      setGmailDeviceStatus('expired');
+      setGmailDeviceError(err instanceof Error ? err.message : tg('deviceToastFailed'));
+    } finally {
+      deviceAuthBusyRef.current = false;
+    }
+  }
+
+  async function handleStartDeviceAuth() {
+    if (!client.startGmailDeviceAuth) return;
+    stopGmailDeviceTimers();
+    setGmailDeviceStarting(true);
+    setGmailDeviceError('');
+    setGmailDeviceStatus('idle');
+    setGmailDeviceSession(null);
+    setGmailDeviceRemainingSec(0);
+    try {
+      const session = await client.startGmailDeviceAuth();
+      if (!session.device_code || !session.user_code || !session.verification_url) {
+        throw new Error(tg('deviceToastFailed'));
+      }
+      setGmailDeviceSession(session);
+      setGmailDeviceStatus('pending');
+      setGmailDeviceRemainingSec(Math.max(0, Number(session.expires_in || 0)));
+      deviceAuthCountdownRef.current = window.setInterval(() => {
+        setGmailDeviceRemainingSec((prev) => {
+          if (prev <= 1) {
+            stopGmailDeviceTimers();
+            setGmailDeviceStatus('expired');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      startGmailDevicePolling(session.device_code, session.interval ?? 5);
+    } catch (err) {
+      setGmailDeviceStatus('expired');
+      setGmailDeviceError(err instanceof Error ? err.message : tg('deviceToastFailed'));
+    } finally {
+      setGmailDeviceStarting(false);
+    }
+  }
+
   useEffect(() => {
     return () => {
       if (authPollingRef.current !== null) {
         window.clearInterval(authPollingRef.current);
       }
+      stopGmailDeviceTimers();
     };
   }, []);
 
@@ -618,6 +770,47 @@ export default function SettingsPage() {
     resetLLMProviderForm();
   }
 
+  function getLLMProviderErrorMessage(raw: string): string {
+    const detail = String(raw || '').trim();
+    if (!detail) return t('llmProviderSaveError');
+    if (detail === 'llm_provider_api_key_required') return t('llmProviderApiKeyRequired');
+    return detail;
+  }
+
+  async function validateLLMProviderForm(): Promise<{normalizedBaseUrl: string; models: string[]}> {
+    if (!client.validateLLMProvider) {
+      return {
+        normalizedBaseUrl: llmProviderForm.base_url.trim(),
+        models: [],
+      };
+    }
+    const payload: LLMProviderValidateRequest = {
+      provider_id: llmProviderEditId || undefined,
+      name: llmProviderForm.name.trim() || undefined,
+      provider_type: llmProviderForm.provider_type,
+      base_url: llmProviderForm.base_url.trim(),
+      model_name: llmProviderForm.model_name.trim(),
+      is_active: llmProviderForm.is_active,
+    };
+    if (llmProviderForm.api_key && llmProviderForm.api_key.trim()) {
+      payload.api_key = llmProviderForm.api_key.trim();
+    }
+
+    setLlmProviderValidating(true);
+    try {
+      const result = await client.validateLLMProvider(payload);
+      if (!result.ok) {
+        throw new Error(getLLMProviderErrorMessage(result.error || t('llmProviderTestFail')));
+      }
+      return {
+        normalizedBaseUrl: result.normalized_base_url || payload.base_url,
+        models: Array.isArray(result.models) ? result.models : [],
+      };
+    } finally {
+      setLlmProviderValidating(false);
+    }
+  }
+
   async function handleLLMProviderSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!client.createLLMProvider || !client.updateLLMProvider) return;
@@ -628,11 +821,13 @@ export default function SettingsPage() {
     setLlmProviderSaving(true);
     setLlmProviderError('');
     try {
+      const validation = await validateLLMProviderForm();
+      let savedProvider: LLMProvider | null = null;
       if (llmProviderEditId) {
         const patch: LLMProviderUpdate = {
           name: llmProviderForm.name.trim(),
           provider_type: llmProviderForm.provider_type,
-          base_url: llmProviderForm.base_url.trim(),
+          base_url: validation.normalizedBaseUrl,
           model_name: llmProviderForm.model_name.trim(),
           is_active: llmProviderForm.is_active,
           is_default: llmProviderForm.is_default,
@@ -640,24 +835,34 @@ export default function SettingsPage() {
         if (llmProviderForm.api_key && llmProviderForm.api_key.trim()) {
           patch.api_key = llmProviderForm.api_key.trim();
         }
-        await client.updateLLMProvider(llmProviderEditId, patch);
+        savedProvider = await client.updateLLMProvider(llmProviderEditId, patch);
         setToast(t('llmProviderUpdated'));
       } else {
-        await client.createLLMProvider({
+        savedProvider = await client.createLLMProvider({
           ...llmProviderForm,
           name: llmProviderForm.name.trim(),
-          base_url: llmProviderForm.base_url.trim(),
+          base_url: validation.normalizedBaseUrl,
           model_name: llmProviderForm.model_name.trim(),
           api_key: llmProviderForm.api_key?.trim() || undefined,
         });
         setToast(t('llmProviderCreated'));
+      }
+      if (savedProvider) {
+        const providerId = savedProvider.id;
+        const providerModels = Array.from(new Set(validation.models.map((item) => String(item || '').trim()).filter(Boolean)));
+        setLlmProviderModels((prev) => ({...prev, [providerId]: providerModels}));
+        setLlmProviderModelErrors((prev) => {
+          const next = {...prev};
+          delete next[providerId];
+          return next;
+        });
       }
       setLlmProviderFormOpen(false);
       resetLLMProviderForm();
       await loadLLMProviders();
       setTimeout(() => setToast(''), 3000);
     } catch (err: unknown) {
-      setLlmProviderError(err instanceof Error ? err.message : t('llmProviderSaveError'));
+      setLlmProviderError(getLLMProviderErrorMessage(err instanceof Error ? err.message : t('llmProviderSaveError')));
     } finally {
       setLlmProviderSaving(false);
     }
@@ -683,12 +888,20 @@ export default function SettingsPage() {
     try {
       const result = await client.testLLMProvider(provider.id);
       if (result.ok) {
+        setLlmProviderModels((prev) => ({...prev, [provider.id]: result.models}));
+        setLlmProviderModelErrors((prev) => {
+          const next = {...prev};
+          delete next[provider.id];
+          return next;
+        });
         setToast(t('llmProviderTestOk', {latency: result.latency_ms, count: result.models.length}));
       } else {
-        setToast(result.error || t('llmProviderTestFail'));
+        const message = getLLMProviderErrorMessage(result.error || t('llmProviderTestFail'));
+        setLlmProviderModelErrors((prev) => ({...prev, [provider.id]: message}));
+        setToast(message);
       }
     } catch (err: unknown) {
-      setToast(err instanceof Error ? err.message : t('llmProviderTestFail'));
+      setToast(getLLMProviderErrorMessage(err instanceof Error ? err.message : t('llmProviderTestFail')));
     } finally {
       setLlmProviderTestingId(null);
       setTimeout(() => setToast(''), 4000);
@@ -773,36 +986,31 @@ export default function SettingsPage() {
               ) : llmProviders.length === 0 ? (
                 <p className="settings-hint">{t('llmProvidersEmpty')}</p>
               ) : (
-                <div className="gmail-cred-table-wrap">
-                  <table className="gmail-cred-table">
-                    <thead>
-                      <tr>
-                        <th>{t('llmProviderName')}</th>
-                        <th>{t('llmProviderType')}</th>
-                        <th>{t('llmProviderBaseUrl')}</th>
-                        <th>{t('llmProviderModel')}</th>
-                        <th>{t('llmProviderStatus')}</th>
-                        <th>{t('actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {llmProviders.map((provider) => (
-                        <tr key={provider.id}>
-                          <td>{provider.name}</td>
-                          <td>{provider.provider_type}</td>
-                          <td className="gmail-cred-mono">{provider.base_url}</td>
-                          <td className="gmail-cred-mono">{provider.model_name || '-'}</td>
-                          <td>
-                            <span className={`badge ${provider.is_active ? 'badge-green' : 'badge-red'}`}>
-                              {provider.is_active ? t('llmProviderActive') : t('llmProviderInactive')}
-                            </span>
-                            {provider.is_default && (
-                              <span className="badge badge-green" style={{marginLeft: 6}}>
-                                {t('llmProviderDefault')}
+                <div className="llm-provider-list">
+                  {llmProviders.map((provider) => {
+                    const providerModels = llmProviderModels[provider.id];
+                    const providerModelError = String(llmProviderModelErrors[provider.id] || '').trim();
+                    const modelCount = Array.isArray(providerModels) ? providerModels.length : 0;
+                    return (
+                      <article key={provider.id} className="llm-provider-card">
+                        <div className="llm-provider-card-header">
+                          <div>
+                            <div className="llm-provider-card-title-row">
+                              <h4>{provider.name}</h4>
+                              <span className="llm-provider-type-pill">{provider.provider_type}</span>
+                            </div>
+                            <div className="llm-provider-badges">
+                              <span className={`badge ${provider.is_active ? 'badge-green' : 'badge-red'}`}>
+                                {provider.is_active ? t('llmProviderActive') : t('llmProviderInactive')}
                               </span>
-                            )}
-                          </td>
-                          <td className="gmail-cred-actions">
+                              {provider.is_default && (
+                                <span className="badge badge-green">
+                                  {t('llmProviderDefault')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="llm-provider-actions">
                             <button
                               type="button"
                               className="btn-secondary btn-sm"
@@ -829,28 +1037,54 @@ export default function SettingsPage() {
                                 </button>
                               </>
                             )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+                        <dl className="llm-provider-card-grid">
+                          <div>
+                            <dt>{t('llmProviderBaseUrl')}</dt>
+                            <dd className="gmail-cred-mono llm-provider-card-mono">{provider.base_url}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('llmProviderModel')}</dt>
+                            <dd className="gmail-cred-mono">{provider.model_name || '-'}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('llmProviderModels')}</dt>
+                            <dd>
+                              {providerModelError
+                                ? t('llmProviderModelsUnavailable')
+                                : (providerModels === null ? t('loading') : t('llmProviderModelCount', {count: modelCount}))}
+                            </dd>
+                          </div>
+                        </dl>
+                        {providerModelError && (
+                          <p className="settings-hint llm-provider-card-error">{providerModelError}</p>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               )}
 
               <hr className="settings-divider" />
               <h3>{t('llmRoleModels')}</h3>
-              {models.length === 0 && (
-                <p className="settings-hint">{t('modelLoadError')}</p>
-              )}
+              {models === null && !modelsError && <p className="settings-hint">{t('loading')}</p>}
+              {models === null && modelsError && <p className="settings-hint" style={{color: '#c0392b'}}>{modelsError}</p>}
+              {models !== null && models.length === 0 && <p className="settings-hint">{t('modelListEmpty')}</p>}
               {MODEL_KEYS.map((key) => {
                 const meta = items.find((i) => i.key === key);
                 const label = isZh ? (meta?.label_zh ?? key) : (meta?.label_en ?? key);
                 const selection = parseModelSetting(getVal(key), llmProviders);
                 const selectedProviderId = selection.providerId;
                 const selectedProvider = llmProviders.find((item) => item.id === selectedProviderId) ?? null;
+                const isLocalProvider = selectedProviderId === LOCAL_PROVIDER_ID;
+                const selectedProviderModels = isLocalProvider ? null : llmProviderModels[selectedProviderId];
+                const selectedProviderModelError = isLocalProvider
+                  ? modelsError
+                  : String(llmProviderModelErrors[selectedProviderId] || '').trim();
                 const modelOptions = (selectedProviderId === LOCAL_PROVIDER_ID
-                  ? models.map((m) => m.name)
-                  : (llmProviderModels[selectedProviderId] ?? [])).filter(Boolean);
+                  ? (models ?? []).map((m) => m.name)
+                  : (selectedProviderModels ?? [])).filter(Boolean);
                 const uniqueModelOptions = Array.from(new Set(modelOptions));
                 const selectedModelName = uniqueModelOptions.includes(selection.modelName)
                   ? selection.modelName
@@ -865,7 +1099,7 @@ export default function SettingsPage() {
                           const nextProviderId = e.target.value;
                           const nextProvider = llmProviders.find((item) => item.id === nextProviderId) ?? null;
                           const nextModelOptions = (nextProviderId === LOCAL_PROVIDER_ID
-                            ? models.map((m) => m.name)
+                            ? (models ?? []).map((m) => m.name)
                             : (llmProviderModels[nextProviderId] ?? [])).filter(Boolean);
                           const defaultProviderModel = String(nextProvider?.model_name || '').trim();
                           const nextModelName = defaultProviderModel && nextModelOptions.includes(defaultProviderModel)
@@ -923,6 +1157,20 @@ export default function SettingsPage() {
                         />
                       )}
                     </div>
+                    {!isLocalProvider && selectedProviderModels === null && !selectedProviderModelError && (
+                      <p className="settings-hint">{t('loading')}</p>
+                    )}
+                    {selectedProviderModelError && (
+                      <p className="settings-hint" style={{color: '#c0392b'}}>
+                        {t('llmProviderModelsLoadFailedOne', {name: selectedProvider?.name || selectedProviderId})}
+                      </p>
+                    )}
+                    {isLocalProvider && models !== null && !modelsError && models.length === 0 && (
+                      <p className="settings-hint">{t('modelListEmpty')}</p>
+                    )}
+                    {!isLocalProvider && selectedProviderModels !== null && !selectedProviderModelError && selectedProviderModels.length === 0 && (
+                      <p className="settings-hint">{t('modelListEmpty')}</p>
+                    )}
                   </div>
                 );
               })}
@@ -1041,8 +1289,10 @@ export default function SettingsPage() {
                     <button type="button" className="btn-secondary" onClick={handleLLMProviderCancel}>
                       {t('cancel')}
                     </button>
-                    <button type="submit" className="btn-primary" disabled={llmProviderSaving}>
-                      {llmProviderSaving ? t('loading') : (llmProviderEditId ? t('llmProviderUpdate') : t('llmProviderCreate'))}
+                    <button type="submit" className="btn-primary" disabled={llmProviderSaving || llmProviderValidating}>
+                      {llmProviderSaving || llmProviderValidating
+                        ? t('llmProviderValidating')
+                        : (llmProviderEditId ? t('llmProviderUpdate') : t('llmProviderCreate'))}
                     </button>
                   </div>
                 </form>
@@ -1168,8 +1418,53 @@ export default function SettingsPage() {
                 />
               </div>
               <hr className="settings-divider" />
+              <div className="gmail-quick-auth-card">
+                <h3>{tg('quickTitle')}</h3>
+                <p className="settings-hint">{tg('quickHint')}</p>
+                {gmailDeviceSession && (
+                  <div className="gmail-device-code-wrap">
+                    <div className="gmail-device-code-row">
+                      <span>{tg('deviceCodeLabel')}</span>
+                      <code className="gmail-device-code">{gmailDeviceSession.user_code}</code>
+                    </div>
+                    <p className="settings-hint">
+                      {tg('verificationUrlLabel')}:
+                      <a
+                        href={gmailDeviceSession.verification_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="gmail-guide-link"
+                      >
+                        {gmailDeviceSession.verification_url}
+                      </a>
+                    </p>
+                    <p className="settings-hint">
+                      {tg('remainingLabel')}: {gmailDeviceRemainingSec}s
+                    </p>
+                    {gmailDeviceStatus === 'pending' && (
+                      <p className="settings-hint">{tg('devicePending')}</p>
+                    )}
+                    {gmailDeviceStatus === 'completed' && (
+                      <p className="settings-hint gmail-device-ok">{tg('deviceCompleted')}</p>
+                    )}
+                    {gmailDeviceStatus === 'expired' && (
+                      <p className="settings-hint gmail-device-error">{tg('deviceExpired')}</p>
+                    )}
+                  </div>
+                )}
+                {gmailDeviceError && <p className="setup-error">{gmailDeviceError}</p>}
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleStartDeviceAuth}
+                  disabled={gmailDeviceStarting}
+                >
+                  {gmailDeviceStarting ? t('loading') : tg('quickStart')}
+                </button>
+              </div>
+              <hr className="settings-divider" />
               <div className="settings-section-header">
-                <h3>{tg('credentials')}</h3>
+                <h3>{tg('advancedTitle')}</h3>
                 <div className="settings-section-header-actions">
                   <button
                     type="button"
@@ -1180,7 +1475,7 @@ export default function SettingsPage() {
                   </button>
                   <button
                     type="button"
-                    className="btn-primary"
+                    className="btn-secondary"
                     onClick={handleGmailCreate}
                     disabled={gmailFormOpen}
                   >
@@ -1188,7 +1483,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
-              <p className="settings-hint">{tg('hint')}</p>
+              <p className="settings-hint">{tg('advancedHint')}</p>
 
               {gmailLoading ? (
                 <p className="settings-hint">{t('loading')}</p>
@@ -1210,16 +1505,16 @@ export default function SettingsPage() {
                     <tbody>
                       {gmailCreds.map((cred) => (
                         <tr key={cred.id}>
-                          <td>{cred.name}</td>
-                          <td className="gmail-cred-mono">{maskClientId(cred.client_id)}</td>
-                          <td>
+                          <td data-label={tg('tableName')}>{cred.name}</td>
+                          <td data-label={tg('tableClientId')} className="gmail-cred-mono">{maskClientId(cred.client_id)}</td>
+                          <td data-label={tg('tableStatus')}>
                             <span className={`badge ${cred.has_token ? 'badge-green' : 'badge-red'}`}>
                               {cred.has_token ? tg('statusAuthorized') : tg('statusUnauthorized')}
                             </span>
                           </td>
-                          <td>{new Date(cred.created_at).toLocaleDateString(locale)}</td>
-                          <td>{new Date(cred.updated_at).toLocaleDateString(locale)}</td>
-                          <td className="gmail-cred-actions">
+                          <td data-label={tg('tableCreatedAt')}>{new Date(cred.created_at).toLocaleDateString(locale)}</td>
+                          <td data-label={tg('tableUpdatedAt')}>{new Date(cred.updated_at).toLocaleDateString(locale)}</td>
+                          <td data-label={tg('tableActions')} className="gmail-cred-actions">
                             <button
                               type="button"
                               className="btn-secondary"
@@ -1515,10 +1810,10 @@ export default function SettingsPage() {
                     <tbody>
                       {users.map((u) => (
                         <tr key={u.id}>
-                          <td>{u.username}</td>
-                          <td>{u.role || 'user'}</td>
-                          <td>{new Date(u.created_at).toLocaleDateString(locale)}</td>
-                          <td>
+                          <td data-label={t('username')}>{u.username}</td>
+                          <td data-label={t('role')}>{u.role || 'user'}</td>
+                          <td data-label={t('createdAt')}>{new Date(u.created_at).toLocaleDateString(locale)}</td>
+                          <td data-label={t('actions')}>
                             <button
                               type="button"
                               className="btn-secondary btn-danger"

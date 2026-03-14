@@ -9,7 +9,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, urlparse, urlsplit, urlunsplit
 
 import requests
 from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Request, Response, UploadFile
@@ -39,6 +39,7 @@ from app.celery_app import celery_app
 from app.config import get_settings
 from app.llm_models.llm_provider import LLMProvider
 from app.llm_models.llm_provider import ProviderType as LLMProviderType
+from app.llm_models.llm_provider_model import LLMProviderModel
 from app.logging_utils import get_logger, sanitize_log_context
 from app.models import (
     AppSetting,
@@ -79,6 +80,8 @@ from app.schemas import (
     LLMProviderResponse,
     LLMProviderTestResult,
     LLMProviderUpdate,
+    LLMProviderValidateRequest,
+    LLMProviderValidateResult,
     MailEventItem,
     MailEventsResponse,
     MailHealthResponse,
@@ -113,6 +116,8 @@ from app.schemas import (
     UploadResponse,
 )
 from app.services.agent import execute_agent
+from app.services.agent_v2 import execute as execute_agent_v2
+from app.services.agent_v2.config import AgentV2Config
 from app.services.agent_graph import stream_agent_graph
 from app.services.document_post_process import (
     apply_summary_to_doc,
@@ -128,7 +133,7 @@ from app.services.governance import (
     load_snapshots_from_dir,
 )
 from app.services.ingestion import enqueue_ingestion_job, parse_retry_meta
-from app.services.llm_provider import LLMConfig, create_provider
+from app.services.llm_provider import LLMConfig, create_provider, normalize_ollama_base_url
 from app.services.llm_provider import ProviderType as ServiceProviderType
 from app.services.llm_router import get_router as get_llm_router
 from app.services.llm_summary import (
@@ -1132,9 +1137,24 @@ def plan(payload: PlannerRequest, db: Session = Depends(get_db)) -> PlannerDecis
 
 
 @router.post("/agent/execute", response_model=AgentExecuteResponse)
-def execute(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> AgentExecuteResponse:
+async def execute(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> AgentExecuteResponse:
+    """Execute agent query with automatic V1/V2 routing."""
+    import asyncio
+    
+    trace_id = f"agt-{uuid.uuid4().hex[:12]}"
+    
+    # Check if V2 should be used
+    use_v2 = AgentV2Config.should_use_v2(trace_id)
+    
     try:
-        return execute_agent(db, payload)
+        if use_v2:
+            logger.info("agent_execute_v2: trace_id=%s query=%s", trace_id, payload.query)
+            return await execute_agent_v2(payload, db, external_trace_id=trace_id)
+        else:
+            logger.info("agent_execute_v1: trace_id=%s query=%s", trace_id, payload.query)
+            # Run sync V1 in thread pool to avoid blocking event loop
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, execute_agent, db, payload)
     except requests.exceptions.Timeout as exc:
         logger.warning(
             "agent_execute_http_error",
@@ -1142,7 +1162,8 @@ def execute(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> Agen
                 {
                     "error_code": "agent_upstream_timeout",
                     "stage": str(getattr(exc, "fkv_stage", "") or "unknown"),
-                    "trace_id": str(getattr(exc, "fkv_trace_id", "") or ""),
+                    "trace_id": trace_id,
+                    "version": "v2" if use_v2 else "v1",
                 }
             ),
         )
@@ -1154,8 +1175,9 @@ def execute(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> Agen
                 {
                     "error_code": "agent_execute_failed",
                     "stage": str(getattr(exc, "fkv_stage", "") or "unknown"),
-                    "trace_id": str(getattr(exc, "fkv_trace_id", "") or ""),
+                    "trace_id": trace_id,
                     "exc_type": type(exc).__name__,
+                    "version": "v2" if use_v2 else "v1",
                 }
             ),
         )
@@ -1549,8 +1571,14 @@ RESTART_REQUIRED_KEYS = {
     "summary_timeout_section_sec",
     "summary_timeout_final_sec",
     "agent_synth_timeout_sec",
-    "ollama_base_url",
 }
+
+
+def _normalize_setting_for_restart_compare(key: str, value: str) -> str:
+    value_str = str(value)
+    if key == "ollama_base_url":
+        return normalize_ollama_base_url(value_str)
+    return value_str
 
 
 def _setting_source(key: str, db: Session) -> str:
@@ -1595,10 +1623,16 @@ def patch_settings(
     db: Session = Depends(get_db),
 ):
     """Update one or more settings in the DB."""
+    changed_keys: set[str] = set()
     for key, value in body.items():
         if key not in _RUNTIME_CONFIGURABLE:
             raise HTTPException(status_code=400, detail=f"Unknown setting: {key!r}")
+        previous_value = str(get_runtime_setting(key, db))
         str_value = str(value) if not isinstance(value, str) else value
+        if _normalize_setting_for_restart_compare(key, previous_value) != _normalize_setting_for_restart_compare(
+            key, str_value
+        ):
+            changed_keys.add(key)
         row = db.get(AppSetting, key)
         if row is None:
             row = AppSetting(key=key, value=str_value, updated_at=dt.datetime.now(dt.UTC))
@@ -1609,8 +1643,8 @@ def patch_settings(
     db.commit()
     invalidate_runtime_cache(*list(body.keys()))
 
-    # Check if restart is required
-    restart_required = bool(set(body.keys()) & RESTART_REQUIRED_KEYS)
+    # Restart is only required when the effective value actually changed.
+    restart_required = bool(changed_keys & RESTART_REQUIRED_KEYS)
     return {"ok": True, "restart_required": restart_required}
 
 
@@ -1885,7 +1919,7 @@ def _require_admin_user(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-def _to_llm_provider_response(provider: LLMProvider) -> LLMProviderResponse:
+def _to_llm_provider_response(provider: LLMProvider, warning: str | None = None) -> LLMProviderResponse:
     return LLMProviderResponse(
         id=provider.id,
         name=provider.name,
@@ -1899,6 +1933,7 @@ def _to_llm_provider_response(provider: LLMProvider) -> LLMProviderResponse:
         is_default=bool(provider.is_default),
         created_at=provider.created_at,
         updated_at=provider.updated_at,
+        warning=warning,
     )
 
 
@@ -1913,34 +1948,179 @@ def _to_service_provider_type(provider_type: LLMProviderType) -> ServiceProvider
     return mapping.get(provider_type, ServiceProviderType.CUSTOM)
 
 
-def _list_models_from_provider(provider: LLMProvider) -> list[str]:
-    base_url = str(provider.base_url or "").strip().rstrip("/")
-    if not base_url:
-        return []
+def _normalize_provider_base_url(provider_type: LLMProviderType, base_url: str) -> str:
+    value = str(base_url or "").strip()
+    if provider_type == LLMProviderType.OLLAMA:
+        return normalize_ollama_base_url(value)
+    parsed = urlsplit(value)
+    if not parsed.scheme or not parsed.netloc:
+        return value
+    path = (parsed.path or "").rstrip("/")
+    if provider_type in {LLMProviderType.OPENAI, LLMProviderType.KIMI} and not path:
+        path = "/v1"
+    elif provider_type == LLMProviderType.GLM and not path:
+        path = "/api/paas/v4"
+    return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, parsed.fragment)).rstrip("/")
 
-    if provider.provider_type == LLMProviderType.OLLAMA:
-        resp = requests.get(f"{base_url}/api/tags", timeout=15)
-        resp.raise_for_status()
-        rows = resp.json().get("models", [])
-        return [str(item.get("name") or "").strip() for item in rows if str(item.get("name") or "").strip()]
 
-    api_key = decrypt_value(provider.api_key_encrypted)
+def _require_provider_api_key(provider_type: LLMProviderType, api_key: str | None) -> str | None:
+    key = str(api_key or "").strip() or None
+    if provider_type != LLMProviderType.OLLAMA and not key:
+        raise HTTPException(status_code=422, detail="llm_provider_api_key_required")
+    return key
+
+
+def _extract_provider_error_status_code(exc: Exception) -> int | None:
+    status_code = getattr(exc, "status_code", None)
+    if isinstance(status_code, int):
+        return status_code
+    response = getattr(exc, "response", None)
+    response_status = getattr(response, "status_code", None)
+    if isinstance(response_status, int):
+        return response_status
+    return None
+
+
+def _probe_llm_provider_connection(
+    *,
+    provider_type: LLMProviderType,
+    base_url: str,
+    api_key: str | None,
+    model_name: str,
+) -> None:
+    normalized_model_name = str(model_name or "").strip()
+    if not normalized_model_name:
+        raise ValueError("model_name_required_when_models_endpoint_is_unavailable")
+
     config = LLMConfig(
-        provider_type=_to_service_provider_type(provider.provider_type),
-        base_url=base_url,
-        api_key=api_key,
-        model_name=provider.model_name or "",
+        provider_type=_to_service_provider_type(provider_type),
+        base_url=_normalize_provider_base_url(provider_type, base_url).rstrip("/"),
+        api_key=_require_provider_api_key(provider_type, api_key),
+        model_name=normalized_model_name,
         timeout=15,
     )
-    client = create_provider(config).create_client()
-    rows = client.models.list()
-    data = getattr(rows, "data", rows) or []
-    out: list[str] = []
-    for item in data:
-        model_id = str(getattr(item, "id", "") or "").strip()
-        if model_id:
-            out.append(model_id)
-    return out
+    provider = create_provider(config)
+    provider.chat_completion(
+        messages=[{"role": "user", "content": "ping"}],
+        model=normalized_model_name,
+        temperature=0,
+        max_tokens=1,
+    )
+
+
+def _list_models_from_config(
+    provider_type: LLMProviderType,
+    base_url: str,
+    api_key: str | None,
+    model_name: str = "",
+) -> tuple[list[str], bool]:
+    base_url = _normalize_provider_base_url(provider_type, base_url).rstrip("/")
+    if not base_url:
+        return [], False
+
+    try:
+        if provider_type == LLMProviderType.OLLAMA:
+            resp = requests.get(f"{base_url}/api/tags", timeout=15)
+            resp.raise_for_status()
+            rows = resp.json().get("models", [])
+            return (
+                [str(item.get("name") or "").strip() for item in rows if str(item.get("name") or "").strip()],
+                True,
+            )
+
+        config = LLMConfig(
+            provider_type=_to_service_provider_type(provider_type),
+            base_url=base_url,
+            api_key=_require_provider_api_key(provider_type, api_key),
+            model_name=str(model_name or "").strip(),
+            timeout=15,
+        )
+        client = create_provider(config).create_client()
+        rows = client.models.list()
+        data = getattr(rows, "data", rows) or []
+        out: list[str] = []
+        for item in data:
+            model_id = str(getattr(item, "id", "") or "").strip()
+            if model_id:
+                out.append(model_id)
+        return out, True
+    except Exception as exc:
+        logger.warning(
+            "llm_provider_models_list_failed",
+            extra=sanitize_log_context(
+                {
+                    "provider_type": provider_type.value,
+                    "base_url": base_url,
+                    "status_code": _extract_provider_error_status_code(exc),
+                    "exc_type": type(exc).__name__,
+                }
+            ),
+        )
+        return [], False
+
+
+def _list_models_from_provider(provider: LLMProvider) -> list[str]:
+    models, _ = _list_models_from_config(
+        provider_type=provider.provider_type,
+        base_url=provider.base_url,
+        api_key=decrypt_value(provider.api_key_encrypted),
+        model_name=provider.model_name or "",
+    )
+    return models
+
+
+def _sync_llm_provider_models(db: Session, provider_id: str, models: list[str]) -> None:
+    db.query(LLMProviderModel).filter(LLMProviderModel.provider_id == provider_id).delete()
+    seen: set[str] = set()
+    for model_name in models:
+        normalized = str(model_name or "").strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        db.add(LLMProviderModel(provider_id=provider_id, model_name=normalized))
+
+
+def _get_cached_llm_provider_models(db: Session, provider_id: str) -> list[str]:
+    rows = (
+        db.execute(
+            select(LLMProviderModel.model_name)
+            .where(LLMProviderModel.provider_id == provider_id)
+            .order_by(LLMProviderModel.model_name.asc())
+        )
+        .scalars()
+        .all()
+    )
+    return [str(item or "").strip() for item in rows if str(item or "").strip()]
+
+
+def _validate_llm_provider_config(
+    *,
+    provider_type: LLMProviderType,
+    base_url: str,
+    api_key: str | None,
+    model_name: str,
+) -> tuple[str, list[str], int, str | None]:
+    normalized_base_url = _normalize_provider_base_url(provider_type, base_url)
+    started = time.monotonic()
+    models, models_request_succeeded = _list_models_from_config(
+        provider_type=provider_type,
+        base_url=normalized_base_url,
+        api_key=api_key,
+        model_name=model_name,
+    )
+    warning: str | None = None
+    if not models_request_succeeded:
+        if provider_type == LLMProviderType.OLLAMA:
+            raise ValueError("ollama_models_list_unavailable")
+        _probe_llm_provider_connection(
+            provider_type=provider_type,
+            base_url=normalized_base_url,
+            api_key=api_key,
+            model_name=model_name,
+        )
+        warning = "Provider connection validated via chat completion, but /models is unavailable. Configure the model name manually."
+    latency_ms = int((time.monotonic() - started) * 1000)
+    return normalized_base_url, models, latency_ms, warning
 
 
 def _clear_llm_provider_runtime_cache() -> None:
@@ -1963,6 +2143,49 @@ def list_llm_providers(
     return [_to_llm_provider_response(item) for item in providers]
 
 
+@router.post("/llm/providers/validate", response_model=LLMProviderValidateResult)
+def validate_llm_provider(
+    payload: LLMProviderValidateRequest,
+    _: User = Depends(_require_admin_user),
+    db: Session = Depends(get_db),
+) -> LLMProviderValidateResult:
+    provider_type = LLMProviderType(payload.provider_type)
+    existing = db.get(LLMProvider, payload.provider_id) if payload.provider_id else None
+    if payload.provider_id and existing is None:
+        raise HTTPException(status_code=404, detail="llm_provider_not_found")
+
+    api_key = str(payload.api_key or "").strip() or None
+    if api_key is None and existing is not None:
+        api_key = decrypt_value(existing.api_key_encrypted)
+
+    try:
+        normalized_base_url, models, latency_ms, warning = _validate_llm_provider_config(
+            provider_type=provider_type,
+            base_url=payload.base_url,
+            api_key=api_key,
+            model_name=payload.model_name,
+        )
+        return LLMProviderValidateResult(
+            ok=True,
+            latency_ms=latency_ms,
+            models=models,
+            normalized_base_url=normalized_base_url,
+            warning=warning,
+            error=None,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        return LLMProviderValidateResult(
+            ok=False,
+            latency_ms=0,
+            models=[],
+            normalized_base_url=_normalize_provider_base_url(provider_type, payload.base_url),
+            warning=None,
+            error=str(exc),
+        )
+
+
 @router.post("/llm/providers", response_model=LLMProviderResponse)
 def create_llm_provider(
     payload: LLMProviderCreate,
@@ -1971,11 +2194,18 @@ def create_llm_provider(
 ) -> LLMProviderResponse:
     import uuid
 
+    provider_type = LLMProviderType(payload.provider_type)
+    normalized_base_url, models, _, warning = _validate_llm_provider_config(
+        provider_type=provider_type,
+        base_url=payload.base_url,
+        api_key=payload.api_key,
+        model_name=payload.model_name,
+    )
     provider = LLMProvider(
         id=str(uuid.uuid4()),
         name=str(payload.name).strip(),
-        provider_type=LLMProviderType(payload.provider_type),
-        base_url=str(payload.base_url).strip(),
+        provider_type=provider_type,
+        base_url=normalized_base_url,
         api_key_encrypted=encrypt_value(str(payload.api_key or "").strip() or None),
         model_name=str(payload.model_name or "").strip(),
         is_active=bool(payload.is_active),
@@ -1984,10 +2214,11 @@ def create_llm_provider(
     if provider.is_default:
         db.query(LLMProvider).update({LLMProvider.is_default: False})
     db.add(provider)
+    _sync_llm_provider_models(db, provider.id, models)
     db.commit()
     db.refresh(provider)
     _clear_llm_provider_runtime_cache()
-    return _to_llm_provider_response(provider)
+    return _to_llm_provider_response(provider, warning=warning)
 
 
 @router.put("/llm/providers/{provider_id}", response_model=LLMProviderResponse)
@@ -2001,18 +2232,37 @@ def update_llm_provider(
     if provider is None:
         raise HTTPException(status_code=404, detail="llm_provider_not_found")
 
+    next_provider_type = LLMProviderType(payload.provider_type) if payload.provider_type is not None else provider.provider_type
+    next_base_url = payload.base_url if payload.base_url is not None else provider.base_url
+    next_model_name = str(payload.model_name if payload.model_name is not None else provider.model_name or "").strip()
+    next_api_key = (
+        str(payload.api_key or "").strip() or None
+        if "api_key" in payload.model_fields_set
+        else decrypt_value(provider.api_key_encrypted)
+    )
+    next_is_active = bool(payload.is_active) if payload.is_active is not None else bool(provider.is_active)
+
+    models = _get_cached_llm_provider_models(db, provider.id)
+    normalized_base_url = _normalize_provider_base_url(next_provider_type, next_base_url)
+    warning: str | None = None
+    if next_is_active:
+        normalized_base_url, models, _, warning = _validate_llm_provider_config(
+            provider_type=next_provider_type,
+            base_url=next_base_url,
+            api_key=next_api_key,
+            model_name=next_model_name,
+        )
+
     if payload.name is not None:
         provider.name = str(payload.name).strip()
-    if payload.provider_type is not None:
-        provider.provider_type = LLMProviderType(payload.provider_type)
-    if payload.base_url is not None:
-        provider.base_url = str(payload.base_url).strip()
+    provider.provider_type = next_provider_type
+    provider.base_url = normalized_base_url
     if "api_key" in payload.model_fields_set:
-        provider.api_key_encrypted = encrypt_value(str(payload.api_key or "").strip() or None)
+        provider.api_key_encrypted = encrypt_value(next_api_key)
     if payload.model_name is not None:
-        provider.model_name = str(payload.model_name or "").strip()
+        provider.model_name = next_model_name
     if payload.is_active is not None:
-        provider.is_active = bool(payload.is_active)
+        provider.is_active = next_is_active
         if (not provider.is_active) and provider.is_default:
             provider.is_default = False
     if payload.is_default is not None:
@@ -2020,10 +2270,11 @@ def update_llm_provider(
         if provider.is_default:
             db.query(LLMProvider).filter(LLMProvider.id != provider.id).update({LLMProvider.is_default: False})
 
+    _sync_llm_provider_models(db, provider.id, models)
     db.commit()
     db.refresh(provider)
     _clear_llm_provider_runtime_cache()
-    return _to_llm_provider_response(provider)
+    return _to_llm_provider_response(provider, warning=warning)
 
 
 @router.delete("/llm/providers/{provider_id}")
@@ -2061,29 +2312,28 @@ def test_llm_provider(
     if provider_record is None:
         raise HTTPException(status_code=404, detail="llm_provider_not_found")
 
-    started = time.monotonic()
     try:
-        config = LLMConfig(
-            provider_type=_to_service_provider_type(provider_record.provider_type),
-            base_url=str(provider_record.base_url or "").strip(),
+        _, models, latency_ms, warning = _validate_llm_provider_config(
+            provider_type=provider_record.provider_type,
+            base_url=provider_record.base_url,
             api_key=decrypt_value(provider_record.api_key_encrypted),
             model_name=str(provider_record.model_name or "").strip(),
-            timeout=15,
         )
-        provider = create_provider(config)
-        ok = bool(provider.health_check())
-        models = _list_models_from_provider(provider_record) if ok else []
+        _sync_llm_provider_models(db, provider_record.id, models)
+        db.commit()
         return LLMProviderTestResult(
-            ok=ok,
-            latency_ms=int((time.monotonic() - started) * 1000),
+            ok=True,
+            latency_ms=latency_ms,
             models=models,
-            error=None if ok else "provider_unreachable",
+            warning=warning,
+            error=None,
         )
     except Exception as exc:
         return LLMProviderTestResult(
             ok=False,
-            latency_ms=int((time.monotonic() - started) * 1000),
+            latency_ms=0,
             models=[],
+            warning=None,
             error=str(exc),
         )
 
@@ -2091,6 +2341,7 @@ def test_llm_provider(
 @router.get("/llm/providers/{provider_id}/models", response_model=list[str])
 def list_llm_provider_models(
     provider_id: str,
+    refresh: bool = Query(default=False),
     _: object = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[str]:
@@ -2098,7 +2349,14 @@ def list_llm_provider_models(
     if provider_record is None:
         raise HTTPException(status_code=404, detail="llm_provider_not_found")
     try:
-        return _list_models_from_provider(provider_record)
+        if not refresh:
+            cached = _get_cached_llm_provider_models(db, provider_id)
+            if cached:
+                return cached
+        models = _list_models_from_provider(provider_record)
+        _sync_llm_provider_models(db, provider_id, models)
+        db.commit()
+        return models
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"llm_provider_models_failed:{type(exc).__name__}") from exc
 
@@ -2114,6 +2372,140 @@ router = _root_router
 # ---------------------------------------------------------------------------
 # Gmail Credentials API
 # ---------------------------------------------------------------------------
+
+
+class GmailDeviceAuthStartResponse(BaseModel):
+    device_code: str
+    user_code: str
+    verification_url: str
+    expires_in: int
+    interval: int
+
+
+class GmailDeviceAuthCompleteRequest(BaseModel):
+    device_code: str
+
+
+def _build_device_flow_credential_name() -> str:
+    ts = dt.datetime.now(dt.UTC).strftime("%Y-%m-%d %H:%M")
+    return f"Quick Device Flow {ts}"
+
+
+@router.post("/gmail/device-auth", response_model=GmailDeviceAuthStartResponse)
+def gmail_device_auth_start(
+    _: object = Depends(get_current_user),
+) -> GmailDeviceAuthStartResponse:
+    client_id = str(settings.google_client_id or "").strip()
+    if not client_id:
+        raise HTTPException(status_code=500, detail="google_client_id_not_configured")
+
+    try:
+        resp = requests.post(
+            "https://oauth2.googleapis.com/device/code",
+            data={
+                "client_id": client_id,
+                "scope": "openid email profile https://www.googleapis.com/auth/gmail.readonly",
+            },
+            timeout=20,
+        )
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=f"device_code_request_failed:{type(exc).__name__}") from exc
+
+    payload: dict = {}
+    try:
+        payload = dict(resp.json() or {})
+    except Exception:
+        payload = {}
+    if resp.status_code >= 400:
+        detail = str(payload.get("error_description") or payload.get("error") or "device_code_request_failed")
+        raise HTTPException(status_code=resp.status_code, detail=detail)
+
+    device_code = str(payload.get("device_code") or "").strip()
+    user_code = str(payload.get("user_code") or "").strip()
+    verification_url = str(payload.get("verification_url") or payload.get("verification_uri") or "").strip()
+    if (not device_code) or (not user_code) or (not verification_url):
+        raise HTTPException(status_code=502, detail="invalid_device_code_response")
+
+    return GmailDeviceAuthStartResponse(
+        device_code=device_code,
+        user_code=user_code,
+        verification_url=verification_url,
+        expires_in=max(int(payload.get("expires_in") or 0), 0),
+        interval=max(int(payload.get("interval") or 5), 1),
+    )
+
+
+@router.post("/gmail/device-auth/complete")
+def gmail_device_auth_complete(
+    body: GmailDeviceAuthCompleteRequest,
+    _: object = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    device_code = str(body.device_code or "").strip()
+    if not device_code:
+        raise HTTPException(status_code=400, detail="device_code_required")
+
+    client_id = str(settings.google_client_id or "").strip()
+    client_secret = str(settings.google_client_secret or "").strip()
+    if (not client_id) or (not client_secret):
+        raise HTTPException(status_code=500, detail="google_device_flow_not_configured")
+
+    try:
+        token_resp = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "device_code": device_code,
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            },
+            timeout=20,
+        )
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=f"device_token_request_failed:{type(exc).__name__}") from exc
+
+    payload: dict = {}
+    try:
+        payload = dict(token_resp.json() or {})
+    except Exception:
+        payload = {}
+
+    if token_resp.status_code >= 400:
+        error_code = str(payload.get("error") or "").strip().lower()
+        if error_code in {"authorization_pending", "slow_down"}:
+            return {"status": "pending", "credential_id": None}
+        if error_code in {"expired_token", "access_denied", "invalid_grant"}:
+            raise HTTPException(status_code=400, detail=(error_code or "device_auth_failed"))
+        detail = str(payload.get("error_description") or payload.get("error") or "device_auth_failed")
+        raise HTTPException(status_code=token_resp.status_code, detail=detail)
+
+    access_token = str(payload.get("access_token") or "").strip()
+    if not access_token:
+        return {"status": "pending", "credential_id": None}
+
+    from app.models import GmailCredentials
+    from app.utils.encryption import encrypt
+
+    refresh_token = str(payload.get("refresh_token") or "").strip()
+    cred = GmailCredentials(
+        id=str(uuid.uuid4()),
+        name=_build_device_flow_credential_name(),
+        client_id=client_id,
+        client_secret_encrypted=encrypt(client_secret),
+        redirect_uri="device_flow",
+        token_encrypted=encrypt(access_token),
+        refresh_token_encrypted=encrypt(refresh_token) if refresh_token else None,
+        token_uri="https://oauth2.googleapis.com/token",
+        auth_uri="https://oauth2.googleapis.com/device/code",
+        scopes=str(payload.get("scope") or "https://www.googleapis.com/auth/gmail.readonly"),
+        is_active=True,
+    )
+    expires_in = int(payload.get("expires_in") or 0)
+    if expires_in > 0:
+        cred.token_expiry = dt.datetime.now(dt.UTC) + dt.timedelta(seconds=expires_in)
+    db.add(cred)
+    db.commit()
+    return {"status": "completed", "credential_id": cred.id}
 
 
 @router.get("/gmail/credentials")

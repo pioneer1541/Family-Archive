@@ -1,7 +1,7 @@
 services:
   fkv-api:
     environment:
-      - FAMILY_VAULT_ALLOWED_ORIGINS=http://localhost:18181
+      - FAMILY_VAULT_ALLOWED_ORIGINS=https://vault.thisvshome.com
       - FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER=0
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "18080"]
 
@@ -19,4 +19,3 @@ services:
     command: ["sh", "-c", "npm install && npm run build && npm run start"]
     environment:
       - NEXT_DIST_DIR=.next-runtime
-

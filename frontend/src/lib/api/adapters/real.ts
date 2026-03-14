@@ -32,15 +32,29 @@ import type {
   GmailCredential,
   GmailCredentialCreate,
   GmailCredentialUpdate,
+  GmailDeviceAuthStart,
+  GmailDeviceAuthComplete,
   LLMProvider,
   LLMProviderCreate,
   LLMProviderTestResult,
-  LLMProviderUpdate
+  LLMProviderUpdate,
+  LLMProviderValidateRequest,
+  LLMProviderValidateResult
 } from '../types';
 
 const API_BASE = process.env.NEXT_PUBLIC_FKV_API_BASE || '/api';
+
+// 统一的 fetch wrapper，确保发送 cookie
+async function fetchWithCredentials(url: string, init?: RequestInit): Promise<Response> {
+  return fetch(url, {
+    ...init,
+    credentials: 'include',
+  });
+}
 const GMAIL_V1_BASE = `${API_BASE}/v1/gmail/credentials`;
 const GMAIL_LEGACY_BASE = `${API_BASE}/gmail/credentials`;
+const GMAIL_DEVICE_V1_BASE = `${API_BASE}/v1/gmail/device-auth`;
+const GMAIL_DEVICE_LEGACY_BASE = `${API_BASE}/gmail/device-auth`;
 const DOC_CACHE_MAX = 200;
 const DOC_CACHE_TTL_MS = 10 * 60 * 1000;
 const docCache = new Map<string, {doc: KbDoc; ts: number}>();
@@ -309,7 +323,7 @@ function toErrorDetail(input: unknown): string {
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+  const res = await fetchWithCredentials(url, init);
   if (!res.ok) {
     let detail = '';
     try {
@@ -957,7 +971,7 @@ async function streamAgent(
   onEvent: (event: AgentStreamEvent) => void,
   signal?: AbortSignal
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/v1/agent/execute/stream`, {
+  const res = await fetchWithCredentials(`${API_BASE}/v1/agent/execute/stream`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: _buildAgentRequestBody(payload),
@@ -1104,13 +1118,13 @@ async function getSyncRun(runId: string): Promise<SyncRunDetail | null> {
 // ---------------------------------------------------------------------------
 
 async function getAuthStatus(): Promise<AuthStatus> {
-  const r = await fetch(`${API_BASE}/v1/auth/status`);
+  const r = await fetchWithCredentials(`${API_BASE}/v1/auth/status`);
   const data = await r.json();
   return {setup_complete: Boolean(data?.setup_complete)};
 }
 
 async function authSetup(password: string): Promise<void> {
-  const r = await fetch(`${API_BASE}/v1/auth/setup`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/auth/setup`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({password}),
@@ -1122,7 +1136,7 @@ async function authSetup(password: string): Promise<void> {
 }
 
 async function authLogin(username: string, password: string): Promise<void> {
-  const r = await fetch(`${API_BASE}/v1/auth/login`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/auth/login`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({username, password}),
@@ -1134,11 +1148,11 @@ async function authLogin(username: string, password: string): Promise<void> {
 }
 
 async function authLogout(): Promise<void> {
-  await fetch(`${API_BASE}/v1/auth/logout`, {method: 'POST'});
+  await fetchWithCredentials(`${API_BASE}/v1/auth/logout`, {method: 'POST'});
 }
 
 async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
-  const r = await fetch(`${API_BASE}/v1/auth/password`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/auth/password`, {
     method: 'PATCH',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({old_password: oldPassword, new_password: newPassword}),
@@ -1151,7 +1165,7 @@ async function changePassword(oldPassword: string, newPassword: string): Promise
 
 async function getMe(): Promise<UserResponse | null> {
   try {
-    const r = await fetch(`${API_BASE}/v1/auth/me`);
+    const r = await fetchWithCredentials(`${API_BASE}/v1/auth/me`);
     if (!r.ok) return null;
     const raw = (await r.json()) as Record<string, unknown>;
     return {
@@ -1167,7 +1181,7 @@ async function getMe(): Promise<UserResponse | null> {
 }
 
 async function authRegister(username: string, password: string, email?: string): Promise<void> {
-  const r = await fetch(`${API_BASE}/v1/auth/register`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/auth/register`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({username, password, email}),
@@ -1179,7 +1193,7 @@ async function authRegister(username: string, password: string, email?: string):
 }
 
 async function listUsers(): Promise<UserListResult> {
-  const r = await fetch(`${API_BASE}/v1/auth/users`);
+  const r = await fetchWithCredentials(`${API_BASE}/v1/auth/users`);
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
     throw new Error(err?.detail || 'Failed to list users');
@@ -1199,7 +1213,7 @@ async function listUsers(): Promise<UserListResult> {
 }
 
 async function createUser(payload: AdminCreateUserPayload): Promise<UserResponse> {
-  const r = await fetch(`${API_BASE}/v1/auth/users`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/auth/users`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(payload),
@@ -1219,7 +1233,7 @@ async function createUser(payload: AdminCreateUserPayload): Promise<UserResponse
 }
 
 async function deleteUser(userId: string): Promise<void> {
-  const r = await fetch(`${API_BASE}/v1/auth/users/${encodeURIComponent(userId)}`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/auth/users/${encodeURIComponent(userId)}`, {
     method: 'DELETE',
   });
   if (!r.ok) {
@@ -1233,14 +1247,14 @@ async function deleteUser(userId: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function getSettings(): Promise<AppSettingItem[]> {
-  const r = await fetch(`${API_BASE}/v1/settings`);
+  const r = await fetchWithCredentials(`${API_BASE}/v1/settings`);
   if (!r.ok) return [];
   const data = await r.json();
   return Array.isArray(data?.items) ? data.items : [];
 }
 
 async function updateSettings(patch: Record<string, string>): Promise<void> {
-  const r = await fetch(`${API_BASE}/v1/settings`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/settings`, {
     method: 'PATCH',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(patch),
@@ -1250,7 +1264,7 @@ async function updateSettings(patch: Record<string, string>): Promise<void> {
 
 async function getOllamaModels(): Promise<OllamaModel[]> {
   try {
-    const r = await fetch(`${API_BASE}/v1/ollama/models`);
+    const r = await fetchWithCredentials(`${API_BASE}/v1/ollama/models`);
     if (!r.ok) return [];
     const data = await r.json();
     return Array.isArray(data?.models) ? data.models : [];
@@ -1260,19 +1274,19 @@ async function getOllamaModels(): Promise<OllamaModel[]> {
 }
 
 async function getConnectivity(): Promise<ConnectivityStatus> {
-  const r = await fetch(`${API_BASE}/v1/health/connectivity`);
+  const r = await fetchWithCredentials(`${API_BASE}/v1/health/connectivity`);
   if (!r.ok) throw new Error('Connectivity check failed');
   return r.json();
 }
 
 async function getKeywords(): Promise<KeywordLists> {
-  const r = await fetch(`${API_BASE}/v1/settings/keywords`);
+  const r = await fetchWithCredentials(`${API_BASE}/v1/settings/keywords`);
   if (!r.ok) return {person_keywords: {}, pet_keywords: {}, location_keywords: {}};
   return r.json();
 }
 
 async function updateKeywords(patch: Partial<KeywordLists>): Promise<void> {
-  const r = await fetch(`${API_BASE}/v1/settings/keywords`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/settings/keywords`, {
     method: 'PATCH',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(patch),
@@ -1282,7 +1296,7 @@ async function updateKeywords(patch: Partial<KeywordLists>): Promise<void> {
 
 async function restartServices(): Promise<{ok: boolean; message?: string; error?: string; manual?: boolean}> {
   try {
-    const r = await fetch(`${API_BASE}/v1/restart`, {
+    const r = await fetchWithCredentials(`${API_BASE}/v1/restart`, {
       method: 'POST',
     });
     const data = await r.json().catch(() => ({}));
@@ -1302,7 +1316,7 @@ async function fetchGmailWithFallback(pathSuffix = '', init?: RequestInit): Prom
   let fallback: Response | null = null;
   for (const url of urls) {
     try {
-      const response = await fetch(url, init);
+      const response = await fetchWithCredentials(url, init);
       if (response.status !== 404) return response;
       fallback = response;
     } catch {
@@ -1311,6 +1325,22 @@ async function fetchGmailWithFallback(pathSuffix = '', init?: RequestInit): Prom
   }
   if (fallback) return fallback;
   throw new Error('Gmail credentials endpoint unreachable');
+}
+
+async function fetchGmailDeviceWithFallback(pathSuffix = '', init?: RequestInit): Promise<Response> {
+  const urls = [`${GMAIL_DEVICE_V1_BASE}${pathSuffix}`, `${GMAIL_DEVICE_LEGACY_BASE}${pathSuffix}`];
+  let fallback: Response | null = null;
+  for (const url of urls) {
+    try {
+      const response = await fetchWithCredentials(url, init);
+      if (response.status !== 404) return response;
+      fallback = response;
+    } catch {
+      // Try next endpoint variant.
+    }
+  }
+  if (fallback) return fallback;
+  throw new Error('Gmail device auth endpoint unreachable');
 }
 
 
@@ -1356,6 +1386,42 @@ async function getGmailAuthUrl(credId: string, redirectUri?: string): Promise<{a
   return {auth_url: authUrl};
 }
 
+async function startGmailDeviceAuth(): Promise<GmailDeviceAuthStart> {
+  const r = await fetchGmailDeviceWithFallback('', {
+    method: 'POST',
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String(err?.detail || 'Failed to start Gmail quick auth'));
+  }
+  const data = await r.json().catch(() => ({}));
+  return {
+    device_code: String(data?.device_code || '').trim(),
+    user_code: String(data?.user_code || '').trim(),
+    verification_url: String(data?.verification_url || '').trim(),
+    expires_in: Number(data?.expires_in || 0),
+    interval: Number(data?.interval || 5),
+  };
+}
+
+async function completeGmailDeviceAuth(deviceCode: string): Promise<GmailDeviceAuthComplete> {
+  const r = await fetchGmailDeviceWithFallback('/complete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({device_code: deviceCode}),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String(err?.detail || 'Failed to complete Gmail quick auth'));
+  }
+  const data = await r.json().catch(() => ({}));
+  const status = String(data?.status || '').trim();
+  return {
+    status: status === 'completed' ? 'completed' : (status === 'slow_down' ? 'slow_down' : 'pending'),
+    credential_id: String(data?.credential_id || '').trim() || null,
+  };
+}
+
 async function createGmailCredential(data: GmailCredentialCreate): Promise<GmailCredential> {
   const r = await fetchGmailWithFallback('', {
     method: "POST",
@@ -1374,7 +1440,7 @@ async function updateGmailCredential(id: string, data: GmailCredentialUpdate): P
   const urls = [`${GMAIL_V1_BASE}${suffix}`, `${GMAIL_LEGACY_BASE}${suffix}`];
   for (const url of urls) {
     for (const method of ['PATCH', 'PUT']) {
-      const r = await fetch(url, {
+      const r = await fetchWithCredentials(url, {
         method,
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(data),
@@ -1405,14 +1471,14 @@ async function deleteGmailCredential(id: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function getLLMProviders(): Promise<LLMProvider[]> {
-  const r = await fetch(`${API_BASE}/v1/llm/providers`);
+  const r = await fetchWithCredentials(`${API_BASE}/v1/llm/providers`);
   if (!r.ok) return [];
   const rows = (await r.json().catch(() => [])) as unknown;
   return Array.isArray(rows) ? (rows as LLMProvider[]) : [];
 }
 
 async function createLLMProvider(data: LLMProviderCreate): Promise<LLMProvider> {
-  const r = await fetch(`${API_BASE}/v1/llm/providers`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/llm/providers`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(data),
@@ -1425,7 +1491,7 @@ async function createLLMProvider(data: LLMProviderCreate): Promise<LLMProvider> 
 }
 
 async function updateLLMProvider(id: string, data: LLMProviderUpdate): Promise<LLMProvider> {
-  const r = await fetch(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(data),
@@ -1438,7 +1504,7 @@ async function updateLLMProvider(id: string, data: LLMProviderUpdate): Promise<L
 }
 
 async function deleteLLMProvider(id: string): Promise<void> {
-  const r = await fetch(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
   if (!r.ok) {
@@ -1448,7 +1514,7 @@ async function deleteLLMProvider(id: string): Promise<void> {
 }
 
 async function testLLMProvider(id: string): Promise<LLMProviderTestResult> {
-  const r = await fetch(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}/test`, {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}/test`, {
     method: 'POST',
   });
   if (!r.ok) {
@@ -1458,9 +1524,25 @@ async function testLLMProvider(id: string): Promise<LLMProviderTestResult> {
   return (await r.json()) as LLMProviderTestResult;
 }
 
+async function validateLLMProvider(data: LLMProviderValidateRequest): Promise<LLMProviderValidateResult> {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/llm/providers/validate`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String((err as {detail?: string})?.detail || 'Failed to validate provider'));
+  }
+  return (await r.json()) as LLMProviderValidateResult;
+}
+
 async function getLLMProviderModels(id: string): Promise<string[]> {
-  const r = await fetch(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}/models`);
-  if (!r.ok) return [];
+  const r = await fetchWithCredentials(`${API_BASE}/v1/llm/providers/${encodeURIComponent(id)}/models`);
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(String((err as {detail?: string})?.detail || 'Failed to load provider models'));
+  }
   const rows = (await r.json().catch(() => [])) as unknown;
   return Array.isArray(rows) ? rows.map((item) => String(item || '').trim()).filter(Boolean) : [];
 }
@@ -1499,6 +1581,8 @@ export function createRealAdapter(): KbApiClient {
     deleteUser,
     getGmailCredentials,
     getGmailAuthUrl,
+    startGmailDeviceAuth,
+    completeGmailDeviceAuth,
     createGmailCredential,
     updateGmailCredential,
     deleteGmailCredential,
@@ -1507,6 +1591,7 @@ export function createRealAdapter(): KbApiClient {
     updateLLMProvider,
     deleteLLMProvider,
     testLLMProvider,
+    validateLLMProvider,
     getLLMProviderModels,
   };
 }

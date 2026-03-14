@@ -23,6 +23,7 @@ frontend/.next-runtime/
 frontend/.turbo/
 frontend/test-results/
 frontend/playwright-report/
+frontend/tsconfig.tsbuildinfo
 
 # Data
 data/
@@ -42,3 +43,8 @@ backend/evaluation/*.md
 # Local env file with secrets — never commit
 .env
 backups/
+
+# Development environment
+.env.development
+data-dev/
+venv/

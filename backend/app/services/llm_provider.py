@@ -7,9 +7,14 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 import requests
 from openai import OpenAI
+
+from app.logging_utils import get_logger, sanitize_log_context
+
+logger = get_logger(__name__)
 
 
 class ProviderType(str, Enum):
@@ -43,6 +48,46 @@ class LLMConfig:
     model_name: str = ""
     timeout: float = 30.0
     max_retries: int = 2
+
+
+def normalize_ollama_base_url(base_url: str) -> str:
+    """
+    归一化 Ollama base URL。
+
+    兼容用户输入 `http://host:11434`、OpenAI 兼容写法 `http://host:11434/v1`
+    以及误填的 `.../api`，内部统一为 Ollama 原生 API 根地址。
+    """
+    raw = str(base_url or "").strip().rstrip("/")
+    if not raw:
+        return ""
+
+    parsed = urlsplit(raw)
+    # 非标准 URL（例如仅 host:port）保持原样，避免误改已有配置。
+    if not parsed.scheme or not parsed.netloc:
+        return raw
+
+    path = (parsed.path or "").rstrip("/")
+    while path:
+        lower_path = path.lower()
+        if lower_path == "/v1" or lower_path == "/api":
+            path = ""
+            break
+        if lower_path.endswith("/v1"):
+            path = path[:-3].rstrip("/")
+            continue
+        if lower_path.endswith("/api"):
+            path = path[:-4].rstrip("/")
+            continue
+        break
+
+    normalized = SplitResult(
+        scheme=parsed.scheme,
+        netloc=parsed.netloc,
+        path=path,
+        query="",
+        fragment="",
+    )
+    return urlunsplit(normalized).rstrip("/")
 
 
 class LLMProviderInterface(ABC):
@@ -112,6 +157,28 @@ class OpenAICompatibleProvider(LLMProviderInterface):
     适用于 OpenAI、Kimi、GLM 等 OpenAI API 兼容的 Provider
     """
 
+    @staticmethod
+    def _extract_error_status_code(exc: Exception) -> int | None:
+        status_code = getattr(exc, "status_code", None)
+        if isinstance(status_code, int):
+            return status_code
+        response = getattr(exc, "response", None)
+        response_status = getattr(response, "status_code", None)
+        if isinstance(response_status, int):
+            return response_status
+        return None
+
+    def _chat_probe(self) -> None:
+        model_name = str(self.config.model_name or "").strip()
+        if not model_name:
+            raise ValueError("model_name_required_for_health_check_probe")
+        self.chat_completion(
+            messages=[{"role": "user", "content": "ping"}],
+            model=model_name,
+            temperature=0,
+            max_tokens=1,
+        )
+
     def create_client(self) -> OpenAI:
         """创建 OpenAI 兼容客户端"""
         if self._client is None:
@@ -159,12 +226,39 @@ class OpenAICompatibleProvider(LLMProviderInterface):
         )
 
     def health_check(self) -> bool:
-        """健康检查：尝试列出模型"""
+        """健康检查：优先列出模型，失败后回退到最小 chat 请求"""
+        client = self.create_client()
         try:
-            client = self.create_client()
             client.models.list()
             return True
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "openai_compatible_models_list_failed",
+                extra=sanitize_log_context(
+                    {
+                        "provider_type": self.config.provider_type.value,
+                        "base_url": self.config.base_url,
+                        "status_code": self._extract_error_status_code(exc),
+                        "exc_type": type(exc).__name__,
+                    }
+                ),
+            )
+        try:
+            self._chat_probe()
+            return True
+        except Exception as exc:
+            logger.warning(
+                "openai_compatible_health_check_probe_failed",
+                extra=sanitize_log_context(
+                    {
+                        "provider_type": self.config.provider_type.value,
+                        "base_url": self.config.base_url,
+                        "model_name": self.config.model_name,
+                        "status_code": self._extract_error_status_code(exc),
+                        "exc_type": type(exc).__name__,
+                    }
+                ),
+            )
             return False
 
 
@@ -188,7 +282,8 @@ class OllamaProvider(LLMProviderInterface):
         **kwargs,
     ) -> LLMResponse:
         """执行聊天补全"""
-        url = self.config.base_url.rstrip("/") + "/api/chat"
+        base_url = normalize_ollama_base_url(self.config.base_url)
+        url = base_url + "/api/chat"
 
         payload = {
             "model": model or self.config.model_name,
@@ -214,7 +309,8 @@ class OllamaProvider(LLMProviderInterface):
     def health_check(self) -> bool:
         """健康检查"""
         try:
-            url = self.config.base_url.rstrip("/") + "/api/tags"
+            base_url = normalize_ollama_base_url(self.config.base_url)
+            url = base_url + "/api/tags"
             response = requests.get(url, timeout=5)
             return response.status_code == 200
         except Exception:

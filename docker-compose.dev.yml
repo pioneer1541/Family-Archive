@@ -1,0 +1,141 @@
+# 开发环境配置
+# 使用方式: docker compose -f docker-compose.dev.yml up -d
+# 注意：这是独立的开发环境配置，不继承 docker-compose.yml
+
+services:
+  fkv-api:
+    build: ./backend
+    container_name: fkv-api-dev
+    restart: unless-stopped
+    user: "1000:1000"
+    logging:
+      driver: json-file
+      options:
+        max-size: 100m
+        max-file: 5
+    env_file:
+      - .env.development
+    environment:
+      - FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER=0
+      - FAMILY_VAULT_REDIS_URL=redis://redis-dev:6379/0
+      - FAMILY_VAULT_QDRANT_URL=http://qdrant-dev:6333
+      - FAMILY_VAULT_QDRANT_COLLECTION=fkv_docs_dev_v1
+      - FAMILY_VAULT_QDRANT_ENABLE=1
+      - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - FAMILY_VAULT_JWT_SECRET=${FAMILY_VAULT_JWT_SECRET}
+      - FAMILY_VAULT_ALLOWED_ORIGINS=["http://localhost:18281","http://127.0.0.1:18281","http://192.168.1.209:18281"]
+      # Agent V2 Configuration (default: disabled for safety)
+      - AGENT_V2_ENABLED=${AGENT_V2_ENABLED:-false}
+      - AGENT_V2_ROLLOUT_PERCENT=${AGENT_V2_ROLLOUT_PERCENT:-0}
+      - AGENT_V2_FORCE=${AGENT_V2_FORCE:-auto}
+      - AGENT_V2_METRICS=${AGENT_V2_METRICS:-true}
+      - AGENT_V2_DEBUG=${AGENT_V2_DEBUG:-false}
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "18080"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./backend:/app
+      - ./data-dev:/app/data
+      - ./secrets/gmail:/app/secrets/gmail:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /mnt/nas:/volume1/Family_Archives:ro
+    ports:
+      - "18280:18080"
+    depends_on:
+      - redis-dev
+      - qdrant-dev
+
+  fkv-worker:
+    build: ./backend
+    healthcheck:
+      disable: true
+    container_name: fkv-worker-dev
+    restart: unless-stopped
+    user: "1000:1000"
+    logging:
+      driver: json-file
+      options:
+        max-size: 100m
+        max-file: 5
+    env_file:
+      - .env.development
+    environment:
+      - FAMILY_VAULT_ALLOWED_ORIGINS=["http://localhost:18281","http://127.0.0.1:18281","http://192.168.1.209:18281"]
+      - FAMILY_VAULT_CELERY_TASK_ALWAYS_EAGER=0
+      - FAMILY_VAULT_REDIS_URL=redis://redis-dev:6379/0
+      - FAMILY_VAULT_QDRANT_URL=http://qdrant-dev:6333
+      - FAMILY_VAULT_QDRANT_COLLECTION=fkv_docs_dev_v1
+      - FAMILY_VAULT_QDRANT_ENABLE=1
+      - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - FAMILY_VAULT_JWT_SECRET=${FAMILY_VAULT_JWT_SECRET}
+      - FAMILY_VAULT_CELERY_WORKER_CONCURRENCY=2
+      # Agent V2 Configuration (default: disabled for safety)
+      - AGENT_V2_ENABLED=${AGENT_V2_ENABLED:-false}
+      - AGENT_V2_ROLLOUT_PERCENT=${AGENT_V2_ROLLOUT_PERCENT:-0}
+      - AGENT_V2_FORCE=${AGENT_V2_FORCE:-auto}
+      - AGENT_V2_METRICS=${AGENT_V2_METRICS:-true}
+      - AGENT_V2_DEBUG=${AGENT_V2_DEBUG:-false}
+    command:
+      [
+        "sh",
+        "-c",
+        "celery -A app.worker worker --loglevel=info --concurrency=${FAMILY_VAULT_CELERY_WORKER_CONCURRENCY:-2} --prefetch-multiplier=1",
+      ]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./backend:/app
+      - ./data-dev:/app/data
+      - ./secrets/gmail:/app/secrets/gmail:ro
+      - /mnt/nas:/volume1/Family_Archives:ro
+    depends_on:
+      - redis-dev
+      - qdrant-dev
+
+  fkv-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: fkv-frontend-dev
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 100m
+        max-file: 5
+    environment:
+      - NEXT_PUBLIC_FKV_API_BASE=/api
+      - FKV_INTERNAL_API_BASE=http://fkv-api:18080
+      - NEXT_DIST_DIR=.next-runtime
+    ports:
+      - "18281:18081"
+    depends_on:
+      - fkv-api
+
+  redis-dev:
+    image: redis:7-alpine
+    container_name: fkv-redis-dev
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: 3
+    ports:
+      - "16380:6379"
+    volumes:
+      - ./data-dev/redis:/data
+
+  qdrant-dev:
+    image: qdrant/qdrant:v1.13.2
+    container_name: fkv-qdrant-dev
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: 3
+    ports:
+      - "16334:6333"
+    volumes:
+      - ./data-dev/qdrant:/qdrant/storage

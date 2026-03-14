@@ -350,6 +350,19 @@ export interface GmailCredentialUpdate {
   client_secret?: string;
 }
 
+export interface GmailDeviceAuthStart {
+  device_code: string;
+  user_code: string;
+  verification_url: string;
+  expires_in: number;
+  interval: number;
+}
+
+export interface GmailDeviceAuthComplete {
+  status: 'pending' | 'slow_down' | 'completed';
+  credential_id?: string | null;
+}
+
 export type LLMProviderType = 'ollama' | 'openai' | 'kimi' | 'glm' | 'custom';
 
 export interface LLMProvider {
@@ -389,6 +402,24 @@ export interface LLMProviderTestResult {
   ok: boolean;
   latency_ms: number;
   models: string[];
+  error?: string | null;
+}
+
+export interface LLMProviderValidateRequest {
+  provider_id?: string;
+  name?: string;
+  provider_type: LLMProviderType;
+  base_url: string;
+  api_key?: string;
+  model_name: string;
+  is_active: boolean;
+}
+
+export interface LLMProviderValidateResult {
+  ok: boolean;
+  latency_ms: number;
+  models: string[];
+  normalized_base_url: string;
   error?: string | null;
 }
 
@@ -434,6 +465,8 @@ export interface KbApiClient {
   // Gmail Credentials
   getGmailCredentials?(): Promise<GmailCredential[]>;
   getGmailAuthUrl?(credId: string, redirectUri?: string): Promise<{auth_url: string}>;
+  startGmailDeviceAuth?(): Promise<GmailDeviceAuthStart>;
+  completeGmailDeviceAuth?(deviceCode: string): Promise<GmailDeviceAuthComplete>;
   createGmailCredential?(data: GmailCredentialCreate): Promise<GmailCredential>;
   updateGmailCredential?(id: string, data: GmailCredentialUpdate): Promise<GmailCredential>;
   deleteGmailCredential?(id: string): Promise<void>;
@@ -443,5 +476,6 @@ export interface KbApiClient {
   updateLLMProvider?(id: string, data: LLMProviderUpdate): Promise<LLMProvider>;
   deleteLLMProvider?(id: string): Promise<void>;
   testLLMProvider?(id: string): Promise<LLMProviderTestResult>;
+  validateLLMProvider?(data: LLMProviderValidateRequest): Promise<LLMProviderValidateResult>;
   getLLMProviderModels?(id: string): Promise<string[]>;
 }

@@ -828,10 +828,31 @@ class LLMProviderResponse(BaseModel):
     is_default: bool
     created_at: datetime
     updated_at: datetime
+    warning: str | None = None
 
 
 class LLMProviderTestResult(BaseModel):
     ok: bool
     latency_ms: int
     models: list[str] = Field(default_factory=list)
+    warning: str | None = None
+    error: str | None = None
+
+
+class LLMProviderValidateRequest(BaseModel):
+    provider_id: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    provider_type: Literal["ollama", "openai", "kimi", "glm", "custom"] = "ollama"
+    base_url: str = Field(min_length=1, max_length=512)
+    api_key: str | None = None
+    model_name: str = Field(default="", max_length=255)
+    is_active: bool = True
+
+
+class LLMProviderValidateResult(BaseModel):
+    ok: bool
+    latency_ms: int
+    models: list[str] = Field(default_factory=list)
+    normalized_base_url: str
+    warning: str | None = None
     error: str | None = None
