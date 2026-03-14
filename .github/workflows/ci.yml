@@ -37,11 +37,12 @@ jobs:
       - name: Install Python deps
         run: pip install -r requirements.txt
 
-      - name: Fix lint errors
-        run: ruff check --fix app || true
+      - name: Format (ruff)
+        run: ruff format app
 
       - name: Lint (ruff)
-        run: ruff check app
+        run: ruff check --fix app
+        continue-on-error: false
 
       - name: Test (pytest)
         env:
