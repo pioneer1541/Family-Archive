@@ -72,8 +72,8 @@ def _classify_chitchat_intent(query: str) -> str:
     if any(word in q for word in ["再见", "拜拜", "bye", "goodbye", "see you"]):
         return "bye"
     
-    # OK patterns
-    if q in ["ok", "好的", "嗯", "嗯嗯", "okay", "k"]:
+    # OK patterns (substring match for flexibility)
+    if any(word in q for word in ["ok", "好的", "嗯", "okay"]):
         return "ok"
     
     # Default to greeting
@@ -103,10 +103,14 @@ def chitchat_node(state: AgentGraphState) -> dict[str, Any]:
     
     logger.info("chitchat_response: trace_id=%s intent=%s lang=%s", trace_id, intent, ui_lang)
     
+    # Build short_summary with proper language separation
+    short_summary = {"en": "", "zh": ""}
+    short_summary[ui_lang] = content
+    
     return {
         "final_card_payload": {
             "title": "Family Vault",
-            "short_summary": {"en": content, "zh": content},
+            "short_summary": short_summary,
             "content": content,
             "type": "chitchat",
             "intent": intent,

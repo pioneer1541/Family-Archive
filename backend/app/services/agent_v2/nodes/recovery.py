@@ -31,17 +31,12 @@ async def recovery_node(state: AgentGraphState, config: dict[str, Any] | None = 
     # Check if we have budget left
     if loop_count >= loop_budget:
         logger.warning("recovery_budget_exhausted: trace_id=%s", trace_id)
+        # Don't set final_card_payload here - let synthesize_node handle it
+        # Just mark that we should proceed to synthesize with what we have
         return {
-            "terminal": True,
-            "terminal_reason": "recovery_budget_exhausted",
-            "final_card_payload": {
-                "title": "Family Vault",
-                "short_summary": {
-                    "en": "I couldn't find enough information after multiple attempts. Please try rephrasing your question.",
-                    "zh": "经过多次尝试，我仍无法找到足够的信息。请尝试用不同方式描述您的问题。"
-                },
-                "type": "answer",
-            },
+            "loop_count": new_loop_count,
+            "recovery_plan": {"exhausted": True},
+            "terminal": False,  # Let synthesize_node handle the response
         }
     
     # Increment loop counter
