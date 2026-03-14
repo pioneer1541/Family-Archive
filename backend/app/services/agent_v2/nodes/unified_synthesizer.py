@@ -63,8 +63,13 @@ If answer_found is false, set answer to:
 
 def _build_unified_prompt(state: AgentGraphState) -> str:
     """Build the unified prompt with context."""
-    query = state["req"]["query"]
-    ui_lang = state["req"].get("ui_lang", "zh")
+    req = state.get("req", {})
+    if isinstance(req, dict):
+        query = req.get("query", "")
+        ui_lang = req.get("ui_lang", "zh")
+    else:
+        query = getattr(req, "query", "")
+        ui_lang = getattr(req, "ui_lang", "zh")
     lang = "Chinese" if ui_lang == "zh" else "English"
 
     # Get context chunks
@@ -150,7 +155,8 @@ async def unified_synthesizer_node(state: AgentGraphState) -> dict[str, Any]:
     """
     from app.services.agent_v2.tools.llm import call_unified_llm
 
-    query = state["req"]["query"]
+    req = state.get("req", {})
+    query = req.get("query", "") if isinstance(req, dict) else getattr(req, "query", "")
     trace_id = state.get("trace_id", "unknown")
 
     logger.info(

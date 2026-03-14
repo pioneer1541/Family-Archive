@@ -163,7 +163,8 @@ async def query_classifier_node(state: AgentGraphState) -> dict[str, Any]:
     - "simple" -> unified_synthesizer_node (1 LLM call)
     - "complex" -> router_node (2 LLM calls)
     """
-    query = state["req"]["query"]
+    req = state.get("req", {})
+    query = req.get("query", "") if isinstance(req, dict) else getattr(req, "query", "")
     trace_id = state.get("trace_id", "unknown")
 
     logger.info(
