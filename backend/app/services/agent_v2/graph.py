@@ -53,10 +53,14 @@ builder.add_edge("chitchat_node", END)
 graph = builder.compile()
 
 
-async def execute(req: AgentExecuteRequest) -> AgentExecuteResponse:
+async def execute(req: AgentExecuteRequest, db=None) -> AgentExecuteResponse:
     """Execute agent with the new LangGraph architecture.
     
     This is the main entry point for Agent V2.
+    
+    Args:
+        req: The execution request
+        db: Database session (required for retrieval)
     """
     # Initialize state
     initial_state: AgentGraphState = {
@@ -67,8 +71,9 @@ async def execute(req: AgentExecuteRequest) -> AgentExecuteResponse:
         "loop_count": 0,
     }
     
-    # Execute graph
-    result = await graph.ainvoke(initial_state)
+    # Execute graph with config (passes db to nodes)
+    config = {"configurable": {"db": db}} if db else None
+    result = await graph.ainvoke(initial_state, config=config)
     
     # Construct response
     return AgentExecuteResponse(

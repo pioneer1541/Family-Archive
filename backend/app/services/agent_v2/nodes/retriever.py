@@ -26,7 +26,7 @@ async def retriever_node(state: AgentGraphState, config: dict[str, Any] | None =
     db = config.get("configurable", {}).get("db") if config else None
     
     if not db:
-        logger.error("retriever_no_db", trace_id=trace_id)
+        logger.error("retriever_no_db: trace_id=%s", trace_id)
         return {
             "context_chunks": [],
             "candidate_docs": [],
@@ -48,10 +48,10 @@ async def retriever_node(state: AgentGraphState, config: dict[str, Any] | None =
         hits = search_result.hits if search_result else []
         
         logger.info(
-            "retriever_success",
-            trace_id=trace_id,
-            query=query,
-            hits_count=len(hits),
+            "retriever_success: trace_id=%s query=%s hits_count=%d",
+            trace_id,
+            query,
+            len(hits),
         )
         
         # Convert hits to context chunks format
@@ -79,7 +79,7 @@ async def retriever_node(state: AgentGraphState, config: dict[str, Any] | None =
         }
         
     except Exception as e:
-        logger.error("retriever_failed", trace_id=trace_id, query=query, error=str(e))
+        logger.error("retriever_failed: trace_id=%s query=%s error=%s", trace_id, query, str(e))
         return {
             "context_chunks": [],
             "candidate_docs": [],
