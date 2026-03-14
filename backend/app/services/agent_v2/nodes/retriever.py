@@ -39,8 +39,11 @@ async def retriever_node(state: AgentGraphState, config: dict[str, Any] | None =
         search_req = SearchRequest(
             query=query,
             top_k=req.get("top_k", 10),
-            doc_scope=req.get("doc_scope"),
-            category_filter=req.get("category_filter"),
+            category_path=req.get("category_path"),
+            tags_all=req.get("tags_all", []),
+            tags_any=req.get("tags_any", []),
+            ui_lang=req.get("ui_lang", "zh"),
+            query_lang=req.get("query_lang", "auto"),
         )
         
         # Call existing search service in thread pool to avoid blocking
@@ -61,11 +64,12 @@ async def retriever_node(state: AgentGraphState, config: dict[str, Any] | None =
         for hit in hits:
             context_chunks.append({
                 "doc_id": hit.doc_id,
-                "chunk_index": hit.chunk_index,
-                "content": hit.content,
+                "chunk_id": hit.chunk_id,
+                "content": hit.text_snippet,
                 "score": hit.score,
-                "source": hit.source,
-                "category": hit.category,
+                "source": hit.source_type,
+                "category": hit.category_path,
+                "title": hit.title_en or hit.title_zh,
             })
         
         # Determine answerability based on hit count
@@ -74,7 +78,7 @@ async def retriever_node(state: AgentGraphState, config: dict[str, Any] | None =
         return {
             "context_chunks": context_chunks,
             "candidate_docs": [
-                {"id": h.doc_id, "title": h.title, "score": h.score}
+                {"id": h.doc_id, "title": h.title_en or h.title_zh, "score": h.score}
                 for h in hits[:5]  # Top 5 for related docs
             ],
             "answerability": answerability,

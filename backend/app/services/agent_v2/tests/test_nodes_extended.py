@@ -34,15 +34,16 @@ class TestRetrieverNode:
             "trace_id": "test-456",
         }
         
-        # Mock search result
+        # Mock search result (using real SearchHit field names)
         mock_hit = MagicMock()
         mock_hit.doc_id = "doc-1"
-        mock_hit.chunk_index = 0
-        mock_hit.content = "Insurance policy content"
+        mock_hit.chunk_id = "chunk-1"
+        mock_hit.text_snippet = "Insurance policy content"
         mock_hit.score = 0.95
-        mock_hit.source = "test.pdf"
-        mock_hit.category = "insurance"
-        mock_hit.title = "Test Insurance Doc"
+        mock_hit.source_type = "pdf"
+        mock_hit.category_path = "insurance"
+        mock_hit.title_en = "Test Insurance Doc"
+        mock_hit.title_zh = "测试保险文档"
         
         mock_result = MagicMock()
         mock_result.hits = [mock_hit] * 5  # 5 hits
@@ -67,12 +68,13 @@ class TestRetrieverNode:
         
         mock_hit = MagicMock()
         mock_hit.doc_id = "doc-1"
-        mock_hit.chunk_index = 0
-        mock_hit.content = "Content"
+        mock_hit.chunk_id = "chunk-1"
+        mock_hit.text_snippet = "Content"
         mock_hit.score = 0.8
-        mock_hit.source = "test.pdf"
-        mock_hit.category = "other"
-        mock_hit.title = "Test Doc"
+        mock_hit.source_type = "pdf"
+        mock_hit.category_path = "other"
+        mock_hit.title_en = "Test Doc"
+        mock_hit.title_zh = "测试文档"
         
         mock_result = MagicMock()
         mock_result.hits = [mock_hit]  # Only 1 hit
