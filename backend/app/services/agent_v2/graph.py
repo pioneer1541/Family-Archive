@@ -17,6 +17,8 @@ from app.services.agent_v2.nodes.retriever import retriever_node
 from app.services.agent_v2.nodes.synthesizer import synthesizer_node
 from app.services.agent_v2.nodes.recovery import recovery_node
 from app.services.agent_v2.edges.conditions import should_chitchat, should_retry, is_answerability_insufficient
+from app.services.agent_v2.config import AgentV2Config
+from app.services.agent_v2.metrics import AgentV2Metrics, record_metrics
 
 # Build the graph
 builder = StateGraph(AgentGraphState)
@@ -80,18 +82,73 @@ async def execute(req: AgentExecuteRequest, db=None) -> AgentExecuteResponse:
         req: The execution request
         db: Database session (required for retrieval)
     """
+    # Check if V2 is enabled
+    if not AgentV2Config.ENABLED:
+        raise RuntimeError("Agent V2 is disabled")
+    
     # Initialize state
+    trace_id = f"agt-{uuid.uuid4().hex[:12]}"
     initial_state: AgentGraphState = {
         "req": req.model_dump(),
-        "trace_id": f"agt-{uuid.uuid4().hex[:12]}",
+        "trace_id": trace_id,
         "timing": {"start_ms": int(time.time() * 1000)},
         "loop_budget": 3,  # Max recovery loops
         "loop_count": 0,
     }
     
-    # Execute graph with config (passes db to nodes)
-    config = {"configurable": {"db": db}} if db else None
-    result = await graph.ainvoke(initial_state, config=config)
+    # Initialize metrics
+    metrics = AgentV2Metrics(trace_id) if AgentV2Config.COLLECT_METRICS else None
+    
+    try:
+        # Execute graph with config (passes db to nodes)
+        config = {"configurable": {"db": db, "metrics": metrics}} if db else None
+        if metrics:
+            metrics.start_node("graph_execution")
+        result = await graph.ainvoke(initial_state, config=config)
+        if metrics:
+            metrics.end_node("graph_execution")
+        
+        success = True
+    except Exception as e:
+        # Log error and return fallback response
+        from app.logging_utils import get_logger
+        logger = get_logger(__name__)
+        logger.error("agent_v2_execution_failed: trace_id=%s error=%s", trace_id, str(e))
+        
+        # Return minimal error response
+        return AgentExecuteResponse(
+            card={
+                "title": "Family Vault",
+                "short_summary": {"en": "An error occurred", "zh": "发生错误"},
+                "key_points": [],
+                "detail_sections": [],
+                "sources": [],
+                "actions": [],
+            },
+            planner={
+                "intent": "error",
+                "confidence": 0.0,
+                "doc_scope": {},
+                "actions": [],
+                "fallback": "error",
+                "ui_lang": req.ui_lang,
+                "query_lang": req.query_lang or req.ui_lang,
+                "route_reason": f"execution_error: {str(e)}",
+            },
+            executor_stats={
+                "route": "error",
+                "retrieval_mode": "none",
+                "answer_mode": "error",
+                "route_reason": "execution_error",
+                "graph_enabled": True,
+            },
+            related_docs=[],
+            trace_id=trace_id,
+        )
+    finally:
+        if metrics:
+            metrics_summary = metrics.finish(success=success)
+            record_metrics(metrics_summary)
     
     # Construct response with complete fields
     req_data = result.get("req", {})

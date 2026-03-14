@@ -116,6 +116,8 @@ from app.schemas import (
     UploadResponse,
 )
 from app.services.agent import execute_agent
+from app.services.agent_v2 import execute as execute_agent_v2
+from app.services.agent_v2.config import AgentV2Config
 from app.services.agent_graph import stream_agent_graph
 from app.services.document_post_process import (
     apply_summary_to_doc,
@@ -1135,9 +1137,20 @@ def plan(payload: PlannerRequest, db: Session = Depends(get_db)) -> PlannerDecis
 
 
 @router.post("/agent/execute", response_model=AgentExecuteResponse)
-def execute(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> AgentExecuteResponse:
+async def execute(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> AgentExecuteResponse:
+    """Execute agent query with automatic V1/V2 routing."""
+    trace_id = f"agt-{uuid.uuid4().hex[:12]}"
+    
+    # Check if V2 should be used
+    use_v2 = AgentV2Config.should_use_v2(trace_id)
+    
     try:
-        return execute_agent(db, payload)
+        if use_v2:
+            logger.info("agent_execute_v2: trace_id=%s query=%s", trace_id, payload.query)
+            return await execute_agent_v2(payload, db)
+        else:
+            logger.info("agent_execute_v1: trace_id=%s query=%s", trace_id, payload.query)
+            return execute_agent(db, payload)
     except requests.exceptions.Timeout as exc:
         logger.warning(
             "agent_execute_http_error",
@@ -1145,7 +1158,8 @@ def execute(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> Agen
                 {
                     "error_code": "agent_upstream_timeout",
                     "stage": str(getattr(exc, "fkv_stage", "") or "unknown"),
-                    "trace_id": str(getattr(exc, "fkv_trace_id", "") or ""),
+                    "trace_id": trace_id,
+                    "version": "v2" if use_v2 else "v1",
                 }
             ),
         )
@@ -1157,8 +1171,9 @@ def execute(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> Agen
                 {
                     "error_code": "agent_execute_failed",
                     "stage": str(getattr(exc, "fkv_stage", "") or "unknown"),
-                    "trace_id": str(getattr(exc, "fkv_trace_id", "") or ""),
+                    "trace_id": trace_id,
                     "exc_type": type(exc).__name__,
+                    "version": "v2" if use_v2 else "v1",
                 }
             ),
         )
