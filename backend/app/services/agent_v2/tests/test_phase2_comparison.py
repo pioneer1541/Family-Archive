@@ -219,7 +219,7 @@ class TestPhase2Metrics:
                     "app.services.agent_v2.tools.llm._call_synthesizer_sync",
                     mock_synthesizer,
                 ):
-                    result = anyio.run(execute_v2, req, mock_db, None, True)
+                    anyio.run(execute_v2, req, mock_db, None, True)
 
         # Should make classifier + router + synthesizer calls
         assert call_count["classifier"] == 1
