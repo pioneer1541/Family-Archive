@@ -24,6 +24,12 @@ services:
       - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
       - FAMILY_VAULT_JWT_SECRET=${FAMILY_VAULT_JWT_SECRET}
       - FAMILY_VAULT_ALLOWED_ORIGINS=["http://localhost:18281","http://127.0.0.1:18281","http://192.168.1.209:18281"]
+      # Agent V2 Configuration (default: disabled for safety)
+      - AGENT_V2_ENABLED=${AGENT_V2_ENABLED:-false}
+      - AGENT_V2_ROLLOUT_PERCENT=${AGENT_V2_ROLLOUT_PERCENT:-0}
+      - AGENT_V2_FORCE=${AGENT_V2_FORCE:-auto}
+      - AGENT_V2_METRICS=${AGENT_V2_METRICS:-true}
+      - AGENT_V2_DEBUG=${AGENT_V2_DEBUG:-false}
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "18080"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -63,6 +69,12 @@ services:
       - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
       - FAMILY_VAULT_JWT_SECRET=${FAMILY_VAULT_JWT_SECRET}
       - FAMILY_VAULT_CELERY_WORKER_CONCURRENCY=2
+      # Agent V2 Configuration (default: disabled for safety)
+      - AGENT_V2_ENABLED=${AGENT_V2_ENABLED:-false}
+      - AGENT_V2_ROLLOUT_PERCENT=${AGENT_V2_ROLLOUT_PERCENT:-0}
+      - AGENT_V2_FORCE=${AGENT_V2_FORCE:-auto}
+      - AGENT_V2_METRICS=${AGENT_V2_METRICS:-true}
+      - AGENT_V2_DEBUG=${AGENT_V2_DEBUG:-false}
     command:
       [
         "sh",
