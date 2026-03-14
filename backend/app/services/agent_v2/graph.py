@@ -11,40 +11,43 @@ from langgraph.graph import END, START, StateGraph
 
 from app.schemas import AgentExecuteRequest, AgentExecuteResponse
 from app.services.agent_v2.state import AgentGraphState
-from app.services.agent_v2.nodes import router, retriever, synthesizer, chitchat
+from app.services.agent_v2.nodes.router import router_node
+from app.services.agent_v2.nodes.chitchat import chitchat_node
+from app.services.agent_v2.nodes.retriever import retriever_node
+from app.services.agent_v2.nodes.synthesizer import synthesizer_node
 from app.services.agent_v2.edges.conditions import should_chitchat, should_retry
 
 # Build the graph
 builder = StateGraph(AgentGraphState)
 
 # Add nodes
-builder.add_node("router", router.node)
-builder.add_node("chitchat", chitchat.node)
-builder.add_node("retrieve", retriever.node)
-builder.add_node("synthesize", synthesizer.node)
+builder.add_node("router_node", router_node)
+builder.add_node("chitchat_node", chitchat_node)
+builder.add_node("retrieve_node", retriever_node)
+builder.add_node("synthesize_node", synthesizer_node)
 
 # Add edges
-builder.add_edge(START, "router")
+builder.add_edge(START, "router_node")
 
 # Conditional: chitchat short-circuit
 builder.add_conditional_edges(
-    "router",
+    "router_node",
     should_chitchat,
     {
-        True: "chitchat",
-        False: "retrieve"
+        True: "chitchat_node",
+        False: "retrieve_node"
     }
 )
 
 # Retrieve -> Synthesize (with potential retry loop)
-builder.add_edge("retrieve", "synthesize")
+builder.add_edge("retrieve_node", "synthesize_node")
 
 # Synthesize -> END or retry
 # TODO: Add recovery/retry logic in Phase 2
-builder.add_edge("synthesize", END)
+builder.add_edge("synthesize_node", END)
 
 # Chitchat -> END
-builder.add_edge("chitchat", END)
+builder.add_edge("chitchat_node", END)
 
 # Compile the graph
 graph = builder.compile()

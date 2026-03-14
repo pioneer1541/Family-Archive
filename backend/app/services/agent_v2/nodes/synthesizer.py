@@ -5,13 +5,12 @@ Answer generation from retrieved context.
 
 from typing import Any
 
-import structlog
-
+from app.logging_utils import get_logger
 from app.schemas import AgentExecuteRequest, PlannerDecision
 from app.services.agent_v2.state import AgentGraphState
 from app.services.agent_v2.tools.llm import call_synthesizer_llm
 
-logger = structlog.get_logger()
+logger = get_logger(__name__)
 
 
 async def synthesizer_node(state: AgentGraphState, config: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -32,7 +31,7 @@ async def synthesizer_node(state: AgentGraphState, config: dict[str, Any] | None
     
     # Handle insufficient context
     if not context_chunks:
-        logger.warning("synthesizer_no_context", trace_id=trace_id, query=query)
+        logger.warning("synthesizer_no_context", extra={"trace_id": trace_id, "query": query})
         return {
             "final_card_payload": {
                 "title": "Family Vault",
@@ -85,9 +84,7 @@ async def synthesizer_node(state: AgentGraphState, config: dict[str, Any] | None
         
         logger.info(
             "synthesizer_success",
-            trace_id=trace_id,
-            query=query,
-            has_result=bool(result),
+            extra={"trace_id": trace_id, "query": query, "has_result": bool(result)}
         )
         
         return {
@@ -101,7 +98,7 @@ async def synthesizer_node(state: AgentGraphState, config: dict[str, Any] | None
         }
         
     except Exception as e:
-        logger.error("synthesizer_failed", trace_id=trace_id, query=query, error=str(e))
+        logger.error("synthesizer_failed", extra={"trace_id": trace_id, "query": query, "error": str(e)})
         
         # Fallback response
         return {

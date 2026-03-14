@@ -5,14 +5,12 @@ Document retrieval and context building.
 
 from typing import Any
 
-import structlog
-
-from app import crud
+from app.logging_utils import get_logger
 from app.schemas import SearchRequest
 from app.services.agent_v2.state import AgentGraphState
 from app.services.search import search_documents
 
-logger = structlog.get_logger()
+logger = get_logger(__name__)
 
 
 async def retriever_node(state: AgentGraphState, config: dict[str, Any] | None = None) -> dict[str, Any]:

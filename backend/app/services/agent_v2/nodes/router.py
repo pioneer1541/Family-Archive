@@ -5,13 +5,12 @@ Intent classification and query routing.
 
 from typing import Any
 
-import structlog
-
+from app.logging_utils import get_logger
 from app.services.agent_v2.state import AgentGraphState
+
+logger = get_logger(__name__)
 from app.services.agent_v2.tools.cache import get_cache, set_cache
 from app.services.agent_v2.tools.llm import call_router_llm
-
-logger = structlog.get_logger()
 
 # Chitchat detection - rule-based pre-filter
 _CHITCHAT_TOKENS = {
