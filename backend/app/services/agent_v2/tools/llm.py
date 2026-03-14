@@ -8,9 +8,11 @@ import json
 from typing import Any
 
 from app.config import get_settings
+from app.logging_utils import get_logger
 from app.runtime_config import get_runtime_setting
 from app.schemas import AgentExecuteRequest, PlannerDecision
 from app.services.llm_provider import create_provider, LLMConfig, ProviderType
+from app.services.agent_v2.state import AgentGraphState
 
 settings = get_settings()
 
@@ -150,21 +152,21 @@ async def call_synthesizer_llm(
     db=None
 ) -> dict[str, Any] | None:
     """Call LLM for answer synthesis.
-    
+
     Integrates with existing llm_provider.
     Runs sync call in thread pool to avoid blocking event loop.
     """
     try:
         # Get synthesizer model from settings (before entering thread)
         model = get_runtime_setting("synthesizer_model", db)
-        
+
         # Run sync call in thread pool (pass model string, not db session)
         loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
             None, _call_synthesizer_sync, req, planner, bundle, trace_id, model
         )
         return result
-        
+
     except Exception as e:
         # Return error info
         return {
@@ -175,3 +177,92 @@ async def call_synthesizer_llm(
             },
             "key_points": [],
         }
+
+
+def _call_classifier_sync(prompt: str, model: str) -> dict[str, Any]:
+    """Synchronous classifier LLM call (lightweight)."""
+    provider = _get_provider_for_model(model)
+
+    messages = [
+        {"role": "system", "content": "You are a query classifier. Respond only in JSON."},
+        {"role": "user", "content": prompt}
+    ]
+
+    response = provider.chat_completion(
+        messages=messages,
+        temperature=0.0,
+    )
+
+    return json.loads(response.content)
+
+
+async def call_classifier_llm(prompt: str, db=None) -> dict[str, Any]:
+    """Call lightweight LLM for query classification.
+
+    Uses a smaller/faster model if available, otherwise falls back to router model.
+    """
+    try:
+        # Try to use a lightweight model, fallback to router model
+        model = get_runtime_setting("planner_model", db)
+
+        # Use flash model if available for classification
+        if "flash" in model.lower():
+            classifier_model = model
+        else:
+            # Try to use flash variant for faster classification
+            classifier_model = model.replace(":latest", "").replace(":8b", ":flash")
+            if ":" not in classifier_model:
+                classifier_model = model  # Fallback
+
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None, _call_classifier_sync, prompt, classifier_model
+        )
+        return result
+
+    except Exception as e:
+        # Fail safe - return uncertain
+        return {
+            "complexity": "complex",
+            "confidence": 0.5,
+            "reason": f"classification_error: {str(e)}",
+        }
+
+
+def _call_unified_sync(prompt: str, model: str) -> str:
+    """Synchronous unified LLM call (routing + synthesis in one)."""
+    provider = _get_provider_for_model(model)
+
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant. Respond only in JSON."},
+        {"role": "user", "content": prompt}
+    ]
+
+    response = provider.chat_completion(
+        messages=messages,
+        temperature=0.1,
+    )
+
+    return response.content
+
+
+async def call_unified_llm(prompt: str, state: AgentGraphState, db=None) -> str:
+    """Call LLM for unified routing + synthesis.
+
+    Uses synthesizer model for better answer quality.
+    """
+    try:
+        # Use synthesizer model for unified call (better for generation)
+        model = get_runtime_setting("synthesizer_model", db)
+
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None, _call_unified_sync, prompt, model
+        )
+        return result
+
+    except Exception as e:
+        logger = get_logger(__name__)
+        logger.error("unified_llm_call_failed", extra={"error": str(e)})
+        # Return minimal valid JSON
+        return '{"intent": "lookup", "confidence": 0.5, "answer_found": false, "answer": {"title": "Error", "short_summary": {"en": "Error occurred", "zh": "发生错误"}, "key_points": []}}'

@@ -17,7 +17,10 @@ class AgentGraphState(TypedDict, total=False):
     
     # Input / Request
     req: dict[str, Any]
-    
+
+    # Phase 2: Query classification (single-LLM vs dual-LLM mode)
+    classifier: dict[str, Any]  # {complexity: "simple"|"complex", confidence: float, method: "rule"|"llm"}
+
     # Routing
     route: str  # "chitchat", "lookup", "calculate", "system", "detail_extract"
     route_reason: str

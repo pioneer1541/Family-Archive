@@ -1,6 +1,6 @@
-"""Agent V2 - LangGraph Definition
+"""Agent V2 - LangGraph Definition (Phase 2)
 
-Unified graph architecture for the Family Vault agent.
+Unified graph architecture with single-LLM optimization.
 """
 
 import time
@@ -16,7 +16,14 @@ from app.services.agent_v2.nodes.chitchat import chitchat_node
 from app.services.agent_v2.nodes.retriever import retriever_node
 from app.services.agent_v2.nodes.synthesizer import synthesizer_node
 from app.services.agent_v2.nodes.recovery import recovery_node
-from app.services.agent_v2.edges.conditions import should_chitchat, should_retry, is_answerability_insufficient
+from app.services.agent_v2.nodes.query_classifier import query_classifier_node
+from app.services.agent_v2.nodes.unified_synthesizer import unified_synthesizer_node
+from app.services.agent_v2.edges.conditions import (
+    should_chitchat,
+    should_retry,
+    is_answerability_insufficient,
+    is_simple_query,
+)
 from app.services.agent_v2.config import AgentV2Config
 from app.services.agent_v2.metrics import AgentV2Metrics, record_metrics
 
@@ -24,16 +31,32 @@ from app.services.agent_v2.metrics import AgentV2Metrics, record_metrics
 builder = StateGraph(AgentGraphState)
 
 # Add nodes
+builder.add_node("query_classifier_node", query_classifier_node)
+builder.add_node("unified_synthesize_node", unified_synthesizer_node)
 builder.add_node("router_node", router_node)
 builder.add_node("chitchat_node", chitchat_node)
 builder.add_node("retrieve_node", retriever_node)
 builder.add_node("synthesize_node", synthesizer_node)
 builder.add_node("recovery_node", recovery_node)
 
-# Add edges
-builder.add_edge(START, "router_node")
+# Phase 2: Start with query classifier
+builder.add_edge(START, "query_classifier_node")
 
-# Conditional: chitchat short-circuit
+# Conditional: Simple query -> unified synthesizer (1 LLM call)
+#            Complex query -> router (2 LLM calls)
+builder.add_conditional_edges(
+    "query_classifier_node",
+    is_simple_query,
+    {
+        True: "unified_synthesize_node",   # Single-LLM mode
+        False: "router_node",               # Dual-LLM mode
+    }
+)
+
+# Unified synthesizer -> END (complete in 1 call)
+builder.add_edge("unified_synthesize_node", END)
+
+# Dual-LLM path: router -> conditional (chitchat or retrieve)
 builder.add_conditional_edges(
     "router_node",
     should_chitchat,
@@ -58,8 +81,8 @@ builder.add_conditional_edges(
     "recovery_node",
     should_retry,
     {
-        True: "retrieve_node",  # Retry with relaxed constraints
-        False: "synthesize_node"  # Give up and synthesize with what we have
+        True: "retrieve_node",      # Retry with relaxed constraints
+        False: "synthesize_node"    # Give up and synthesize with what we have
     }
 )
 
@@ -75,9 +98,9 @@ graph = builder.compile()
 
 async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | None = None, _force: bool = False) -> AgentExecuteResponse:
     """Execute agent with the new LangGraph architecture.
-    
+
     This is the main entry point for Agent V2.
-    
+
     Args:
         req: The execution request
         db: Database session (required for retrieval)
@@ -87,7 +110,7 @@ async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | No
     # Check if V2 is enabled (unless forced)
     if not _force and not AgentV2Config.should_use_v2(external_trace_id):
         raise RuntimeError("Agent V2 is disabled")
-    
+
     # Use external trace_id if provided, otherwise generate new one
     trace_id = external_trace_id or f"agt-{uuid.uuid4().hex[:12]}"
     initial_state: AgentGraphState = {
@@ -97,11 +120,11 @@ async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | No
         "loop_budget": 3,  # Max recovery loops
         "loop_count": 0,
     }
-    
+
     # Initialize metrics
     metrics = AgentV2Metrics(trace_id) if AgentV2Config.is_metrics_enabled() else None
     success = False
-    
+
     try:
         # Execute graph with config (passes db to nodes)
         config = {"configurable": {"db": db, "metrics": metrics}} if db else None
@@ -110,14 +133,14 @@ async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | No
         result = await graph.ainvoke(initial_state, config=config)
         if metrics:
             metrics.end_node("graph_execution")
-        
+
         success = True
     except Exception as e:
         # Log error and return fallback response
         from app.logging_utils import get_logger
         logger = get_logger(__name__)
         logger.error("agent_v2_execution_failed: trace_id=%s error=%s", trace_id, str(e))
-        
+
         # Return minimal error response
         return AgentExecuteResponse(
             card={
@@ -152,12 +175,12 @@ async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | No
         if metrics:
             metrics_summary = metrics.finish(success=success)
             record_metrics(metrics_summary)
-    
+
     # Construct response with complete fields
     req_data = result.get("req", {})
     ui_lang = req_data.get("ui_lang", "zh")
     query_lang = req_data.get("query_lang", ui_lang)
-    
+
     # Build complete planner
     router_data = result.get("router", {})
     planner = {
@@ -170,7 +193,7 @@ async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | No
         "query_lang": query_lang,
         "route_reason": router_data.get("route_reason", "default"),
     }
-    
+
     # Build complete card with defaults
     card_payload = result.get("final_card_payload", {})
     card = {
@@ -182,7 +205,21 @@ async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | No
         "actions": card_payload.get("actions", []),
         "type": card_payload.get("type", "answer"),
     }
-    
+
+    # Determine graph path for metrics
+    classifier = result.get("classifier", {})
+    complexity = classifier.get("complexity", "unknown")
+    graph_path = f"classifier({complexity})->"
+
+    if complexity == "simple":
+        graph_path += "unified_synthesize"
+    elif router_data.get("route") == "chitchat":
+        graph_path += "router->chitchat"
+    else:
+        graph_path += "router->retrieve->synthesize"
+        if result.get("recovery_plan"):
+            graph_path += "(with recovery)"
+
     # Build executor stats with graph tracking
     executor_stats = {
         "route": router_data.get("route", "lookup"),
@@ -193,11 +230,12 @@ async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | No
         "hit_count": len(result.get("context_chunks", [])),
         "doc_count": len(set(c.get("doc_id") for c in result.get("context_chunks", []))),
         "graph_enabled": True,
-        "graph_path": "router->" + ("chitchat" if router_data.get("route") == "chitchat" else "retrieve->synthesize"),
+        "graph_complexity": complexity,
+        "graph_path": graph_path,
         "graph_loop_budget": result.get("loop_budget", 3),
         "graph_loops_used": result.get("loop_count", 0),
     }
-    
+
     return AgentExecuteResponse(
         card=card,
         planner=planner,
