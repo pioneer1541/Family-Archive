@@ -199,6 +199,7 @@ class TestPhase2Metrics:
             assert complexity in ("simple", "unknown")
 
     @pytest.mark.skip(reason="Needs classifier+router+synthesizer mocking")
+    def test_complex_query_dual_llm_calls(self):
         """Verify complex queries make 2 LLM calls (router + synthesizer)."""
         req = AgentExecuteRequest(
             query="分析所有合同的风险",
