@@ -68,19 +68,24 @@ def _call_router_sync(query: str, model: str) -> dict[str, Any]:
 
 async def call_router_llm(query: str, db=None) -> dict[str, Any]:
     """Call LLM for routing decision.
-    
+
     Integrates with existing llm_provider.
     Runs sync call in thread pool to avoid blocking event loop.
+
+    Phase 3.3: Uses lightweight router model (e.g., glm-4-flash)
+    instead of full synthesizer model for cost savings.
     """
+    from app.services.agent_v2.config import AgentV2Config
+
     try:
-        # Get router model from settings (before entering thread)
-        model = get_runtime_setting("planner_model", db)
-        
+        # Phase 3.3: Use lightweight router model
+        model = AgentV2Config.get_router_model(db)
+
         # Run sync call in thread pool
         loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(None, _call_router_sync, query, model)
         return result
-        
+
     except Exception as e:
         # Fallback
         return {
