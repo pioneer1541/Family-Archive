@@ -27,8 +27,8 @@ class TestAgentV2Comparison:
         # Run old implementation
         old_result = execute_agent_v2(mock_db, req)
         
-        # Run new implementation (async)
-        new_result = anyio.run(new_execute, req, mock_db)
+        # Run new implementation (async) with force flag for testing
+        new_result = anyio.run(new_execute, req, mock_db, None, True)
         
         # Both should return chitchat
         assert old_result.executor_stats.route == "chitchat"
@@ -62,6 +62,7 @@ class TestAgentV2Comparison:
         mock_hit.category_path = "insurance"
         mock_hit.title_en = "Insurance Policy"
         mock_hit.title_zh = "保险政策"
+        mock_hit.updated_at = None  # Will be set to utcnow in retriever
         
         mock_result = MagicMock()
         mock_result.hits = [mock_hit]
@@ -70,8 +71,8 @@ class TestAgentV2Comparison:
             # Run old implementation
             old_result = execute_agent_v2(mock_db, req)
             
-            # Run new implementation
-            new_result = anyio.run(new_execute, req, mock_db)
+            # Run new implementation with force flag for testing
+            new_result = anyio.run(new_execute, req, mock_db, None, True)
         
         # Both should have trace_id
         assert old_result.trace_id is not None
@@ -99,8 +100,8 @@ class TestAgentV2Comparison:
             # Run old implementation
             old_result = execute_agent_v2(mock_db, req)
             
-            # Run new implementation
-            new_result = anyio.run(new_execute, req, mock_db)
+            # Run new implementation with force flag for testing
+            new_result = anyio.run(new_execute, req, mock_db, None, True)
         
         # Both should handle insufficient context gracefully
         assert old_result.card is not None

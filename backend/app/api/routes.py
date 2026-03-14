@@ -1139,6 +1139,8 @@ def plan(payload: PlannerRequest, db: Session = Depends(get_db)) -> PlannerDecis
 @router.post("/agent/execute", response_model=AgentExecuteResponse)
 async def execute(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -> AgentExecuteResponse:
     """Execute agent query with automatic V1/V2 routing."""
+    import asyncio
+    
     trace_id = f"agt-{uuid.uuid4().hex[:12]}"
     
     # Check if V2 should be used
@@ -1147,10 +1149,12 @@ async def execute(payload: AgentExecuteRequest, db: Session = Depends(get_db)) -
     try:
         if use_v2:
             logger.info("agent_execute_v2: trace_id=%s query=%s", trace_id, payload.query)
-            return await execute_agent_v2(payload, db)
+            return await execute_agent_v2(payload, db, external_trace_id=trace_id)
         else:
             logger.info("agent_execute_v1: trace_id=%s query=%s", trace_id, payload.query)
-            return execute_agent(db, payload)
+            # Run sync V1 in thread pool to avoid blocking event loop
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, execute_agent, db, payload)
     except requests.exceptions.Timeout as exc:
         logger.warning(
             "agent_execute_http_error",

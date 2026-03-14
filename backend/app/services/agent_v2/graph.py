@@ -73,7 +73,7 @@ builder.add_edge("chitchat_node", END)
 graph = builder.compile()
 
 
-async def execute(req: AgentExecuteRequest, db=None) -> AgentExecuteResponse:
+async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | None = None, _force: bool = False) -> AgentExecuteResponse:
     """Execute agent with the new LangGraph architecture.
     
     This is the main entry point for Agent V2.
@@ -81,13 +81,15 @@ async def execute(req: AgentExecuteRequest, db=None) -> AgentExecuteResponse:
     Args:
         req: The execution request
         db: Database session (required for retrieval)
+        external_trace_id: Optional trace ID from caller (for correlation)
+        _force: Internal flag to bypass config check (for testing)
     """
-    # Check if V2 is enabled
-    if not AgentV2Config.ENABLED:
+    # Check if V2 is enabled (unless forced)
+    if not _force and not AgentV2Config.should_use_v2(external_trace_id):
         raise RuntimeError("Agent V2 is disabled")
     
-    # Initialize state
-    trace_id = f"agt-{uuid.uuid4().hex[:12]}"
+    # Use external trace_id if provided, otherwise generate new one
+    trace_id = external_trace_id or f"agt-{uuid.uuid4().hex[:12]}"
     initial_state: AgentGraphState = {
         "req": req.model_dump(),
         "trace_id": trace_id,
@@ -97,7 +99,8 @@ async def execute(req: AgentExecuteRequest, db=None) -> AgentExecuteResponse:
     }
     
     # Initialize metrics
-    metrics = AgentV2Metrics(trace_id) if AgentV2Config.COLLECT_METRICS else None
+    metrics = AgentV2Metrics(trace_id) if AgentV2Config.is_metrics_enabled() else None
+    success = False
     
     try:
         # Execute graph with config (passes db to nodes)
