@@ -64,7 +64,8 @@ class TestChitchatNode:
         
         assert result["terminal"] == True
         assert result["terminal_reason"] == "chitchat_complete"
-        assert "你好" in result["final_card_payload"]["content"]
+        # Response is randomly selected from templates, just check it's not empty
+        assert len(result["final_card_payload"]["content"]) > 0
     
     def test_chitchat_en(self):
         """Test chitchat in English."""
@@ -76,4 +77,6 @@ class TestChitchatNode:
         result = chitchat_node(state)
         
         assert result["terminal"] == True
-        assert "Hello" in result["final_card_payload"]["content"]
+        assert result["terminal_reason"] == "chitchat_complete"
+        # Response is randomly selected from templates, just check it's not empty
+        assert len(result["final_card_payload"]["content"]) > 0

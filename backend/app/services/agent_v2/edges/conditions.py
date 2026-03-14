@@ -11,10 +11,16 @@ def should_chitchat(state: AgentGraphState) -> bool:
     return state.get("route") == "chitchat"
 
 
+def is_answerability_insufficient(state: AgentGraphState) -> bool:
+    """Check if answerability is insufficient and we need recovery."""
+    answerability = state.get("answerability", "sufficient")
+    return answerability in ("insufficient", "none")
+
+
 def should_retry(state: AgentGraphState) -> bool:
     """Determine if we should retry/recover.
     
-    TODO: Implement full retry logic with loop budget check.
+    Returns True if we have budget left and haven't exhausted retries.
     """
     loop_count = state.get("loop_count", 0)
     loop_budget = state.get("loop_budget", 3)
@@ -23,5 +29,8 @@ def should_retry(state: AgentGraphState) -> bool:
     if loop_count >= loop_budget:
         return False
     
-    # TODO: Add actual retry conditions based on answerability
+    # Check if recovery plan exists (indicates we attempted recovery)
+    if state.get("recovery_plan"):
+        return True
+    
     return False

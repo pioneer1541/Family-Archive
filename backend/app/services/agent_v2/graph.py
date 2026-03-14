@@ -15,7 +15,8 @@ from app.services.agent_v2.nodes.router import router_node
 from app.services.agent_v2.nodes.chitchat import chitchat_node
 from app.services.agent_v2.nodes.retriever import retriever_node
 from app.services.agent_v2.nodes.synthesizer import synthesizer_node
-from app.services.agent_v2.edges.conditions import should_chitchat, should_retry
+from app.services.agent_v2.nodes.recovery import recovery_node
+from app.services.agent_v2.edges.conditions import should_chitchat, should_retry, is_answerability_insufficient
 
 # Build the graph
 builder = StateGraph(AgentGraphState)
@@ -25,6 +26,7 @@ builder.add_node("router_node", router_node)
 builder.add_node("chitchat_node", chitchat_node)
 builder.add_node("retrieve_node", retriever_node)
 builder.add_node("synthesize_node", synthesizer_node)
+builder.add_node("recovery_node", recovery_node)
 
 # Add edges
 builder.add_edge(START, "router_node")
@@ -39,11 +41,27 @@ builder.add_conditional_edges(
     }
 )
 
-# Retrieve -> Synthesize (with potential retry loop)
-builder.add_edge("retrieve_node", "synthesize_node")
+# Retrieve -> Recovery check (if insufficient) or Synthesize
+builder.add_conditional_edges(
+    "retrieve_node",
+    is_answerability_insufficient,
+    {
+        True: "recovery_node",
+        False: "synthesize_node"
+    }
+)
 
-# Synthesize -> END or retry
-# TODO: Add recovery/retry logic in Phase 2
+# Recovery -> Retrieve (retry loop)
+builder.add_conditional_edges(
+    "recovery_node",
+    should_retry,
+    {
+        True: "retrieve_node",  # Retry with relaxed constraints
+        False: "synthesize_node"  # Give up and synthesize with what we have
+    }
+)
+
+# Synthesize -> END
 builder.add_edge("synthesize_node", END)
 
 # Chitchat -> END
