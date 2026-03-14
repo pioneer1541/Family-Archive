@@ -150,6 +150,67 @@ async def _classify_with_llm(query: str) -> tuple[str, float]:
         return ("complex", 0.5)
 
 
+# Chitchat patterns - quick detection before any LLM calls
+_CHITCHAT_PATTERNS = {
+    "你好", "您好", "嗨", "hello", "hi", "hey",
+    "早安", "晚安", "morning", "evening",
+    "谢谢", "感谢", "thanks", "thank you",
+    "再见", "拜拜", "bye", "goodbye",
+    "好的", "嗯", "ok", "okay", "是的", "没错",
+}
+
+# Simple chitchat responses - no LLM needed
+_CHITCHAT_RESPONSES = {
+    "zh": {
+        "你好": "你好！有什么可以帮助您的吗？",
+        "您好": "您好！请问有什么需要帮助的？",
+        "谢谢": "不客气！很高兴能帮到你。",
+        "再见": "再见！有需要随时找我。",
+        "好的": "好的，还有其他问题吗？",
+        "早安": "早安！祝您今天愉快！",
+        "晚安": "晚安！好梦！",
+    },
+    "en": {
+        "hello": "Hello! How can I help you today?",
+        "hi": "Hi there! What can I do for you?",
+        "thanks": "You're welcome! Glad I could help.",
+        "thank you": "You're welcome! Happy to assist.",
+        "bye": "Goodbye! Feel free to come back anytime.",
+        "ok": "OK! Anything else?",
+        "okay": "Okay! Let me know if you need more help.",
+    }
+}
+
+
+def _is_chitchat_quick(query: str) -> bool:
+    """Quick chitchat detection - zero LLM cost."""
+    q = query.lower().strip()
+    return len(q) <= 15 and any(p in q for p in _CHITCHAT_PATTERNS)
+
+
+def _generate_chitchat_response(query: str, ui_lang: str) -> dict:
+    """Generate chitchat response without LLM."""
+    q = query.lower().strip()
+    lang = ui_lang if ui_lang in ("zh", "en") else "en"
+
+    # Find matching response
+    content = "Hello! How can I help you?"  # Default
+    for pattern, response in _CHITCHAT_RESPONSES.get(lang, {}).items():
+        if pattern in q:
+            content = response
+            break
+
+    return {
+        "title": "Family Vault",
+        "short_summary": {
+            "en": content if lang == "en" else "Hello! How can I help you?",
+            "zh": content if lang == "zh" else "你好！有什么可以帮助您的吗？",
+        },
+        "key_points": [],
+        "type": "chitchat",
+    }
+
+
 async def query_classifier_node(state: AgentGraphState) -> dict[str, Any]:
     """
     Classify query complexity to determine processing strategy.
@@ -157,11 +218,12 @@ async def query_classifier_node(state: AgentGraphState) -> dict[str, Any]:
     State updates:
     - classifier.complexity: "simple" | "complex"
     - classifier.confidence: float
-    - classifier.method: "rule" | "llm" | "ab_test"
+    - classifier.method: "rule" | "llm" | "ab_test" | "chitchat"
 
     Routing:
     - "simple" -> unified_synthesizer_node (1 LLM call)
     - "complex" -> router_node (2 LLM calls)
+    - "chitchat" -> direct response (0 LLM calls)
 
     A/B Testing:
     - When AGENT_V2_SINGLE_LLM_TRAFFIC_PERCENT is set, uses traffic-based routing
@@ -171,12 +233,33 @@ async def query_classifier_node(state: AgentGraphState) -> dict[str, Any]:
 
     req = state.get("req", {})
     query = req.get("query", "") if isinstance(req, dict) else getattr(req, "query", "")
+    ui_lang = req.get("ui_lang", "zh") if isinstance(req, dict) else getattr(req, "ui_lang", "zh")
     trace_id = state.get("trace_id", "unknown")
 
     logger.info(
         "query_classifier_start",
         extra={"trace_id": trace_id, "query": query[:100]}
     )
+
+    # Phase 3.2: Chitchat short-circuit - zero LLM cost
+    if _is_chitchat_quick(query):
+        logger.info(
+            "query_classifier_chitchat_shortcircuit",
+            extra={"trace_id": trace_id, "query": query[:50]}
+        )
+        # Return chitchat classification - will route directly to chitchat_node
+        return {
+            "classifier": {
+                "complexity": "simple",
+                "confidence": 1.0,
+                "method": "chitchat",
+            },
+            "route": "chitchat",
+            "route_reason": "chitchat_shortcircuit",
+            "terminal": True,
+            "terminal_reason": "chitchat_complete",
+            "final_card_payload": _generate_chitchat_response(query, ui_lang),
+        }
 
     # Phase 2 A/B Testing: Check if we should force mode based on traffic split
     # This overrides the normal classification for A/B testing purposes

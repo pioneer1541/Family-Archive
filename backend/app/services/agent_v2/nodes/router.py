@@ -49,8 +49,10 @@ async def router_node(state: AgentGraphState) -> dict[str, Any]:
             "route_reason": "rule_based",
         }
     
-    # Check cache (use stable hash)
-    cache_key = f"router:v1:{hashlib.md5(query.encode()).hexdigest()}"
+    # Check cache (use stable hash with context)
+    ui_lang = state.get("req", {}).get("ui_lang", "zh")
+    doc_scope = str(state.get("req", {}).get("doc_scope", ""))
+    cache_key = f"router:v2:{hashlib.md5(f'{query}:{ui_lang}:{doc_scope}'.encode()).hexdigest()}"
     if cached := await get_cache(cache_key):
         logger.info("router_cache_hit: query=%s trace_id=%s", query, trace_id)
         return {

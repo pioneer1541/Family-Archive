@@ -22,7 +22,7 @@ from app.services.agent_v2.edges.conditions import (
     should_chitchat,
     should_retry,
     is_answerability_insufficient,
-    is_simple_query,
+    get_classifier_next_node,
 )
 from app.services.agent_v2.config import AgentV2Config
 from app.services.agent_v2.metrics import AgentV2Metrics, record_metrics
@@ -40,17 +40,20 @@ builder.add_node("retrieve_node", retriever_node)
 builder.add_node("synthesize_node", synthesizer_node)
 builder.add_node("recovery_node", recovery_node)
 
-# Phase 2: Start with query classifier
+# Phase 2/3: Start with query classifier
 builder.add_edge(START, "query_classifier_node")
 
-# Conditional: Simple query -> unified synthesizer (1 LLM call)
-#            Complex query -> router (2 LLM calls)
+# Phase 3.2 + Phase 2: Route based on classifier output
+# - chitchat: 0 LLM calls -> END
+# - simple: 1 LLM call -> unified_synthesize
+# - complex: 2 LLM calls -> router
 builder.add_conditional_edges(
     "query_classifier_node",
-    is_simple_query,
+    get_classifier_next_node,
     {
-        True: "unified_synthesize_node",   # Single-LLM mode
-        False: "router_node",               # Dual-LLM mode
+        "end": END,
+        "unified_synthesize": "unified_synthesize_node",
+        "router": "router_node",
     }
 )
 

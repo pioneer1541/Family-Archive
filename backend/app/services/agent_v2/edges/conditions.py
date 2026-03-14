@@ -54,3 +54,30 @@ def is_complex_query(state: AgentGraphState) -> bool:
     Returns False for simple queries -> go to unified_synthesizer
     """
     return not is_simple_query(state)
+
+
+def is_chitchat_shortcircuit(state: AgentGraphState) -> bool:
+    """Check if query is chitchat (short-circuit with 0 LLM calls).
+
+    Phase 3.2: Chitchat detected at classifier level, route directly to END.
+    """
+    return state.get("terminal") is True and state.get("terminal_reason") == "chitchat_complete"
+
+
+def get_classifier_next_node(state: AgentGraphState) -> str:
+    """Determine next node after query_classifier.
+
+    Returns one of: "end", "unified_synthesize", "router"
+    """
+    # Phase 3.2: Chitchat short-circuit - 0 LLM calls
+    if state.get("terminal") is True and state.get("terminal_reason") == "chitchat_complete":
+        return "end"
+
+    # Phase 2: Check complexity for single vs dual LLM mode
+    classifier = state.get("classifier", {})
+    complexity = classifier.get("complexity", "complex")
+
+    if complexity == "simple":
+        return "unified_synthesize"  # 1 LLM call
+    else:
+        return "router"  # 2 LLM calls
