@@ -40,7 +40,10 @@ jobs:
       - name: Format (ruff)
         run: ruff format app
 
-      - name: Lint (ruff)
+      - name: Lint and auto-fix (ruff)
+        run: ruff check --fix app
+
+      - name: Verify no remaining lint issues
         run: ruff check app
 
       - name: Test (pytest)
