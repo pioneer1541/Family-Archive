@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 
-import {parseModelSetting} from '../../app/[locale]/settings/page';
+import {parseModelSetting} from '@src/lib/utils/model-settings';
 
 describe('parseModelSetting', () => {
   it('falls back to local provider when provider id is unknown', () => {
