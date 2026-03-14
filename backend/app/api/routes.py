@@ -118,6 +118,7 @@ from app.schemas import (
 from app.services.agent import execute_agent
 from app.services.agent_v2 import execute as execute_agent_v2
 from app.services.agent_v2.config import AgentV2Config
+from app.services.agent_v2.ab_test_metrics import get_ab_test_collector
 from app.services.agent_graph import stream_agent_graph
 from app.services.document_post_process import (
     apply_summary_to_doc,
@@ -1200,6 +1201,29 @@ _AGENT_STAGE_LABELS: dict[str, dict[str, str]] = {
     "node_answer_build": {"zh": "生成回答", "en": "Generating answer"},
     "node_finalize": {"zh": "完成", "en": "Done"},
 }
+
+
+@router.get("/agent/ab-test-report")
+def agent_ab_test_report(
+    _: object = Depends(get_current_user),
+) -> dict:
+    """Get A/B test comparison report for single vs dual LLM mode.
+
+    Shows metrics comparing:
+    - Single-LLM mode (simple queries): 1 LLM call
+    - Dual-LLM mode (complex queries): 2 LLM calls
+    """
+    collector = get_ab_test_collector()
+    report = collector.get_comparison_report()
+
+    return {
+        "ok": True,
+        "report": report,
+        "config": {
+            "single_llm_enabled": AgentV2Config.is_single_llm_mode_enabled(),
+            "single_llm_traffic_percent": AgentV2Config.get_single_llm_traffic_percent(),
+        },
+    }
 
 
 @router.post("/agent/execute/stream")

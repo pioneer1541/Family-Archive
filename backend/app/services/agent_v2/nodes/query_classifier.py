@@ -157,12 +157,18 @@ async def query_classifier_node(state: AgentGraphState) -> dict[str, Any]:
     State updates:
     - classifier.complexity: "simple" | "complex"
     - classifier.confidence: float
-    - classifier.method: "rule" | "llm"
+    - classifier.method: "rule" | "llm" | "ab_test"
 
     Routing:
     - "simple" -> unified_synthesizer_node (1 LLM call)
     - "complex" -> router_node (2 LLM calls)
+
+    A/B Testing:
+    - When AGENT_V2_SINGLE_LLM_TRAFFIC_PERCENT is set, uses traffic-based routing
+    - This allows comparing single vs dual LLM mode on identical queries
     """
+    from app.services.agent_v2.config import AgentV2Config
+
     req = state.get("req", {})
     query = req.get("query", "") if isinstance(req, dict) else getattr(req, "query", "")
     trace_id = state.get("trace_id", "unknown")
@@ -171,6 +177,31 @@ async def query_classifier_node(state: AgentGraphState) -> dict[str, Any]:
         "query_classifier_start",
         extra={"trace_id": trace_id, "query": query[:100]}
     )
+
+    # Phase 2 A/B Testing: Check if we should force mode based on traffic split
+    # This overrides the normal classification for A/B testing purposes
+    if AgentV2Config.is_single_llm_mode_enabled():
+        traffic_percent = AgentV2Config.get_single_llm_traffic_percent()
+        # Only apply A/B override when not 0% or 100% (partial rollout)
+        if 0 < traffic_percent < 100:
+            use_single = AgentV2Config.should_use_single_llm_mode(trace_id)
+            complexity = "simple" if use_single else "complex"
+            logger.info(
+                "query_classifier_ab_test_override",
+                extra={
+                    "trace_id": trace_id,
+                    "complexity": complexity,
+                    "traffic_percent": traffic_percent,
+                    "method": "ab_test",
+                }
+            )
+            return {
+                "classifier": {
+                    "complexity": complexity,
+                    "confidence": 1.0,  # A/B test has deterministic routing
+                    "method": "ab_test",
+                }
+            }
 
     # Try rule-based classification first
     rule_result = _classify_by_rules(query)

@@ -26,6 +26,7 @@ from app.services.agent_v2.edges.conditions import (
 )
 from app.services.agent_v2.config import AgentV2Config
 from app.services.agent_v2.metrics import AgentV2Metrics, record_metrics
+from app.services.agent_v2.ab_test_metrics import get_ab_test_collector
 
 # Build the graph
 builder = StateGraph(AgentGraphState)
@@ -123,6 +124,7 @@ async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | No
 
     # Initialize metrics
     metrics = AgentV2Metrics(trace_id) if AgentV2Config.is_metrics_enabled() else None
+    ab_metrics = None
     success = False
 
     try:
@@ -135,6 +137,16 @@ async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | No
             metrics.end_node("graph_execution")
 
         success = True
+
+        # Phase 2: Collect A/B test metrics
+        if AgentV2Config.is_single_llm_mode_enabled():
+            classifier = result.get("classifier", {})
+            ab_metrics = get_ab_test_collector().start(
+                trace_id=trace_id,
+                complexity=classifier.get("complexity", "unknown"),
+                method=classifier.get("method", "unknown"),
+            )
+
     except Exception as e:
         # Log error and return fallback response
         from app.logging_utils import get_logger
@@ -175,6 +187,17 @@ async def execute(req: AgentExecuteRequest, db=None, external_trace_id: str | No
         if metrics:
             metrics_summary = metrics.finish(success=success)
             record_metrics(metrics_summary)
+
+        # Phase 2: Finish A/B test metrics
+        if ab_metrics:
+            classifier = result.get("classifier", {}) if result else {}
+            # Count LLM calls based on path taken
+            llm_calls = 1 if classifier.get("complexity") == "simple" else 2
+            get_ab_test_collector().finish(
+                ab_metrics,
+                llm_calls=llm_calls,
+                success=success,
+            )
 
     # Construct response with complete fields
     req_data = result.get("req", {})

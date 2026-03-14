@@ -73,3 +73,48 @@ class AgentV2Config:
     def is_metrics_enabled(cls) -> bool:
         """Check if metrics collection is enabled."""
         return cls._get_env_bool("AGENT_V2_METRICS", "true")
+
+    # Phase 2: Single-LLM Mode A/B Testing
+    @classmethod
+    def is_single_llm_mode_enabled(cls) -> bool:
+        """Check if single-LLM mode (Phase 2) is enabled."""
+        return cls._get_env_bool("AGENT_V2_SINGLE_LLM_ENABLED", "true")
+
+    @classmethod
+    def get_single_llm_traffic_percent(cls) -> int:
+        """Get percentage of traffic to route through single-LLM mode.
+
+        Returns:
+            Percentage (0-100) of queries to process with single-LLM mode.
+            Remaining traffic uses dual-LLM mode.
+        """
+        return cls._get_env_int("AGENT_V2_SINGLE_LLM_TRAFFIC_PERCENT", "50")
+
+    @classmethod
+    def should_use_single_llm_mode(cls, trace_id: str | None = None) -> bool:
+        """Determine if query should use single-LLM mode.
+
+        Args:
+            trace_id: Optional trace ID for consistent routing
+
+        Returns:
+            True if single-LLM mode should be used
+        """
+        # Single-LLM mode requires V2 to be enabled
+        if not cls.is_single_llm_mode_enabled():
+            return False
+
+        traffic_percent = cls.get_single_llm_traffic_percent()
+
+        if traffic_percent >= 100:
+            return True
+        if traffic_percent <= 0:
+            return False
+
+        # Use trace_id for consistent routing
+        if trace_id:
+            hash_val = int(hashlib.md5(f"single:{trace_id}".encode()).hexdigest(), 16) % 100
+            return hash_val < traffic_percent
+
+        # Default when trace_id is missing
+        return traffic_percent >= 50
