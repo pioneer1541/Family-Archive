@@ -123,18 +123,25 @@ async def execute(req: AgentExecuteRequest, db=None) -> AgentExecuteResponse:
         "type": card_payload.get("type", "answer"),
     }
     
-    # Build executor stats
+    # Build executor stats with graph tracking
     executor_stats = {
         "route": router_data.get("route", "lookup"),
         "retrieval_mode": "vector" if result.get("context_chunks") else "none",
         "answer_mode": "synthesis" if router_data.get("route") != "chitchat" else "chitchat",
         "route_reason": router_data.get("route_reason", "default"),
+        "answerability": result.get("answerability", "sufficient"),
+        "hit_count": len(result.get("context_chunks", [])),
+        "doc_count": len(set(c.get("doc_id") for c in result.get("context_chunks", []))),
+        "graph_enabled": True,
+        "graph_path": "router->" + ("chitchat" if router_data.get("route") == "chitchat" else "retrieve->synthesize"),
+        "graph_loop_budget": result.get("loop_budget", 3),
+        "graph_loops_used": result.get("loop_count", 0),
     }
     
     return AgentExecuteResponse(
         card=card,
         planner=planner,
         executor_stats=executor_stats,
-        related_docs=result.get("candidate_docs", []),
+        related_docs=result.get("related_docs_payload", []),
         trace_id=result.get("trace_id", "")
     )

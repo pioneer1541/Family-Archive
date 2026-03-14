@@ -72,6 +72,20 @@ async def retriever_node(state: AgentGraphState, config: dict[str, Any] | None =
                 "title": hit.title_en or hit.title_zh,
             })
         
+        # Build related_docs_payload for AgentRelatedDoc
+        from datetime import datetime
+        related_docs_payload = []
+        for h in hits[:5]:  # Top 5 for related docs
+            related_docs_payload.append({
+                "doc_id": h.doc_id,
+                "file_name": h.source_type or "",
+                "title_en": h.title_en or "",
+                "title_zh": h.title_zh or "",
+                "category_path": h.category_path or "",
+                "updated_at": h.updated_at if hasattr(h, 'updated_at') else datetime.utcnow(),
+                "source_available": True,
+            })
+        
         # Determine answerability based on hit count
         answerability = "sufficient" if len(hits) >= 3 else ("partial" if len(hits) >= 1 else "insufficient")
         
@@ -79,8 +93,9 @@ async def retriever_node(state: AgentGraphState, config: dict[str, Any] | None =
             "context_chunks": context_chunks,
             "candidate_docs": [
                 {"id": h.doc_id, "title": h.title_en or h.title_zh, "score": h.score}
-                for h in hits[:5]  # Top 5 for related docs
+                for h in hits[:5]
             ],
+            "related_docs_payload": related_docs_payload,
             "answerability": answerability,
         }
         
