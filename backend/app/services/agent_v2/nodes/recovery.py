@@ -28,6 +28,9 @@ async def recovery_node(state: AgentGraphState, config: dict[str, Any] | None = 
     
     logger.info("recovery_attempt: trace_id=%s loop=%d/%d", trace_id, loop_count, loop_budget)
     
+    # Increment loop counter
+    new_loop_count = loop_count + 1
+
     # Check if we have budget left
     if loop_count >= loop_budget:
         logger.warning("recovery_budget_exhausted: trace_id=%s", trace_id)
@@ -38,9 +41,6 @@ async def recovery_node(state: AgentGraphState, config: dict[str, Any] | None = 
             "recovery_plan": {"exhausted": True},
             "terminal": False,  # Let synthesize_node handle the response
         }
-    
-    # Increment loop counter
-    new_loop_count = loop_count + 1
     
     # Build recovery plan
     recovery_plan = {

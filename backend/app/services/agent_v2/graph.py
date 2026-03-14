@@ -93,11 +93,48 @@ async def execute(req: AgentExecuteRequest, db=None) -> AgentExecuteResponse:
     config = {"configurable": {"db": db}} if db else None
     result = await graph.ainvoke(initial_state, config=config)
     
-    # Construct response
+    # Construct response with complete fields
+    req_data = result.get("req", {})
+    ui_lang = req_data.get("ui_lang", "zh")
+    query_lang = req_data.get("query_lang", ui_lang)
+    
+    # Build complete planner
+    router_data = result.get("router", {})
+    planner = {
+        "intent": router_data.get("route", "lookup"),
+        "confidence": router_data.get("confidence", 0.8),
+        "doc_scope": req_data.get("doc_scope") or {},
+        "actions": router_data.get("actions", ["search_documents"]),
+        "fallback": router_data.get("fallback", "search_semantic"),
+        "ui_lang": ui_lang,
+        "query_lang": query_lang,
+        "route_reason": router_data.get("route_reason", "default"),
+    }
+    
+    # Build complete card with defaults
+    card_payload = result.get("final_card_payload", {})
+    card = {
+        "title": card_payload.get("title", "Family Vault"),
+        "short_summary": card_payload.get("short_summary", {"en": "", "zh": ""}),
+        "key_points": card_payload.get("key_points", []),
+        "detail_sections": card_payload.get("detail_sections", []),
+        "sources": card_payload.get("sources", []),
+        "actions": card_payload.get("actions", []),
+        "type": card_payload.get("type", "answer"),
+    }
+    
+    # Build executor stats
+    executor_stats = {
+        "route": router_data.get("route", "lookup"),
+        "retrieval_mode": "vector" if result.get("context_chunks") else "none",
+        "answer_mode": "synthesis" if router_data.get("route") != "chitchat" else "chitchat",
+        "route_reason": router_data.get("route_reason", "default"),
+    }
+    
     return AgentExecuteResponse(
-        card=result.get("final_card_payload", {}),
-        planner=result.get("router", {}),
-        executor_stats=result.get("executor_stats_payload", {}),
-        related_docs=result.get("related_docs_payload", []),
+        card=card,
+        planner=planner,
+        executor_stats=executor_stats,
+        related_docs=result.get("candidate_docs", []),
         trace_id=result.get("trace_id", "")
     )
