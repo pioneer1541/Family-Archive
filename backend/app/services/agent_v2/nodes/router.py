@@ -3,6 +3,7 @@
 Intent classification and query routing.
 """
 
+import hashlib
 from typing import Any
 
 from app.logging_utils import get_logger
@@ -48,8 +49,8 @@ async def router_node(state: AgentGraphState) -> dict[str, Any]:
             "route_reason": "rule_based",
         }
     
-    # Check cache
-    cache_key = f"router:v1:{hash(query)}"
+    # Check cache (use stable hash)
+    cache_key = f"router:v1:{hashlib.md5(query.encode()).hexdigest()}"
     if cached := await get_cache(cache_key):
         logger.info("router_cache_hit: query=%s trace_id=%s", query, trace_id)
         return {
