@@ -52,7 +52,7 @@ export function ProtectedAppShell({children}: {children: ReactNode}) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const root = document.documentElement;
-    let focusTimer: ReturnType<typeof setTimeout> | null = null;
+    let focusTimer: number | null = null;
 
     const ensureFocusedFieldVisible = () => {
       const active = document.activeElement;

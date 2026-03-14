@@ -24,7 +24,8 @@ os.environ["FAMILY_VAULT_MAIL_POLL_ENABLED"] = "0"
 os.environ["FAMILY_VAULT_BCRYPT_ROUNDS"] = "4"
 os.environ["FAMILY_VAULT_DISABLE_BACKGROUND_TASKS"] = "1"
 
-from app.db import Base, engine  # noqa: E402
+from app.auth import ensure_default_admin  # noqa: E402
+from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 
 _DB_BACKEND = make_url(str(os.environ["FAMILY_VAULT_DATABASE_URL"])).get_backend_name()
@@ -106,6 +107,9 @@ def reset_database(request):
             pass
         _wal_checkpoint()
         Base.metadata.create_all(bind=engine)
+    # 创建默认 admin 用户
+    with SessionLocal() as db:
+        ensure_default_admin(db)
     yield
     try:
         Base.metadata.drop_all(bind=engine)

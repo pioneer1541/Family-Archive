@@ -127,6 +127,8 @@ def test_list_models_from_provider_uses_normalized_ollama_url(monkeypatch) -> No
     provider = SimpleNamespace(
         base_url="http://192.168.1.162:11434/v1",
         provider_type=ModelProviderType.OLLAMA,
+        api_key_encrypted=None,
+        model_name="",
     )
 
     names = _list_models_from_provider(provider)

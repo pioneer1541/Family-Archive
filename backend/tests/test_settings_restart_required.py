@@ -43,10 +43,12 @@ def test_patch_settings_ollama_equivalent_api_suffix_does_not_require_restart(au
     assert response.json()["restart_required"] is False
 
 
-def test_patch_settings_ollama_actual_change_requires_restart(authed_client, monkeypatch):
+def test_patch_settings_ollama_actual_change_does_not_require_restart(authed_client, monkeypatch):
+    # ollama_base_url is NOT in RESTART_REQUIRED_KEYS anymore
+    # Provider UI handles this directly without needing a restart
     monkeypatch.setenv("FAMILY_VAULT_OLLAMA_BASE_URL", "http://ollama:11434")
 
     response = authed_client.patch("/v1/settings", json={"ollama_base_url": "http://ollama:11435"})
 
     assert response.status_code == 200
-    assert response.json()["restart_required"] is True
+    assert response.json()["restart_required"] is False
