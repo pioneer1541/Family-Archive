@@ -7,6 +7,8 @@ import hashlib
 import os
 from typing import Literal
 
+from app.runtime_config import get_runtime_setting
+
 
 class AgentV2Config:
     """Configuration for Agent V2 rollout."""
