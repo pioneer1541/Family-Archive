@@ -45,14 +45,15 @@ def mount_smb_share(
 
     # Build SMB path
     # share_path might be "volume1/Family_Archives" format
-    smb_share = f"//{host}/{share_path.strip('/')}"
+    smb_share = f"//{host}/{share_path.strip('/')}" 
 
     # Build mount options (avoid password in command line)
     options = ["ro", "vers=3.0"]  # Read-only mount, SMB 3.0
+    creds_file: Optional[str] = None
 
     if username:
         # Write credentials to temporary file to avoid exposing in ps
-        creds_file = f"/tmp/.smb_creds_{safe_host}_{safe_share}"
+        creds_file = f"/tmp/.smb_creds_{safe_host}_{safe_share}_{os.getpid()}"
         try:
             with open(creds_file, "w") as f:
                 f.write(f"username={username}\n")
@@ -61,8 +62,6 @@ def mount_smb_share(
                 if domain:
                     f.write(f"domain={domain}\n")
             os.chmod(creds_file, 0o600)
-            # Remove username from options since it's in creds file
-            options = [opt for opt in options if not opt.startswith("username=")]
             options.append(f"credentials={creds_file}")
         except Exception as e:
             return False, f"Failed to create credentials file: {str(e)}"
@@ -80,15 +79,16 @@ def mount_smb_share(
         ",".join(options),
     ]
 
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        # Clean up credentials file if created
-        if username and password:
+    def cleanup_creds():
+        """Clean up credentials file if it exists."""
+        if creds_file and os.path.exists(creds_file):
             try:
-                if os.path.exists(creds_file):
-                    os.remove(creds_file)
+                os.remove(creds_file)
             except Exception:
                 pass
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         
         if result.returncode == 0:
             logger.info(
@@ -107,38 +107,32 @@ def mount_smb_share(
             )
             return False, f"Mount failed: {result.stderr}"
     except subprocess.TimeoutExpired:
-        # Clean up credentials file on timeout
-        if username and password:
-            try:
-                if os.path.exists(creds_file):
-                    os.remove(creds_file)
-            except Exception:
-                pass
         return False, "Mount timeout"
     except Exception as e:
-        # Clean up credentials file on error
-        if username and password:
-            try:
-                if os.path.exists(creds_file):
-                    os.remove(creds_file)
-            except Exception:
-                pass
         return False, f"Mount error: {str(e)}"
+    finally:
+        cleanup_creds()
 
 
 def umount_share(mount_point: str) -> bool:
     """Unmount a share."""
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["sudo", "umount", mount_point], capture_output=True, timeout=10
         )
+        if result.returncode != 0:
+            logger.warning(
+                "umount_failed",
+                extra=sanitize_log_context(
+                    {"mount_point": mount_point, "stderr": result.stderr}
+                ),
+            )
+            return False
         return True
     except Exception as e:
         logger.warning(
             "umount_failed",
-            extra=sanitize_log_context(
-                {"mount_point": mount_point, "error": str(e)}
-            ),
+            extra=sanitize_log_context({"mount_point": mount_point, "error": str(e)}),
         )
         return False
 

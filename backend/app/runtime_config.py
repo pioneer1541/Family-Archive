@@ -172,7 +172,7 @@ SETTING_META: dict[str, dict[str, Any]] = {
         "label_en": "NAS Username",
     },
     "nas_password": {
-        "type": "string",
+        "type": "password",
         "category": "nas",
         "label_zh": "NAS 密码",
         "label_en": "NAS Password",
