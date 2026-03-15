@@ -48,7 +48,9 @@ services:
       # Docker socket - 用于容器内执行 docker 命令 (如文档预览、PDF 处理等)
       # 注意：此挂载给予容器对宿主机 Docker 的只读访问权限
       # 如果不需要此功能，可以注释掉这一行
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Docker socket - 用于容器内执行 docker 命令 (如服务重启、文档处理等)
+      # 需要读写权限才能执行 docker compose restart
+      - /var/run/docker.sock:/var/run/docker.sock
       # 请在此处挂载 NAS/本地目录，然后在 Settings UI 中设置 NAS 源目录路径。
       # - /mnt/nas:/mnt/nas:ro
       - /mnt/nas:/volume1/Family_Archives:ro
