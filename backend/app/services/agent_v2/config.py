@@ -126,23 +126,15 @@ class AgentV2Config:
     def get_router_model(cls, db=None) -> str:
         """Get the model to use for Router (lightweight).
 
-        Router only needs to classify intent, can use lighter model.
-        Default: glm-4-flash (much cheaper than glm-4-plus)
+        Phase 3.3: Using unified qwen3.5-4b-96k model for all tasks.
         """
-        # Check for explicit router model setting
-        model = get_runtime_setting("agent_v2_router_model", db)
-        if model:
-            return model
-        # Fall back to planner_model with flash suffix
-        base_model = get_runtime_setting("planner_model", db)
-        if base_model and "plus" in base_model.lower():
-            return base_model.replace("plus", "flash")
-        return base_model or "glm-4-flash"
+        # Use qwen3.5-4b-96k as default for all models
+        return get_runtime_setting("agent_v2_router_model", db) or "qwen3.5-4b-96k"
 
     @classmethod
     def get_synthesizer_model(cls, db=None) -> str:
         """Get the model to use for Synthesizer (high quality).
 
-        Synthesizer generates user-facing answers, use best model.
+        Phase 3.3: Using unified qwen3.5-4b-96k model for all tasks.
         """
-        return get_runtime_setting("synthesizer_model", db) or "glm-4-plus"
+        return get_runtime_setting("synthesizer_model", db) or "qwen3.5-4b-96k"
