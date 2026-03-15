@@ -966,12 +966,87 @@ function _buildAgentRequestBody(payload: AgentRunPayload): string {
   });
 }
 
+// V2 stream event adapter - converts V2 format to V1 format with extended fields
+function adaptV2StreamEvent(evt: Record<string, unknown>): AgentStreamEvent | null {
+  const eventType = String(evt.event_type || evt.eventType || '');
+  const node = String(evt.node || '');
+  const data = (evt.data as Record<string, unknown>) || {};
+
+  // Map V2 node names to V1 stage names
+  const nodeToStage: Record<string, string> = {
+    'query_classifier': 'classifier',
+    'router': 'router',
+    'retrieve': 'retrieve',
+    'synthesize': 'synthesize',
+    'unified_synthesize': 'synthesize',
+    'chitchat': 'chitchat',
+    'graph': 'finalize',
+  };
+
+  const stage = nodeToStage[node] || node || 'unknown';
+
+  // Build label based on node and complexity
+  const complexity = String(data.complexity || '');
+  const method = String(data.method || '');
+
+  let labelZh = '';
+  let labelEn = '';
+
+  switch (node) {
+    case 'query_classifier':
+      labelZh = complexity === 'simple' ? '快速分类' : '复杂分析';
+      labelEn = complexity === 'simple' ? 'Quick classify' : 'Complex analysis';
+      break;
+    case 'router':
+      labelZh = '规划路径';
+      labelEn = 'Planning route';
+      break;
+    case 'retrieve':
+      labelZh = `搜索文档 (${data.hitCount || 0})`;
+      labelEn = `Search docs (${data.hitCount || 0})`;
+      break;
+    case 'synthesize':
+    case 'unified_synthesize':
+      labelZh = '生成回答';
+      labelEn = 'Generating answer';
+      break;
+    case 'chitchat':
+      labelZh = '快速响应';
+      labelEn = 'Quick response';
+      break;
+    default:
+      labelZh = node;
+      labelEn = node;
+  }
+
+  return {
+    stage,
+    label: {zh: labelZh, en: labelEn},
+    done: eventType === 'end' || eventType === 'chunk',
+    eventType: eventType as AgentStreamEvent['eventType'],
+    node,
+    data: {
+      complexity: data.complexity as 'simple' | 'complex',
+      confidence: Number(data.confidence || 0),
+      method: data.method as AgentStreamEvent['data']['method'],
+      hitCount: Number(data.hit_count || data.hitCount || 0),
+      docCount: Number(data.doc_count || data.docCount || 0),
+      answerability: String(data.answerability || ''),
+      content: data.content as BilingualText,
+      llmCalls: Number(data.llm_calls || data.llmCalls || 0),
+    },
+    traceId: String(evt.trace_id || evt.traceId || ''),
+    timestamp: Number(evt.timestamp || Date.now()),
+  };
+}
+
 async function streamAgent(
   payload: AgentRunPayload,
   onEvent: (event: AgentStreamEvent) => void,
   signal?: AbortSignal
 ): Promise<void> {
-  const res = await fetchWithCredentials(`${API_BASE}/v1/agent/execute/stream`, {
+  // Try V2 streaming endpoint first
+  const res = await fetchWithCredentials(`${API_BASE}/v1/agent/v2/execute/stream`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: _buildAgentRequestBody(payload),
@@ -979,6 +1054,7 @@ async function streamAgent(
   });
 
   if (!res.ok || !res.body) {
+    // Fall back to V1 streaming
     const detail = `agent_stream_failed: ${res.status}`;
     onEvent({stage: '__error__', label: {zh: '请求失败', en: 'Request failed'}, done: true, error: true, detail});
     return;
@@ -1009,13 +1085,21 @@ async function streamAgent(
           onEvent({stage: '__error__', label: {zh: '请求失败', en: 'Request failed'}, done: true, error: true, detail: String(evt.detail || 'agent_stream_error')});
           return;
         }
-        const stage = String(evt.stage || '');
-        const label = (evt.label as AgentStreamEvent['label']) || {zh: stage, en: stage};
-        if (evt.result) {
-          const result = await _parseAgentRaw(evt.result as RawAgentResponse, payload.locale);
-          onEvent({stage, label, done: true, result});
+
+        // Check if this is V2 format (has event_type or node)
+        if (evt.event_type || evt.eventType || evt.node) {
+          const adapted = adaptV2StreamEvent(evt);
+          if (adapted) onEvent(adapted);
         } else {
-          onEvent({stage, label, done: true});
+          // V1 format fallback
+          const stage = String(evt.stage || '');
+          const label = (evt.label as AgentStreamEvent['label']) || {zh: stage, en: stage};
+          if (evt.result) {
+            const result = await _parseAgentRaw(evt.result as RawAgentResponse, payload.locale);
+            onEvent({stage, label, done: true, result});
+          } else {
+            onEvent({stage, label, done: true});
+          }
         }
       }
     }

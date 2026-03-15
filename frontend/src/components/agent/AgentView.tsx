@@ -25,6 +25,12 @@ interface ChatMessage {
   actionsOpen: boolean;
   errorKind?: 'timeout' | 'network' | 'gateway' | 'server' | 'unknown';
   retryQuery?: string;
+  // V2 extended fields
+  complexity?: 'simple' | 'complex';
+  method?: 'rule' | 'llm' | 'ab_test' | 'chitchat';
+  llmCalls?: number;
+  hitCount?: number;
+  docCount?: number;
 }
 
 const FOLLOWUP_HINTS = [
@@ -179,7 +185,15 @@ function AgentView() {
     relatedDocs: KbDoc[],
     actions: AgentAction[] = [],
     card: AgentCard | null = null,
-    opts?: {errorKind?: ChatMessage['errorKind']; retryQuery?: string}
+    opts?: {
+      errorKind?: ChatMessage['errorKind'];
+      retryQuery?: string;
+      complexity?: ChatMessage['complexity'];
+      method?: ChatMessage['method'];
+      llmCalls?: number;
+      hitCount?: number;
+      docCount?: number;
+    }
   ) => {
     setMessages((prev) => [
       ...prev,
@@ -192,7 +206,12 @@ function AgentView() {
         card,
         actionsOpen: false,
         errorKind: opts?.errorKind,
-        retryQuery: opts?.retryQuery
+        retryQuery: opts?.retryQuery,
+        complexity: opts?.complexity,
+        method: opts?.method,
+        llmCalls: opts?.llmCalls,
+        hitCount: opts?.hitCount,
+        docCount: opts?.docCount,
       }
     ]);
   };
@@ -293,6 +312,16 @@ function AgentView() {
 
     setBusy(true);
     setStages([]);
+
+    // V2 metadata accumulator
+    const v2Meta: {
+      complexity?: 'simple' | 'complex';
+      method?: 'rule' | 'llm' | 'ab_test' | 'chitchat';
+      llmCalls?: number;
+      hitCount?: number;
+      docCount?: number;
+    } = {};
+
     try {
       const followup = isFollowupQuery(text);
       const maxRows = Math.max(2, FOLLOWUP_TURNS * 2);
@@ -320,9 +349,22 @@ function AgentView() {
         try {
           await client.streamAgent(agentPayload, (event: AgentStreamEvent) => {
             if (event.error) return;
+            // Capture V2 metadata
+            if (event.data?.complexity) v2Meta.complexity = event.data.complexity;
+            if (event.data?.method) v2Meta.method = event.data.method;
+            if (event.data?.llmCalls) v2Meta.llmCalls = event.data.llmCalls;
+            if (event.data?.hitCount !== undefined) v2Meta.hitCount = event.data.hitCount;
+            if (event.data?.docCount !== undefined) v2Meta.docCount = event.data.docCount;
+
             if (event.result) {
               resultReceived = true;
-              appendAssistantMessage(String(event.result.answer || '').trim(), event.result.relatedDocs || [], event.result.card?.actions || [], event.result.card || null);
+              appendAssistantMessage(
+                String(event.result.answer || '').trim(),
+                event.result.relatedDocs || [],
+                event.result.card?.actions || [],
+                event.result.card || null,
+                v2Meta
+              );
             } else {
               setStages((prev) => [...prev, {stage: event.stage, labelZh: event.label.zh, labelEn: event.label.en}]);
             }
@@ -333,7 +375,7 @@ function AgentView() {
       }
       if (!resultReceived) {
         const out = await client.runAgent(agentPayload);
-        appendAssistantMessage(String(out.answer || '').trim(), out.relatedDocs || [], out.card?.actions || [], out.card || null);
+        appendAssistantMessage(String(out.answer || '').trim(), out.relatedDocs || [], out.card?.actions || [], out.card || null, v2Meta);
       }
     } catch (error) {
       const kind = isAgentRequestError(error) ? error.kind : 'unknown';
@@ -417,6 +459,38 @@ function AgentView() {
               <div className="msg-avatar">{message.role === 'user' ? t('agent.me') : '✦'}</div>
               <div className="msg-body">
                 <div className="msg-bubble">{renderAnswer(message.text)}</div>
+
+                {/* V2 Response Mode Badge */}
+                {message.role === 'assistant' && message.complexity ? (
+                  <div className="agent-response-meta">
+                    <span className={`agent-mode-badge agent-mode-${message.complexity}`}>
+                      {locale === 'zh-CN'
+                        ? message.complexity === 'simple'
+                          ? message.method === 'chitchat'
+                            ? '⚡ 快速响应'
+                            : '⚡ 快速模式'
+                          : '🔍 深度模式'
+                        : message.complexity === 'simple'
+                          ? message.method === 'chitchat'
+                            ? '⚡ Quick'
+                            : '⚡ Fast'
+                          : '🔍 Deep'}
+                    </span>
+                    {message.hitCount !== undefined && message.hitCount > 0 ? (
+                      <span className="agent-retrieve-stats">
+                        {locale === 'zh-CN'
+                          ? `引用 ${message.hitCount} 个片段`
+                          : `${message.hitCount} refs`}
+                      </span>
+                    ) : null}
+                    {message.llmCalls !== undefined ? (
+                      <span className="agent-llm-stats" title={locale === 'zh-CN' ? 'LLM 调用次数' : 'LLM calls'}>
+                        {message.llmCalls === 0 ? '0 AI' : `${message.llmCalls} AI`}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {message.role === 'assistant' && message.retryQuery ? (
                   <div className="msg-retry-row">
                     <button

@@ -76,12 +76,29 @@ export interface AgentStageLabel {
 }
 
 export interface AgentStreamEvent {
+  // V1 compatible fields
   stage: string;
   label: AgentStageLabel;
   done: boolean;
   result?: AgentRunResult;
   error?: boolean;
   detail?: string;
+  // V2 extended fields
+  eventType?: 'start' | 'progress' | 'chunk' | 'end' | 'error';
+  node?: string;
+  data?: {
+    complexity?: 'simple' | 'complex';
+    confidence?: number;
+    method?: 'rule' | 'llm' | 'ab_test' | 'chitchat';
+    hitCount?: number;
+    docCount?: number;
+    answerability?: string;
+    content?: BilingualText;
+    llmCalls?: number;
+    costSaving?: number;
+  };
+  traceId?: string;
+  timestamp?: number;
 }
 
 export type AgentRequestErrorKind = 'timeout' | 'network' | 'gateway' | 'server' | 'unknown';
