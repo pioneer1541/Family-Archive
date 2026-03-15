@@ -24,7 +24,7 @@ def ensure_mount_point(path: str) -> bool:
 
 
 def mount_smb_share(
-    host: str, share_path: str, username: str = "", password: str = ""
+    host: str, share_path: str, username: str = "", password: str = "", domain: str = ""
 ) -> tuple[bool, str]:
     """
     Mount SMB share to local path.
@@ -51,18 +51,21 @@ def mount_smb_share(
     options = ["ro", "vers=3.0"]  # Read-only mount, SMB 3.0
 
     if username:
-        options.append(f"username={username}")
-        if password:
-            # Write credentials to temporary file to avoid exposing in ps
-            creds_file = f"/tmp/.smb_creds_{safe_host}_{safe_share}"
-            try:
-                with open(creds_file, "w") as f:
-                    f.write(f"username={username}\n")
+        # Write credentials to temporary file to avoid exposing in ps
+        creds_file = f"/tmp/.smb_creds_{safe_host}_{safe_share}"
+        try:
+            with open(creds_file, "w") as f:
+                f.write(f"username={username}\n")
+                if password:
                     f.write(f"password={password}\n")
-                os.chmod(creds_file, 0o600)
-                options.append(f"credentials={creds_file}")
-            except Exception as e:
-                return False, f"Failed to create credentials file: {str(e)}"
+                if domain:
+                    f.write(f"domain={domain}\n")
+            os.chmod(creds_file, 0o600)
+            # Remove username from options since it's in creds file
+            options = [opt for opt in options if not opt.startswith("username=")]
+            options.append(f"credentials={creds_file}")
+        except Exception as e:
+            return False, f"Failed to create credentials file: {str(e)}"
     else:
         options.append("guest")
 

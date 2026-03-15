@@ -1722,7 +1722,7 @@ def patch_settings(
     restart_required = bool(changed_keys & RESTART_REQUIRED_KEYS)
 
     # NAS auto-mount: if NAS-related settings changed, attempt to mount before committing
-    nas_related_keys = {"source_type", "nas_host", "nas_path", "local_source_dir"}
+    nas_related_keys = {"source_type", "nas_host", "nas_path", "nas_username", "nas_password", "local_source_dir"}
     if changed_keys & nas_related_keys:
         # Flush to make settings available for mount operations, but don't commit yet
         db.flush()
@@ -1731,9 +1731,11 @@ def patch_settings(
         source_type = get_runtime_setting("source_type", db)
         nas_host = get_runtime_setting("nas_host", db)
         nas_path = get_runtime_setting("nas_path", db)
+        nas_username = get_runtime_setting("nas_username", db)
+        nas_password = get_runtime_setting("nas_password", db)
 
         if source_type == "nas" and nas_host and nas_path:
-            success, msg = mount_smb_share(nas_host, nas_path)
+            success, msg = mount_smb_share(nas_host, nas_path, nas_username, nas_password)
             if success:
                 # Mount success, commit settings and restart worker
                 db.commit()

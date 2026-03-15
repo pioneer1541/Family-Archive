@@ -7,10 +7,7 @@ services:
     build: ./backend
     container_name: fkv-api-dev
     restart: unless-stopped
-    #privileged: true  # Required for SMB mount operations
-    cap_add:
-      - SYS_ADMIN
-      - DAC_READ_SEARCH
+    privileged: true  # Required for SMB mount operations
     logging:
       driver: json-file
       options:
@@ -25,7 +22,6 @@ services:
       - FAMILY_VAULT_QDRANT_COLLECTION=fkv_docs_dev_v1
       - FAMILY_VAULT_QDRANT_ENABLE=1
       - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - FAMILY_VAULT_JWT_SECRET=${FAMILY_VAULT_JWT_SECRET}
       - FAMILY_VAULT_ALLOWED_ORIGINS=["http://localhost:18281","http://127.0.0.1:18281","http://192.168.1.209:18281"]
       # Agent V2 Configuration (default: disabled for safety)
       - AGENT_V2_ENABLED=${AGENT_V2_ENABLED:-false}
@@ -70,7 +66,6 @@ services:
       - FAMILY_VAULT_QDRANT_COLLECTION=fkv_docs_dev_v1
       - FAMILY_VAULT_QDRANT_ENABLE=1
       - FAMILY_VAULT_OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - FAMILY_VAULT_JWT_SECRET=${FAMILY_VAULT_JWT_SECRET}
       - FAMILY_VAULT_CELERY_WORKER_CONCURRENCY=2
       # Agent V2 Configuration (default: disabled for safety)
       - AGENT_V2_ENABLED=${AGENT_V2_ENABLED:-false}

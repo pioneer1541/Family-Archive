@@ -1355,6 +1355,24 @@ export default function SettingsPage() {
                       onChange={(e) => setVal('nas_path', e.target.value)}
                     />
                   </div>
+                  <div className="settings-field">
+                    <label>{isZh ? 'NAS 用户名' : 'NAS Username'}</label>
+                    <input
+                      type="text"
+                      value={getVal('nas_username')}
+                      onChange={(e) => setVal('nas_username', e.target.value)}
+                      placeholder={isZh ? '可选，留空使用 Guest' : 'Optional, leave empty for Guest'}
+                    />
+                  </div>
+                  <div className="settings-field">
+                    <label>{isZh ? 'NAS 密码' : 'NAS Password'}</label>
+                    <input
+                      type="password"
+                      value={getVal('nas_password')}
+                      onChange={(e) => setVal('nas_password', e.target.value)}
+                      placeholder={isZh ? '可选，留空使用 Guest' : 'Optional, leave empty for Guest'}
+                    />
+                  </div>
                 </>
               )}
               <div className="settings-field">

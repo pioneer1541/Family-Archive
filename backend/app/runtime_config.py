@@ -41,6 +41,8 @@ _RUNTIME_CONFIGURABLE: dict[str, tuple[str, str]] = {
     "local_source_dir": ("FAMILY_VAULT_LOCAL_SOURCE_DIR", ""),
     "nas_host": ("FAMILY_VAULT_NAS_HOST", ""),
     "nas_path": ("FAMILY_VAULT_NAS_PATH", ""),
+    "nas_username": ("FAMILY_VAULT_NAS_USERNAME", ""),
+    "nas_password": ("FAMILY_VAULT_NAS_PASSWORD", ""),
     "nas_auto_scan_enabled": ("FAMILY_VAULT_NAS_AUTO_SCAN_ENABLED", "0"),
     "nas_scan_interval_sec": ("FAMILY_VAULT_NAS_SCAN_INTERVAL_SEC", "900"),
     "nas_default_source_dir": ("FAMILY_VAULT_NAS_DEFAULT_SOURCE_DIR", ""),
@@ -162,6 +164,18 @@ SETTING_META: dict[str, dict[str, Any]] = {
         "category": "nas",
         "label_zh": "NAS 共享路径",
         "label_en": "NAS Share Path",
+    },
+    "nas_username": {
+        "type": "string",
+        "category": "nas",
+        "label_zh": "NAS 用户名",
+        "label_en": "NAS Username",
+    },
+    "nas_password": {
+        "type": "string",
+        "category": "nas",
+        "label_zh": "NAS 密码",
+        "label_en": "NAS Password",
     },
     "nas_scan_interval_sec": {
         "type": "int",
