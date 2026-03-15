@@ -41,31 +41,57 @@ def normalize_source_type(source_type: str | None) -> str:
 
 
 def resolve_source_root(db: Session | None = None) -> tuple[str, str]:
+    """Resolve source root directory based on configuration.
+    
+    Supports two modes:
+    - "local": Use local directory path (for Docker volume mounts or local filesystem)
+    - "nas": Use SMB/CIFS mount with host + path (for network attached storage)
+    
+    For Docker deployments with volume mounts, use source_type="local" and 
+    set local_source_dir to the mounted path (e.g., /volume1/Family_Archives/).
+    
+    For NAS SMB mounts, use source_type="nas" with nas_host and nas_path.
+    """
     source_type = normalize_source_type(
         get_runtime_setting("source_type", db) if db is not None else settings.source_type
     )
-    if source_type == "local":
-        local_root = get_runtime_setting("local_source_dir", db) if db is not None else settings.local_source_dir
-        fallback_root = (
-            get_runtime_setting("nas_default_source_dir", db) if db is not None else settings.nas_default_source_dir
-        )
-        root = _real(local_root) or _real(fallback_root)
-        return ("local", root)
-
+    
+    # Get all possible path configurations
+    local_root = get_runtime_setting("local_source_dir", db) if db is not None else settings.local_source_dir
     nas_host = get_runtime_setting("nas_host", db) if db is not None else settings.nas_host
     nas_path = get_runtime_setting("nas_path", db) if db is not None else settings.nas_path
     fallback_root = (
         get_runtime_setting("nas_default_source_dir", db) if db is not None else settings.nas_default_source_dir
     )
+    
+    if source_type == "local":
+        # Local mode: use local_source_dir or fallback to nas_path if local_source_dir is empty
+        # This allows Docker volume mounts to work with either setting
+        root = _real(local_root) or _real(nas_path) or _real(fallback_root)
+        if root:
+            return ("local", root)
+        return ("local", "")
+
+    # NAS mode: require both host and path for SMB mount
     host = str(nas_host or "").strip().strip("/\\")
     path = str(nas_path or "").strip()
+    
     if host and path:
+        # Build UNC path: //host/share/path
         rel = path.strip().strip("/\\")
         if rel:
             root = _real(f"//{host}/{rel}")
             if root:
                 return ("nas", root)
-    root = _real(path) or _real(fallback_root)
+    
+    # Fallback: if nas_host is empty but nas_path exists, treat as local path
+    # This provides backward compatibility
+    if path and not host:
+        root = _real(path)
+        if root:
+            return ("local", root)
+    
+    root = _real(fallback_root)
     return ("nas", root)
 
 

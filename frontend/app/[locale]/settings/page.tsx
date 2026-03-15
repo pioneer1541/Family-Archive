@@ -1288,6 +1288,9 @@ export default function SettingsPage() {
                   <option value="local">{t('sourceTypeLocal')}</option>
                   <option value="nas">{t('sourceTypeNas')}</option>
                 </select>
+                <span className="settings-hint">
+                  {t('sourceTypeHint') || 'Docker: Use Local with mounted volumes. SMB share: Use NAS with host IP.'}
+                </span>
               </div>
               {(getVal('source_type') || 'local').toLowerCase() === 'local' ? (
                 <div className="settings-field">
