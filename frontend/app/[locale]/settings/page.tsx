@@ -396,18 +396,27 @@ export default function SettingsPage() {
     setRestarting(true);
     try {
       const result = await client.restartServices?.();
-      const fallbackSuccess = isZh ? '服务已重启' : 'Services restarted';
-      const fallbackFail = isZh ? '重启失败，请手动重启容器' : 'Restart failed, please restart container manually';
       const toastMessage = (result?.message || result?.error || '').trim();
+      
       if (result?.ok) {
+        // Successful restart
         setRestartRequired(false);
-        setToast(toastMessage || fallbackSuccess);
+        setToast(toastMessage || (isZh ? '服务已重启' : 'Services restarted'));
+        setTimeout(() => setToast(''), 3000);
+      } else if (result?.manual) {
+        // Manual restart required - show detailed instructions
+        setToast(isZh 
+          ? `自动重启不可用。请 SSH 到服务器并运行: docker compose restart fkv-worker` 
+          : `Auto-restart unavailable. Please SSH to server and run: docker compose restart fkv-worker`);
+        setTimeout(() => setToast(''), 8000);
       } else {
-        setToast(toastMessage || fallbackFail);
+        // Other failure
+        setToast(toastMessage || (isZh ? '重启失败' : 'Restart failed'));
+        setTimeout(() => setToast(''), 4000);
       }
-      setTimeout(() => setToast(''), toastMessage.length > 120 ? 12000 : 6000);
-    } catch {
-      setToast(isZh ? '重启失败' : 'Restart failed');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setToast(isZh ? `重启失败: ${errorMsg}` : `Restart failed: ${errorMsg}`);
       setTimeout(() => setToast(''), 4000);
     } finally {
       setRestarting(false);

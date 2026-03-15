@@ -1933,11 +1933,24 @@ def connectivity_health(db: Session = Depends(get_db)):
 
 @router.post("/restart")
 def restart_services(_: object = Depends(get_current_user)):
-    """Restart backend worker to apply configuration changes."""
+    """Restart backend worker to apply configuration changes.
+    
+    Note: This runs inside the container, so direct docker commands won't work.
+    We try multiple approaches:
+    1. Check if docker socket is mounted and accessible
+    2. Try docker CLI if available (rare in containers)
+    3. Fallback to manual restart instructions
+    """
     manual_cmd = "docker compose restart fkv-worker"
-
+    
+    # Check if we have access to docker socket (Docker-in-Docker scenario)
+    docker_socket = "/var/run/docker.sock"
+    has_docker_socket = os.path.exists(docker_socket) and os.access(docker_socket, os.R_OK | os.W_OK)
+    
+    logger.info(f"Restart requested - docker socket available: {has_docker_socket}")
+    
     docker_bin = shutil.which("docker")
-    if docker_bin:
+    if docker_bin and has_docker_socket:
         try:
             result = subprocess.run(
                 [docker_bin, "compose", "restart", "fkv-worker"],
@@ -1946,6 +1959,7 @@ def restart_services(_: object = Depends(get_current_user)):
                 text=True,
                 timeout=45,
             )
+            logger.info(f"Docker compose result: code={result.returncode}, stdout={result.stdout[:200]}, stderr={result.stderr[:200]}")
             if result.returncode == 0:
                 return {
                     "ok": True,
@@ -1961,6 +1975,7 @@ def restart_services(_: object = Depends(get_current_user)):
                 "message": f"Please run manually: {manual_cmd}",
             }
         except subprocess.TimeoutExpired:
+            logger.error("Docker compose restart timed out")
             return {
                 "ok": False,
                 "manual": True,
@@ -1968,17 +1983,24 @@ def restart_services(_: object = Depends(get_current_user)):
                 "message": f"Please run manually: {manual_cmd}",
             }
         except Exception as exc:
+            logger.error(f"Docker compose restart failed: {exc}")
             return {
                 "ok": False,
                 "manual": True,
                 "error": (f"Automatic restart failed: {str(exc)[:300]}. Please run manually: {manual_cmd}"),
                 "message": f"Please run manually: {manual_cmd}",
             }
+    
+    # Log why we can't auto-restart
+    if not docker_bin:
+        logger.warning("Docker CLI not available in container")
+    if not has_docker_socket:
+        logger.warning("Docker socket not accessible")
 
     return {
         "ok": False,
         "manual": True,
-        "error": (f"Docker CLI is not available in this environment. Please run manually: {manual_cmd}"),
+        "error": (f"Docker not available in container. Please run manually: {manual_cmd}"),
         "message": f"Please run manually: {manual_cmd}",
     }
 
