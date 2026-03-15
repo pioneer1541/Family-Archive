@@ -474,6 +474,7 @@ export interface KbApiClient {
   updateSettings?(patch: Record<string, string>): Promise<void>;
   getOllamaModels?(): Promise<OllamaModel[]>;
   getConnectivity?(): Promise<ConnectivityStatus>;
+  getNasStatus?(): Promise<{mounted: boolean; mount_point?: string; source?: string; size_info?: {total: string; used: string; available: string; use_percent: string}; last_error?: string | null}>;
   // Keywords
   getKeywords?(): Promise<KeywordLists>;
   updateKeywords?(patch: Partial<KeywordLists>): Promise<void>;

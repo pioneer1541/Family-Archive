@@ -5,16 +5,23 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including cifs-utils for SMB mount
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         tesseract-ocr \
         tesseract-ocr-eng \
         curl \
+        cifs-utils \
+        sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+# Create non-root user with sudo privileges for mount commands
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser \
+    && echo "appuser ALL=(ALL) NOPASSWD: /bin/mount, /bin/umount, /usr/bin/mount, /usr/bin/umount" >> /etc/sudoers.d/appuser \
+    && chmod 0440 /etc/sudoers.d/appuser
+
+# Create mount base directory
+RUN mkdir -p /mnt/nas_shares && chown -R appuser:appgroup /mnt/nas_shares
 
 # Install Python dependencies
 COPY requirements.txt /app/requirements.txt

@@ -141,6 +141,7 @@ export default function SettingsPage() {
   const [llmProviderError, setLlmProviderError] = useState('');
   const [llmProviderTestingId, setLlmProviderTestingId] = useState<string | null>(null);
   const [connectivity, setConnectivity] = useState<ConnectivityStatus | null>(null);
+  const [nasStatus, setNasStatus] = useState<{mounted: boolean; mount_point?: string; source?: string; size_info?: {total: string; used: string; available: string; use_percent: string}; last_error?: string | null} | null>(null);
   const [keywords, setKeywords] = useState<KeywordLists>({person_keywords: {}, pet_keywords: {}, location_keywords: {}});
   const [keywordsPatch, setKeywordsPatch] = useState<Partial<KeywordLists>>({});
   const [saving, setSaving] = useState(false);
@@ -204,12 +205,24 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    client.getSettings?.().then(setItems).catch(() => {});
+    client.getSettings?.()
+      .then((data) => {
+        if (!data || data.length === 0) {
+          console.warn('[Settings] No settings returned, auth may be required');
+        }
+        setItems(data || []);
+      })
+      .catch((err) => {
+        console.error('[Settings] Failed to load settings:', err);
+        setToast(isZh ? '加载设置失败，请重新登录' : 'Failed to load settings, please login again');
+        setTimeout(() => setToast(''), 4000);
+      });
     loadLocalModels();
     loadLLMProviders();
     client.getKeywords?.().then(setKeywords).catch(() => {});
     client.getMe?.().then((u) => setMe(u ?? null)).catch(() => setMe(null));
     loadGmailCredentials();
+    loadNasStatus();
   }, []);
 
   useEffect(() => {
@@ -428,6 +441,15 @@ export default function SettingsPage() {
       const result = await client.getConnectivity?.();
       if (result) setConnectivity(result);
     } catch {}
+  }
+
+  async function loadNasStatus() {
+    try {
+      const result = await client.getNasStatus?.();
+      if (result) setNasStatus(result);
+    } catch {
+      setNasStatus(null);
+    }
   }
 
   async function handleChangePassword(e: React.FormEvent) {
@@ -1364,6 +1386,34 @@ export default function SettingsPage() {
                 </div>
               )}
               <button type="button" className="btn-secondary" onClick={handleTestConn}>{t('testRw')}</button>
+
+              {/* NAS Mount Status */}
+              <hr className="settings-divider" />
+              <h3>{isZh ? 'NAS 挂载状态' : 'NAS Mount Status'}</h3>
+              {nasStatus ? (
+                <div className="connectivity-status">
+                  <StatusBadge ok={nasStatus.mounted} label={nasStatus.mounted ? (isZh ? '已挂载' : 'Mounted') : (isZh ? '未挂载' : 'Not Mounted')} />
+                  {nasStatus.mounted && (
+                    <>
+                      <span className="settings-hint">{`${isZh ? '挂载点' : 'Mount Point'}: ${nasStatus.mount_point || '-'}`}</span>
+                      <span className="settings-hint">{`${isZh ? 'SMB 路径' : 'SMB Source'}: ${nasStatus.source || '-'}`}</span>
+                      {nasStatus.size_info && (
+                        <>
+                          <span className="settings-hint">{`${isZh ? '总容量' : 'Total'}: ${nasStatus.size_info.total}`}</span>
+                          <span className="settings-hint">{`${isZh ? '已使用' : 'Used'}: ${nasStatus.size_info.used} (${nasStatus.size_info.use_percent})`}</span>
+                          <span className="settings-hint">{`${isZh ? '可用' : 'Available'}: ${nasStatus.size_info.available}`}</span>
+                        </>
+                      )}
+                    </>
+                  )}
+                  {nasStatus.last_error && (
+                    <span className="settings-hint" style={{color: '#c0392b'}}>{nasStatus.last_error}</span>
+                  )}
+                </div>
+              ) : (
+                <p className="settings-hint">{isZh ? '无法获取挂载状态' : 'Unable to get mount status'}</p>
+              )}
+              <button type="button" className="btn-secondary" onClick={loadNasStatus}>{isZh ? '刷新状态' : 'Refresh Status'}</button>
             </div>
           )}
 

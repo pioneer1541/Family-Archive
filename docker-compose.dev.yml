@@ -7,7 +7,10 @@ services:
     build: ./backend
     container_name: fkv-api-dev
     restart: unless-stopped
-    user: "1000:1000"
+    #privileged: true  # Required for SMB mount operations
+    cap_add:
+      - SYS_ADMIN
+      - DAC_READ_SEARCH
     logging:
       driver: json-file
       options:
@@ -37,8 +40,8 @@ services:
       - ./backend:/app
       - ./data-dev:/app/data
       - ./secrets/gmail:/app/secrets/gmail:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /mnt/nas:/volume1/Family_Archives:ro
+      - /var/run/docker.sock:/var/run/docker.sock  # 需要写权限执行 restart
+      - nas-shares:/mnt/nas_shares
     ports:
       - "18280:18080"
     depends_on:
@@ -87,7 +90,7 @@ services:
       - ./backend:/app
       - ./data-dev:/app/data
       - ./secrets/gmail:/app/secrets/gmail:ro
-      - /mnt/nas:/volume1/Family_Archives:ro
+      - nas-shares:/mnt/nas_shares:ro
     depends_on:
       - redis-dev
       - qdrant-dev
@@ -139,3 +142,6 @@ services:
       - "16334:6333"
     volumes:
       - ./data-dev/qdrant:/qdrant/storage
+
+volumes:
+  nas-shares:

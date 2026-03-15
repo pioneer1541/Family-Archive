@@ -1698,6 +1698,8 @@ def patch_settings(
     db: Session = Depends(get_db),
 ):
     """Update one or more settings in the DB."""
+    from app.services.nas_mount import mount_smb_share, restart_worker_container
+
     changed_keys: set[str] = set()
     for key, value in body.items():
         if key not in _RUNTIME_CONFIGURABLE:
@@ -1715,12 +1717,58 @@ def patch_settings(
         else:
             row.value = str_value
             row.updated_at = dt.datetime.now(dt.UTC)
-    db.commit()
-    invalidate_runtime_cache(*list(body.keys()))
 
     # Restart is only required when the effective value actually changed.
     restart_required = bool(changed_keys & RESTART_REQUIRED_KEYS)
+
+    # NAS auto-mount: if NAS-related settings changed, attempt to mount before committing
+    nas_related_keys = {"source_type", "nas_host", "nas_path", "local_source_dir"}
+    if changed_keys & nas_related_keys:
+        # Flush to make settings available for mount operations, but don't commit yet
+        db.flush()
+        invalidate_runtime_cache(*list(body.keys()))
+        
+        source_type = get_runtime_setting("source_type", db)
+        nas_host = get_runtime_setting("nas_host", db)
+        nas_path = get_runtime_setting("nas_path", db)
+
+        if source_type == "nas" and nas_host and nas_path:
+            success, msg = mount_smb_share(nas_host, nas_path)
+            if success:
+                # Mount success, commit settings and restart worker
+                db.commit()
+                restart_ok, restart_msg = restart_worker_container()
+                if restart_ok:
+                    restart_required = True
+                else:
+                    # Worker restart failed but mount succeeded
+                    logger.warning(
+                        "worker_restart_failed",
+                        extra=sanitize_log_context({"error": restart_msg}),
+                    )
+            else:
+                # Mount failed, rollback settings and return error
+                db.rollback()
+                raise HTTPException(status_code=400, detail=f"NAS mount failed: {msg}")
+        else:
+            # Not NAS mode or missing config, just commit
+            db.commit()
+            invalidate_runtime_cache(*list(body.keys()))
+    else:
+        # No NAS changes, commit normally
+        db.commit()
+        invalidate_runtime_cache(*list(body.keys()))
+
     return {"ok": True, "restart_required": restart_required}
+
+
+@router.get("/nas/status")
+def get_nas_status_endpoint(
+    _: object = Depends(get_current_user),
+) -> dict:
+    """Return current NAS mount status."""
+    from app.services.nas_mount import get_mount_status
+    return get_mount_status()
 
 
 @router.get("/settings/keywords")

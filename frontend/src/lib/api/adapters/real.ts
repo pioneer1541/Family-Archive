@@ -1333,7 +1333,10 @@ async function deleteUser(userId: string): Promise<void> {
 
 async function getSettings(): Promise<AppSettingItem[]> {
   const r = await fetchWithCredentials(`${API_BASE}/v1/settings`);
-  if (!r.ok) return [];
+  if (!r.ok) {
+    console.error('[Settings] Failed to load settings:', r.status, r.statusText);
+    return [];
+  }
   const data = await r.json();
   return Array.isArray(data?.items) ? data.items : [];
 }
@@ -1345,6 +1348,12 @@ async function updateSettings(patch: Record<string, string>): Promise<void> {
     body: JSON.stringify(patch),
   });
   if (!r.ok) throw new Error('Settings update failed');
+}
+
+async function getNasStatus(): Promise<{mounted: boolean; mount_point?: string; source?: string; size_info?: {total: string; used: string; available: string; use_percent: string}; last_error?: string | null}> {
+  const r = await fetchWithCredentials(`${API_BASE}/v1/nas/status`);
+  if (!r.ok) throw new Error('Failed to get NAS status');
+  return r.json();
 }
 
 async function getOllamaModels(): Promise<OllamaModel[]> {
@@ -1656,6 +1665,7 @@ export function createRealAdapter(): KbApiClient {
     updateSettings,
     getOllamaModels,
     getConnectivity,
+    getNasStatus,
     getKeywords,
     updateKeywords,
     restartServices,
